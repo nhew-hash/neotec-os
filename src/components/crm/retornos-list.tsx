@@ -36,7 +36,7 @@ export function RetornosList({ retornos }: { retornos: RetornoComCliente[] }) {
             variant="ghost"
             size="sm"
             disabled={isPending}
-            onClick={() => startTransition(() => concluirRetornoAction(retorno.id))}
+            onClick={() => startTransition(() => { void concluirRetornoAction(retorno.id); })}
           >
             <CheckCircle2 className="h-4 w-4" />
             Concluir

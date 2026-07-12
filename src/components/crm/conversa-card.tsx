@@ -32,7 +32,7 @@ export function ConversaCard({ conversa }: { conversa: ConversaComCliente }) {
 
   function handleChangeEtapa(novaEtapa: string) {
     startTransition(() => {
-      moverConversaEtapaAction(conversa.id, novaEtapa as EtapaFunil);
+      void moverConversaEtapaAction(conversa.id, novaEtapa as EtapaFunil);
     });
   }
 

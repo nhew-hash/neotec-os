@@ -27,7 +27,7 @@ export function OSCard({ os }: { os: OSComCliente }) {
 
   function handleChangeStatus(status: string) {
     startTransition(() => {
-      atualizarStatusOSAction(os.id, status as StatusOS);
+      void atualizarStatusOSAction(os.id, status as StatusOS);
     });
   }
 

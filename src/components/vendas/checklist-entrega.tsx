@@ -29,7 +29,7 @@ export function ChecklistEntrega({ vendaId, inicial }: ChecklistEntregaProps) {
     const novoEstado = { ...estado, [key]: !estado[key] };
     setEstado(novoEstado);
     startTransition(() => {
-      atualizarChecklistEntregaAction(vendaId, novoEstado);
+      void atualizarChecklistEntregaAction(vendaId, novoEstado);
     });
   }
 

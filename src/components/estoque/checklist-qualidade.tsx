@@ -43,7 +43,7 @@ export function ChecklistQualidade({ aparelhoId, statusAtual }: { aparelhoId: st
 
   function handleMudarStatus(status: string) {
     startTransition(() => {
-      atualizarStatusAparelhoAction(aparelhoId, status as StatusAparelho);
+      void atualizarStatusAparelhoAction(aparelhoId, status as StatusAparelho);
     });
   }
 

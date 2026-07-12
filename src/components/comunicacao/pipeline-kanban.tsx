@@ -32,7 +32,7 @@ function CardItem({ card, etapas }: { card: CardComRelacoes; etapas: CrmEtapa[] 
       <Select
         defaultValue={card.etapa_id}
         disabled={isPending}
-        onValueChange={(etapaId) => startTransition(() => moverCardEtapaAction(card.id, etapaId))}
+        onValueChange={(etapaId) => startTransition(() => { void moverCardEtapaAction(card.id, etapaId); })}
       >
         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
         <SelectContent>

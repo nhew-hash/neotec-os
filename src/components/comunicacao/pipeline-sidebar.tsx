@@ -61,7 +61,7 @@ export function FollowupsPendentesList({ followups }: { followups: (CrmFollowup 
             variant="ghost"
             size="sm"
             disabled={isPending}
-            onClick={() => startTransition(() => concluirFollowupAction(f.id))}
+            onClick={() => startTransition(() => { void concluirFollowupAction(f.id); })}
           >
             <CheckCircle2 className="h-4 w-4" />
           </Button>

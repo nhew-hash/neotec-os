@@ -59,7 +59,7 @@ export function ConsignacoesTable({ consignacoes }: { consignacoes: ConsignacaoC
               <Select
                 defaultValue={c.status}
                 disabled={isPending}
-                onValueChange={(status) => startTransition(() => atualizarStatusConsignacaoAction(c.id, status as StatusConsignacao))}
+                onValueChange={(status) => startTransition(() => { void atualizarStatusConsignacaoAction(c.id, status as StatusConsignacao); })}
               >
                 <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
