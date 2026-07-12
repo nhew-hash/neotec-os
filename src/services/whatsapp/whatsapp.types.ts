@@ -67,36 +67,12 @@ export interface MetaWebhookMensagem {
   audio?: {
     id: string;
   };
-}  id: string;
-
-  type:
-    | "text"
-    | "image"
-    | "document"
-    | "audio";
-
-  text?: {
-    body: string;
-  };
-
-  image?: {
-    caption?: string;
-  };
-
-  document?: {
-    filename?: string;
-  };
-
-  audio?: {
-    id?: string;
-  };
 }
-
 
 // ---- Payload completo Webhook Meta ----
 
 export interface MetaWebhookPayload {
-  object: "whatsapp_business_account";
+  object: string;
 
   entry: {
     id: string;
