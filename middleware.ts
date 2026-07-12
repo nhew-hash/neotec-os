@@ -4,26 +4,53 @@ import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
 
-  // Libera webhook WhatsApp da Meta
-  if (request.nextUrl.pathname === "/api/whatsapp/webhook") {
+  const pathname = request.nextUrl.pathname;
+
+
+  // ======================================================
+  // ROTAS PÚBLICAS
+  // Essas rotas nunca podem pedir login
+  // ======================================================
+
+  const publicRoutes = [
+    "/login",
+    "/api/whatsapp/webhook",
+  ];
+
+
+  const isPublicRoute = publicRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+
+
+  // Se for webhook da Meta, libera direto
+  if (pathname.startsWith("/api/whatsapp/webhook")) {
     return NextResponse.next();
   }
+
 
   let response = NextResponse.next({
     request,
   });
+
+
+  // ======================================================
+  // SUPABASE SESSION
+  // ======================================================
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
+
         getAll() {
           return request.cookies.getAll();
         },
 
+
         setAll(
-          cookies: {
+          cookiesToSet: {
             name: string;
             value: string;
             options?: {
@@ -36,43 +63,63 @@ export async function middleware(request: NextRequest) {
             };
           }[]
         ) {
-          cookies.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
+
+          cookiesToSet.forEach(
+            ({ name, value, options }) => {
+              response.cookies.set(
+                name,
+                value,
+                options
+              );
+            }
+          );
+
         },
+
       },
     }
   );
 
+
   const {
-    data: { session },
+    data: {
+      session
+    },
   } = await supabase.auth.getSession();
 
 
-  const publicRoutes = [
-    "/login",
-    "/api/whatsapp/webhook",
-  ];
 
+  // ======================================================
+  // BLOQUEIO DE ÁREA PRIVADA
+  // ======================================================
 
-  const isPublic = publicRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
-  );
+  if (!session && !isPublicRoute) {
 
-
-  if (!session && !isPublic) {
     return NextResponse.redirect(
-      new URL("/login", request.url)
+      new URL(
+        "/login",
+        request.url
+      )
     );
+
   }
 
 
+
   return response;
+
 }
 
 
+
+// ======================================================
+// Rotas onde o middleware roda
+// ======================================================
+
 export const config = {
+
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
+
 };
