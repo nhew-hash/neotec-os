@@ -21,10 +21,24 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookies) {
-          cookies.forEach(({ name, value }) =>
-            response.cookies.set(name, value)
-          );
+
+        setAll(
+          cookies: {
+            name: string;
+            value: string;
+            options?: {
+              path?: string;
+              maxAge?: number;
+              expires?: Date;
+              httpOnly?: boolean;
+              secure?: boolean;
+              sameSite?: "lax" | "strict" | "none";
+            };
+          }[]
+        ) {
+          cookies.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
         },
       },
     }
@@ -55,6 +69,7 @@ export async function middleware(request: NextRequest) {
 
   return response;
 }
+
 
 export const config = {
   matcher: [
