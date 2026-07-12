@@ -1,11 +1,21 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+
 import { enviarTexto, enviarTemplate } from "./whatsapp.api";
 import { registrarLog } from "./whatsapp.logs";
 import { processarAutomacaoNovaMensagem } from "./whatsapp.automacao";
-import type { DisparoWhatsapp } from "./whatsapp.types";
-import type { WhatsappConversa, WhatsappMensagem, Cliente, MetaWebhookMensagem } from "@/types";
 
+import type { DisparoWhatsapp, MetaWebhookMensagem } from "./whatsapp.types";
+
+import type {
+  WhatsappConversa,
+  WhatsappMensagem,
+  Cliente
+} from "@/types";
+
+import type {
+  MetaWebhookMensagem
+} from "./whatsapp.types";
 /**
  * Ponto único de disparo de comunicação TRANSACIONAL (venda aprovada, OS
  * pronta, aniversário...) — mecanismo pré-existente desde a Fase 5/G,
