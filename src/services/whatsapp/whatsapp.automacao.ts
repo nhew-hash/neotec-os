@@ -1,15 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Automação da Central de Comunicação — mission: "Nova mensagem → Criar
- * Lead automaticamente → Relacionar cliente → Criar follow-up →
- * Adicionar no CRM". Deliberadamente SEM IA (a missão pediu para não
- * implementar isso ainda) — é uma cadeia de regras determinísticas:
- * "se não existe cliente com esse telefone, cadastra um mínimo" /
- * "se não existe card em aberto para esse cliente, cria um na 1ª etapa".
+ * Automação da Central de Comunicação:
+ * Nova mensagem → Criar Lead → Relacionar cliente → Criar CRM → Follow-up
  *
- * Roda com a Service Role Key porque é acionada pelo webhook da Meta,
- * que não tem sessão de usuário da equipe (ver app/api/whatsapp/webhook).
+ * Usa Service Role porque é acionada pelo webhook da Meta.
  */
 export async function processarAutomacaoNovaMensagem(params: {
   telefone: string;
@@ -18,35 +13,50 @@ export async function processarAutomacaoNovaMensagem(params: {
 }): Promise<{ clienteId: string; cardId: string }> {
   const supabase = createAdminClient();
 
-  // 1) Relacionar cliente — busca por telefone; cria um cadastro mínimo
-  // ("Lead") se ainda não existir. A equipe completa os dados depois.
+  // 1) Buscar cliente pelo WhatsApp
   const { data: clienteExistente } = await supabase
     .from("clientes")
     .select("id")
     .eq("whatsapp", params.telefone)
     .maybeSingle();
 
-  let clienteId = clienteExistente?.id as string | undefined;
+  let clienteId: string | undefined = clienteExistente?.id;
 
+  // Criar cliente caso não exista
   if (!clienteId) {
     const { data: novoCliente, error: erroCliente } = await supabase
       .from("clientes")
-      .insert({ nome: params.nomeContato || `Contato ${params.telefone}`, whatsapp: params.telefone })
+      .insert({
+        nome: params.nomeContato || `Contato ${params.telefone}`,
+        whatsapp: params.telefone,
+      })
       .select("id")
       .single();
 
     if (erroCliente || !novoCliente) {
-      throw new Error(`Não foi possível criar o cliente automaticamente: ${erroCliente?.message}`);
+      throw new Error(
+        `Não foi possível criar o cliente automaticamente: ${erroCliente?.message}`
+      );
     }
+
     clienteId = novoCliente.id;
   }
 
-  // Vincula a conversa ao cliente (pode já ter sido criada sem cliente_id
-  // se o telefone não era reconhecido no momento do webhook).
-  await supabase.from("whatsapp_conversas").update({ cliente_id: clienteId }).eq("id", params.conversaId);
+  // Garantia para o TypeScript
+  if (!clienteId) {
+    throw new Error("Cliente não encontrado ou não criado");
+  }
 
-  // 2) Adicionar no CRM — se não existe card recente para esse cliente,
-  // cria um na etapa "Lead".
+  // Relacionar conversa ao cliente
+  await supabase
+    .from("whatsapp_conversas")
+    .update({
+      cliente_id: clienteId,
+    })
+    .eq("id", params.conversaId);
+
+
+  // 2) Buscar card existente no CRM
   const { data: cardExistente } = await supabase
     .from("crm_cards")
     .select("id")
@@ -55,8 +65,10 @@ export async function processarAutomacaoNovaMensagem(params: {
     .limit(1)
     .maybeSingle();
 
-  let cardId = cardExistente?.id as string | undefined;
+  let cardId: string | undefined = cardExistente?.id;
 
+
+  // Criar card caso não exista
   if (!cardId) {
     const { data: etapaLead } = await supabase
       .from("crm_etapas")
@@ -66,36 +78,65 @@ export async function processarAutomacaoNovaMensagem(params: {
       .limit(1)
       .maybeSingle();
 
-    if (!etapaLead) throw new Error("Etapa 'Lead' não encontrada no funil configurável");
+    if (!etapaLead) {
+      throw new Error("Etapa 'Lead' não encontrada no CRM");
+    }
+
 
     const { data: novoCard, error: erroCard } = await supabase
       .from("crm_cards")
       .insert({
         cliente_id: clienteId,
         etapa_id: etapaLead.id,
-        titulo: `Contato via WhatsApp — ${params.nomeContato || params.telefone}`,
+        titulo: `Contato via WhatsApp — ${
+          params.nomeContato || params.telefone
+        }`,
       })
       .select("id")
       .single();
 
+
     if (erroCard || !novoCard) {
-      throw new Error(`Não foi possível criar o card no CRM automaticamente: ${erroCard?.message}`);
+      throw new Error(
+        `Não foi possível criar card CRM: ${erroCard?.message}`
+      );
     }
+
     cardId = novoCard.id;
   }
 
-  await supabase.from("whatsapp_conversas").update({ card_id: cardId }).eq("id", params.conversaId);
 
-  // 3) Criar follow-up — lembrete padrão de 24h para alguém da equipe
-  // responder, caso ninguém tenha assumido a conversa ainda.
+  // Garantia final
+  if (!cardId) {
+    throw new Error("Card CRM não encontrado ou não criado");
+  }
+
+
+  // Relacionar conversa ao CRM
+  await supabase
+    .from("whatsapp_conversas")
+    .update({
+      card_id: cardId,
+    })
+    .eq("id", params.conversaId);
+
+
+  // 3) Criar follow-up automático
   const dataFollowup = new Date();
   dataFollowup.setHours(dataFollowup.getHours() + 24);
 
-  await supabase.from("crm_followups").insert({
-    card_id: cardId,
-    data_agendada: dataFollowup.toISOString(),
-    motivo: "Responder novo contato recebido pelo WhatsApp",
-  });
 
-  return { clienteId, cardId };
+  await supabase
+    .from("crm_followups")
+    .insert({
+      card_id: cardId,
+      data_agendada: dataFollowup.toISOString(),
+      motivo: "Responder novo contato recebido pelo WhatsApp",
+    });
+
+
+  return {
+    clienteId,
+    cardId,
+  };
 }
