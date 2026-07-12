@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { GitBranch } from "lucide-react";
+import type { ReactNode } from "react";
 import { listarConversas } from "@/services/whatsapp/whatsapp.service";
 import { ComunicacaoShell } from "@/components/comunicacao/comunicacao-shell";
 import { ConversasList } from "@/components/comunicacao/conversas-list";
 import { Button } from "@/components/ui/button";
 
-export default async function ComunicacaoLayout({ children }: { children: React.ReactNode }) {
+export default async function ComunicacaoLayout({ children }: { children: ReactNode }) {
   const conversas = await listarConversas();
 
   return (

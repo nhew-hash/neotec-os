@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate, formatDateTime } from "@/utils";
+import type { ReactNode } from "react";
 import type { Venda, OrdemServico, Cashback, Garantia, TimelineEvento, Orcamento, Conversa, Foto } from "@/types";
 
 interface ClienteProfileTabsProps {
@@ -143,7 +144,7 @@ export function ClienteProfileTabs({
   );
 }
 
-function RowItem({ titulo, subtitulo, children }: { titulo: string; subtitulo: string; children: React.ReactNode }) {
+function RowItem({ titulo, subtitulo, children }: { titulo: string; subtitulo: string; children: ReactNode }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
       <div className="flex flex-col">

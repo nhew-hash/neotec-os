@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
 /**
  * Em celular, mostra a lista OU o chat (nunca os dois — não caberia).
@@ -9,7 +10,7 @@ import { cn } from "@/lib/utils";
  * A decisão de qual mostrar no mobile é só "tem :id na URL ou não" —
  * não precisa de estado, só de olhar a rota atual.
  */
-export function ComunicacaoShell({ lista, children }: { lista: React.ReactNode; children: React.ReactNode }) {
+export function ComunicacaoShell({ lista, children }: { lista: ReactNode; children: ReactNode }) {
   const pathname = usePathname();
   const conversaAberta = pathname !== "/comunicacao";
 

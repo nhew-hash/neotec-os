@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Send, Image as ImageIcon, FileText, Mic, Check, CheckCheck, Clock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { formatDateTime } from "@/utils";
 import type { WhatsappMensagem, StatusEntregaMensagem } from "@/types";
 import type { ConversaComCliente } from "@/services/whatsapp/whatsapp.service";
 
-const STATUS_ICON: Record<StatusEntregaMensagem, React.ReactNode> = {
+const STATUS_ICON: Record<StatusEntregaMensagem, ReactNode> = {
   enviando: <Clock className="h-3 w-3" />,
   enviado: <Check className="h-3 w-3" />,
   entregue: <CheckCheck className="h-3 w-3" />,

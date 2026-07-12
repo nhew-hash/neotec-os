@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import type { ReactNode } from "react";
 import type { CargoUsuario } from "@/types";
 
 /**
@@ -10,7 +11,7 @@ import type { CargoUsuario } from "@/types";
  * perfil na tabela `usuarios` (o middleware já garante a sessão; aqui
  * garantimos que o perfil de negócio existe antes de renderizar o shell).
  */
-export default async function SistemaLayout({ children }: { children: React.ReactNode }) {
+export default async function SistemaLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient();
 
   const {

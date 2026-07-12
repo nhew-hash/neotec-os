@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import type { ReactNode } from "react";
 
 /**
  * Layout deliberadamente sem sidebar/topbar — telas de impressão (A4 e
  * cupom térmico) precisam ser só o conteúdo, prontas para Ctrl+P.
  * Ainda exige autenticação: impressão de OS não é uma rota pública.
  */
-export default async function ImpressaoLayout({ children }: { children: React.ReactNode }) {
+export default async function ImpressaoLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
