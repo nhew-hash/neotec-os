@@ -40,7 +40,34 @@ export type {
 // ---- Mensagem recebida pela Meta ----
 
 export interface MetaWebhookMensagem {
+  from: string;
   id: string;
+  timestamp: string;
+
+  type:
+    | "text"
+    | "image"
+    | "document"
+    | "audio";
+
+  text?: {
+    body: string;
+  };
+
+  image?: {
+    id: string;
+    caption?: string;
+  };
+
+  document?: {
+    id: string;
+    filename?: string;
+  };
+
+  audio?: {
+    id: string;
+  };
+}  id: string;
 
   type:
     | "text"
