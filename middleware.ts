@@ -12,10 +12,13 @@ export async function middleware(request: NextRequest) {
   // Essas rotas nunca podem pedir login
   // ======================================================
 
-  const publicRoutes = [
-    "/login",
-    "/api/whatsapp/webhook",
-  ];
+ const publicRoutes = [
+  "/login",
+  "/portal",
+  "/consultar-os",
+  "/loja",
+  "/api/whatsapp/webhook",
+];
 
 
   const isPublicRoute = publicRoutes.some((route) =>
