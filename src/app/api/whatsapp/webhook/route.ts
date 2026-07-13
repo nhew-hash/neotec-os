@@ -23,7 +23,6 @@ import type {
 
 
 export async function GET(request: NextRequest) {
-console.log("🔥 WEBHOOK WHATSAPP RECEBIDO");
   const { searchParams } = new URL(request.url);
 
   const mode = searchParams.get("hub.mode");
@@ -148,7 +147,6 @@ export async function POST(
 
   let payload: MetaWebhookPayload;
 
-console.log("PAYLOAD:", bodyRaw);
   try {
 
     payload =

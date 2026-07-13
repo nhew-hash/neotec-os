@@ -1,26 +1,18 @@
-"use client";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { TrocarSenhaForm } from "@/components/portal/trocar-senha-form";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { trocarSenhaPrimeiroAcessoAction } from "@/services/portal/portal.actions";
-
-export default function TrocarSenhaPage() {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [erro, setErro] = useState<string | null>(null);
-
-  function handleSubmit(formData: FormData) {
-    setErro(null);
-    startTransition(async () => {
-      const result = await trocarSenhaPrimeiroAcessoAction(formData);
-      if (!result.success) return setErro(result.error);
-      router.push("/portal/dashboard");
-      router.refresh();
-    });
-  }
+/**
+ * Checagem própria, deliberadamente mais simples que a do layout
+ * protegido (que fica em (protegido)/layout.tsx): aqui só exige sessão
+ * válida — não checa `senha_provisoria`, porque é exatamente essa tela
+ * que resolve isso. Colocar essa página dentro do layout protegido foi
+ * o que causava o loop de redirecionamento (corrigido nesta mesma leva).
+ */
+export default async function TrocarSenhaPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/portal/login");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-app p-6">
@@ -29,14 +21,7 @@ export default function TrocarSenhaPage() {
         <p className="mb-8 text-sm text-muted-foreground">
           Este é seu primeiro acesso. Por segurança, defina uma senha só sua antes de continuar.
         </p>
-        <form action={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="novaSenha">Nova senha</Label>
-            <Input id="novaSenha" name="novaSenha" type="password" minLength={6} required />
-          </div>
-          {erro && <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{erro}</p>}
-          <Button type="submit" disabled={isPending}>{isPending ? "Salvando..." : "Continuar"}</Button>
-        </form>
+        <TrocarSenhaForm />
       </div>
     </div>
   );

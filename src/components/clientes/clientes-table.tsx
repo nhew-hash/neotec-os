@@ -36,18 +36,28 @@ export function ClientesTable({ clientes }: { clientes: Cliente[] }) {
       </TableHeader>
       <TableBody>
         {clientes.map((cliente) => (
-          <TableRow key={cliente.id}>
-            <TableCell className="font-medium text-foreground">{cliente.nome}</TableCell>
+          <TableRow key={cliente.id} className="cursor-pointer">
+            <TableCell className="font-medium text-foreground">
+              <Link href={`/clientes/${cliente.id}`} className="block hover:underline">
+                {cliente.nome}
+              </Link>
+            </TableCell>
             <TableCell className="font-mono text-xs text-muted-foreground">
-              {formatWhatsapp(cliente.whatsapp)}
+              <Link href={`/clientes/${cliente.id}`} className="block">
+                {formatWhatsapp(cliente.whatsapp)}
+              </Link>
             </TableCell>
             <TableCell>
-              <Badge variant={NIVEL_LABEL[cliente.nivel].variant}>
-                {NIVEL_LABEL[cliente.nivel].label}
-              </Badge>
+              <Link href={`/clientes/${cliente.id}`} className="block">
+                <Badge variant={NIVEL_LABEL[cliente.nivel].variant}>
+                  {NIVEL_LABEL[cliente.nivel].label}
+                </Badge>
+              </Link>
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">
-              {formatDate(cliente.data_cadastro)}
+              <Link href={`/clientes/${cliente.id}`} className="block">
+                {formatDate(cliente.data_cadastro)}
+              </Link>
             </TableCell>
           </TableRow>
         ))}

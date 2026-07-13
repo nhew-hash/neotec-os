@@ -45,7 +45,12 @@ export default async function OSDetailPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Defeito relatado</CardTitle></CardHeader>
-          <CardContent><p className="text-sm text-muted-foreground">{os.defeito}</p></CardContent>
+          <CardContent className="flex flex-col gap-2">
+            {os.aparelho_descricao && (
+              <p className="text-sm font-medium text-foreground">{os.aparelho_descricao}</p>
+            )}
+            <p className="text-sm text-muted-foreground">{os.defeito}</p>
+          </CardContent>
         </Card>
 
         <Card>

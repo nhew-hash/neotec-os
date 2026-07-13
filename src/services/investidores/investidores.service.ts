@@ -1,6 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Investidor, InvestidorMovimento, InvestidorResumo, Aparelho } from "@/types";
 
+export async function listarInvestidores(): Promise<Investidor[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("investidores").select("*").eq("ativo", true).order("nome");
+  if (error) throw new Error(`Não foi possível carregar os investidores: ${error.message}`);
+  return data ?? [];
+}
+
 export async function listarInvestidoresComResumo(): Promise<InvestidorResumo[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("vw_investidor_resumo").select("*").order("nome");
@@ -83,4 +90,22 @@ export async function listarAparelhosPorInvestidor(id: string): Promise<Aparelho
   const { data, error } = await supabase.from("aparelhos").select("*").eq("investidor_id", id);
   if (error) throw new Error(`Não foi possível carregar os aparelhos: ${error.message}`);
   return data ?? [];
+}
+
+/** Aparelhos ainda sem investidor vinculado — candidatos a vincular manualmente. */
+export async function listarAparelhosSemInvestidor(): Promise<Aparelho[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("aparelhos").select("*").is("investidor_id", null).neq("status", "vendido").order("data_entrada", { ascending: false });
+  if (error) throw new Error(`Não foi possível carregar os aparelhos: ${error.message}`);
+  return data ?? [];
+}
+
+export async function vincularAparelhoAoInvestidor(aparelhoId: string, investidorId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("aparelhos")
+    .update({ investidor_id: investidorId, origem_entrada: "investidor" })
+    .eq("id", aparelhoId);
+  if (error) throw new Error(`Não foi possível vincular o aparelho: ${error.message}`);
 }

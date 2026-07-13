@@ -165,7 +165,7 @@ export async function aprovarOrcamentoEConverterEmVenda(
   return venda;
 }
 
-export async function listarVendas(): Promise<(Venda & { cliente: Pick<Cliente, "id" | "nome"> })[]> {
+export async function listarVendas(): Promise<(Venda & { cliente: Pick<Cliente, "id" | "nome"> | null })[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vw_vendas_seguro")
@@ -173,7 +173,7 @@ export async function listarVendas(): Promise<(Venda & { cliente: Pick<Cliente, 
     .order("data_venda", { ascending: false });
 
   if (error) throw new Error(`Não foi possível carregar as vendas: ${error.message}`);
-  return (data ?? []) as unknown as (Venda & { cliente: Pick<Cliente, "id" | "nome"> })[];
+  return (data ?? []) as unknown as (Venda & { cliente: Pick<Cliente, "id" | "nome"> | null })[];
 }
 
 export async function buscarVendaPorId(id: string) {

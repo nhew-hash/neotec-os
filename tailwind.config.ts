@@ -67,10 +67,11 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        card: "14px",
+        card: "16px",
       },
       boxShadow: {
-        card: "0 1px 2px 0 rgba(17, 19, 26, 0.04), 0 1px 3px 0 rgba(17, 19, 26, 0.06)",
+        card: "0 1px 2px 0 rgba(17, 19, 26, 0.03), 0 1px 3px 0 rgba(17, 19, 26, 0.04)",
+        "card-hover": "0 2px 8px -2px rgba(17, 19, 26, 0.08), 0 1px 3px -1px rgba(17, 19, 26, 0.05)",
         popover: "0 4px 12px -2px rgba(17, 19, 26, 0.12), 0 2px 4px -2px rgba(17, 19, 26, 0.08)",
       },
       keyframes: {

@@ -20,12 +20,12 @@ export function StatCard({ label, value, icon: Icon, accent = "primary", helper 
   return (
     <Card>
       <CardContent className="flex items-start justify-between p-5">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">{label}</span>
-          <span className="font-display text-2xl font-semibold text-foreground">{value}</span>
+          <span className="font-display text-2xl font-semibold leading-none text-foreground">{value}</span>
           {helper && <span className="text-xs text-muted-foreground">{helper}</span>}
         </div>
-        <div className={cn("flex h-9 w-9 items-center justify-center rounded-md", ACCENT_CLASSES[accent])}>
+        <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", ACCENT_CLASSES[accent])}>
           <Icon className="h-[18px] w-[18px]" />
         </div>
       </CardContent>

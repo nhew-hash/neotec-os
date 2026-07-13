@@ -4,18 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { bottomNavItems } from "./nav-items";
+import type { CargoUsuario } from "@/types";
 
 /**
  * Barra de navegação inferior fixa — visível só em telas pequenas
- * (md:hidden). É o padrão mobile-first pedido pela missão: em celular,
- * o usuário nunca precisa abrir um menu para trocar de módulo principal.
+ * (md:hidden). Filtrada por cargo, igual à sidebar — mesmo princípio de
+ * não mostrar destino que o cargo não usa de verdade.
  */
-export function BottomNav() {
+export function BottomNav({ cargo }: { cargo: CargoUsuario }) {
   const pathname = usePathname();
+  const itens = bottomNavItems.filter((item) => item.cargos.includes(cargo));
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch border-t border-border bg-card md:hidden">
-      {bottomNavItems.map((item) => {
+      {itens.map((item) => {
         const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
         const Icon = item.icon;
         return (

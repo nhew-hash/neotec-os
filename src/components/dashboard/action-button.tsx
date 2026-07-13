@@ -18,10 +18,10 @@ export function ActionButton({ href, label, icon: Icon, destaque = false }: Acti
     <Link
       href={href}
       className={cn(
-        "flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-card border p-4 text-center shadow-card transition-colors active:scale-[0.98]",
+        "flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-card border p-4 text-center shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover active:scale-[0.98] active:translate-y-0",
         destaque
           ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-card text-foreground hover:bg-secondary"
+          : "border-border/70 bg-card text-foreground hover:border-border hover:bg-secondary/60"
       )}
     >
       <Icon className="h-6 w-6" />

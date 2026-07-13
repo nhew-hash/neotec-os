@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { investidorSchema, movimentoInvestidorSchema } from "./investidores.schema";
-import { criarInvestidor, registrarMovimentoInvestidor } from "./investidores.service";
+import { criarInvestidor, registrarMovimentoInvestidor, vincularAparelhoAoInvestidor } from "./investidores.service";
 import type { ActionResult, Investidor } from "@/types";
 
 export async function criarInvestidorAction(formData: FormData): Promise<ActionResult<Investidor>> {
@@ -42,5 +42,19 @@ export async function registrarMovimentoInvestidorAction(formData: FormData): Pr
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao registrar movimento" };
+  }
+}
+
+export async function vincularAparelhoAction(formData: FormData): Promise<ActionResult> {
+  const investidorId = String(formData.get("investidor_id") ?? "");
+  const aparelhoId = String(formData.get("aparelho_id") ?? "");
+  if (!aparelhoId) return { success: false, error: "Selecione um aparelho" };
+
+  try {
+    await vincularAparelhoAoInvestidor(aparelhoId, investidorId);
+    revalidatePath(`/investidores/${investidorId}`);
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao vincular aparelho" };
   }
 }

@@ -50,9 +50,11 @@ export function OSCard({ os }: { os: OSComCliente }) {
           <Link href={`/assistencia/${os.id}`} className="truncate text-sm font-medium text-foreground hover:underline">
             {os.cliente.nome}
           </Link>
-          {os.aparelho?.produto?.nome && (
+          {os.aparelho?.produto?.nome ? (
             <span className="truncate text-xs text-muted-foreground">{os.aparelho.produto.nome}</span>
-          )}
+          ) : os.aparelho_descricao ? (
+            <span className="truncate text-xs text-muted-foreground">{os.aparelho_descricao}</span>
+          ) : null}
         </div>
       </div>
 

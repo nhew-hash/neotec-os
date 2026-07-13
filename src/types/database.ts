@@ -19,16 +19,6 @@ export type OrigemCliente =
 
 export type NivelCliente = "normal" | "vip";
 
-export type EtapaFunil =
-  | "novo_contato"
-  | "em_atendimento"
-  | "produto_enviado"
-  | "orcamento_enviado"
-  | "negociacao"
-  | "aguardando_momento"
-  | "venda_fechada"
-  | "perdido";
-
 export type TemperaturaLead = "quente" | "morno" | "frio";
 
 export type StatusAparelho =
@@ -91,7 +81,6 @@ export interface Conversa {
   responsavel_id: string | null;
   canal: "whatsapp" | "outro";
   status: "aberta" | "resolvida" | "perdida";
-  etapa_funil: EtapaFunil;
   temperatura: TemperaturaLead;
   produto_interesse: string | null;
   data_inicio: string;
@@ -195,7 +184,7 @@ export interface Aparelho {
 export interface Venda {
   id: string;
   loja_id: string;
-  cliente_id: string;
+  cliente_id: string | null;
   usuario_id: string;
   orcamento_id: string | null;
   valor_total: number;
@@ -276,6 +265,7 @@ export interface OrdemServico {
   loja_id: string;
   cliente_id: string;
   aparelho_id: string | null;
+  aparelho_descricao: string | null;
   tecnico_id: string | null;
   numero_os: string;
   defeito: string;
@@ -306,6 +296,8 @@ export interface ChecklistOS {
   cameras: boolean | null;
   biometria: boolean | null;
   senha_informada: boolean | null;
+  senha_valor: string | null;
+  senha_tipo: "numerica" | "desenho" | null;
   observacoes: string | null;
   responsavel_id: string | null;
   data_checklist: string;

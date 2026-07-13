@@ -3,22 +3,31 @@ import {
   AlertTriangle, Truck, PackageX, ListTodo, Wallet, Cake,
   MessageCircle, MessagesSquare, Clock,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 import { obterResumoOperacional } from "@/services/dashboard/dashboard.service";
 import { ActionButton } from "@/components/dashboard/action-button";
 import { IndicadorCard } from "@/components/dashboard/indicador-card";
 import { formatCurrency } from "@/utils";
+import type { CargoUsuario } from "@/types";
 
 const ACOES = [
-  { href: "/assistencia/nova", label: "Nova Ordem de Serviço", icon: Wrench, destaque: true },
-  { href: "/vendas/orcamentos/novo", label: "Nova Venda", icon: ShoppingCart, destaque: true },
-  { href: "/estoque/aparelhos/novo", label: "Entrada de Aparelho", icon: PackagePlus },
-  { href: "/clientes/novo", label: "Novo Cliente", icon: UserPlus },
-  { href: "/clientes", label: "Buscar Cliente", icon: Search },
-  { href: "/crm/retornos", label: "Agenda de Retornos", icon: CalendarClock },
+  { href: "/assistencia/nova", label: "Nova Ordem de Serviço", icon: Wrench, destaque: true, cargos: ["admin", "gerente", "tecnico"] as CargoUsuario[] },
+  { href: "/vendas/pdv", label: "Nova Venda", icon: ShoppingCart, destaque: true, cargos: ["admin", "gerente", "vendedor"] as CargoUsuario[] },
+  { href: "/estoque/aparelhos/novo", label: "Entrada de Aparelho", icon: PackagePlus, cargos: ["admin", "gerente", "tecnico"] as CargoUsuario[] },
+  { href: "/clientes/novo", label: "Novo Cliente", icon: UserPlus, cargos: ["admin", "gerente", "vendedor", "tecnico", "caixa"] as CargoUsuario[] },
+  { href: "/clientes", label: "Buscar Cliente", icon: Search, cargos: ["admin", "gerente", "vendedor", "tecnico", "caixa"] as CargoUsuario[] },
+  { href: "/crm/retornos", label: "Agenda de Retornos", icon: CalendarClock, cargos: ["admin", "gerente", "vendedor"] as CargoUsuario[] },
 ];
 
 export default async function DashboardPage() {
   const resumo = await obterResumoOperacional();
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: perfil } = await supabase
+    .from("usuarios").select("cargo").eq("id", user?.id ?? "").single<{ cargo: CargoUsuario }>();
+  const cargo = perfil?.cargo ?? "vendedor";
+  const acoesVisiveis = ACOES.filter((acao) => acao.cargos.includes(cargo));
 
   return (
     <div className="flex flex-col gap-6">
@@ -27,9 +36,11 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground">Central de Operações — Neotec Araguari</p>
       </div>
 
-      {/* Grandes botões de ação — mobile first, alvo de toque generoso */}
+      {/* Grandes botões de ação — mobile first, alvo de toque generoso, filtrados por cargo */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {ACOES.map((acao) => <ActionButton key={acao.href} {...acao} />)}
+        {acoesVisiveis.map((acao) => (
+          <ActionButton key={acao.href} href={acao.href} label={acao.label} icon={acao.icon} destaque={acao.destaque} />
+        ))}
       </div>
 
       {/* Indicadores operacionais do dia */}
@@ -72,7 +83,7 @@ export default async function DashboardPage() {
             href="/comunicacao"
             tom={resumo.comunicacao.semResposta > 0 ? "alerta" : "neutro"}
           />
-          <IndicadorCard label="Novos leads" value={resumo.comunicacao.novosLeads} icon={UserPlus} href="/comunicacao/pipeline" />
+          <IndicadorCard label="Novos leads" value={resumo.comunicacao.novosLeads} icon={UserPlus} href="/crm" />
           <IndicadorCard label="Retornos" value={resumo.retornosHoje} icon={CalendarClock} href="/crm/retornos" />
           <IndicadorCard
             label="Tempo médio de resposta"

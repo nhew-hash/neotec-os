@@ -123,7 +123,7 @@ export function ClienteProfileTabs({
           <div className="flex flex-col gap-2">
             {conversas.map((c) => (
               <RowItem key={c.id} titulo={c.produto_interesse ?? "Conversa"} subtitulo={formatDateTime(c.data_inicio)}>
-                <Badge variant="secondary">{c.etapa_funil}</Badge>
+                <Badge variant="secondary">{c.temperatura}</Badge>
               </RowItem>
             ))}
           </div>

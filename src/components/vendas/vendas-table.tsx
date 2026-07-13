@@ -6,7 +6,7 @@ import { podeVerCusto } from "@/utils/permissions";
 import type { Venda, Cliente, CargoUsuario } from "@/types";
 
 interface VendasTableProps {
-  vendas: (Venda & { cliente: Pick<Cliente, "id" | "nome"> })[];
+  vendas: (Venda & { cliente: Pick<Cliente, "id" | "nome"> | null })[];
   cargo: CargoUsuario;
 }
 
@@ -36,9 +36,15 @@ export function VendasTable({ vendas, cargo }: VendasTableProps) {
         {vendas.map((venda) => (
           <TableRow key={venda.id}>
             <TableCell>
-              <Link href={`/vendas/${venda.id}`} className="font-medium text-foreground hover:underline">
-                {venda.cliente.nome}
-              </Link>
+              {venda.cliente ? (
+                <Link href={`/vendas/${venda.id}`} className="font-medium text-foreground hover:underline">
+                  {venda.cliente.nome}
+                </Link>
+              ) : (
+                <Link href={`/vendas/${venda.id}`} className="font-medium text-muted-foreground hover:underline">
+                  Venda avulsa
+                </Link>
+              )}
             </TableCell>
             <TableCell>{formatCurrency(venda.valor_total)}</TableCell>
             {podeVerLucro && <TableCell className="text-muted-foreground">{venda.lucro != null ? formatCurrency(venda.lucro) : "—"}</TableCell>}

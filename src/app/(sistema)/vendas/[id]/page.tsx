@@ -15,7 +15,7 @@ export default async function VendaDetailPage({ params }: { params: Promise<{ id
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-xl font-semibold text-foreground">
-            Venda para {venda.cliente?.nome}
+            {venda.cliente?.nome ? `Venda para ${venda.cliente.nome}` : "Venda avulsa (balcão)"}
           </h1>
           <p className="text-sm text-muted-foreground">{formatDateTime(venda.data_venda)}</p>
         </div>

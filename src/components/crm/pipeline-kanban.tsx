@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
+import { MessageCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { moverCardEtapaAction } from "@/services/crm-pipeline/crm-pipeline.actions";
@@ -14,9 +15,30 @@ function CardItem({ card, etapas }: { card: CardComRelacoes; etapas: CrmEtapa[] 
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border bg-card p-3 shadow-card">
-      <Link href={`/clientes/${card.cliente.id}`} className="text-sm font-medium text-foreground hover:underline">
-        {card.cliente.nome}
-      </Link>
+      <div className="flex items-start justify-between gap-2">
+        <Link href={`/clientes/${card.cliente.id}`} className="text-sm font-medium text-foreground hover:underline">
+          {card.cliente.nome}
+        </Link>
+
+        {/* Só aparece quando já existe conversa vinculada a este card —
+            card criado manualmente, sem contato pelo WhatsApp ainda,
+            não tem pra onde ir. */}
+        {card.conversa && (
+          <Link
+            href={`/comunicacao/${card.conversa.id}`}
+            className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-primary"
+            title="Abrir conversa"
+          >
+            <MessageCircle className="h-4 w-4" />
+            {card.conversa.naoLidas > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
+                {card.conversa.naoLidas}
+              </span>
+            )}
+          </Link>
+        )}
+      </div>
+
       <p className="line-clamp-2 text-xs text-muted-foreground">{card.titulo}</p>
 
       {card.tags.length > 0 && (

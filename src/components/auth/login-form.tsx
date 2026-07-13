@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -67,13 +68,9 @@ export function LoginForm() {
             <FormItem>
               <div className="flex items-center justify-between">
                 <FormLabel>Senha</FormLabel>
-                <button
-                  type="button"
-                  className="text-xs font-medium text-primary hover:underline"
-                  tabIndex={-1}
-                >
+                <Link href="/login/equipe/recuperar" className="text-xs font-medium text-primary hover:underline">
                   Esqueci minha senha
-                </button>
+                </Link>
               </div>
               <FormControl>
                 <Input type="password" autoComplete="current-password" placeholder="••••••••" {...field} />

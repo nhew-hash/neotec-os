@@ -163,3 +163,38 @@ manter atrás de uma flag explícita até a equipe decidir ligar. Receber é
 diferente: o webhook só grava o que a Meta manda, é uma leitura passiva,
 sem risco de causar um envio indevido. Por isso ele já funciona assim que
 configurado no Business Manager, sem depender de flag nenhuma.
+
+---
+
+## Decisões da Fase 10 (Consolidação + Reorganização)
+
+### Por que apagar o funil antigo em vez de aposentar
+Na Fase 9, deixei os dois convivendo de propósito, pra dar tempo de
+validar qual a equipe realmente usaria. A resposta chegou rápido: o CRM
+antigo "parecia quebrado" porque nada mais o alimentava — toda automação
+nova ia pro Pipeline. Manter os dois depois dessa constatação só
+adicionaria confusão sem benefício real. Diferente de outras decisões de
+compatibilidade neste projeto (ex: Portal do Cliente, Investidores), aqui
+não havia dado de produção real em risco — confirmado antes de apagar.
+
+### Por que a sidebar passou a filtrar por cargo
+Isso já devia ter sido assim desde o início, na real. O RLS sempre
+bloqueou vendedor/técnico de acessar Financeiro/Investidores/Configurações
+no nível de dado — mas o item de menu continuava lá, levando pra uma tela
+vazia ou quebrada. Filtrar por cargo no menu não é feature nova de
+permissão (o RLS já fazia esse trabalho pesado) — é só parar de mostrar
+atalho pra porta trancada.
+
+### Por que os arquivos `services/crm/*` não foram renomeados
+O escopo mudou (só agenda de retornos agora), mas o nome do arquivo não.
+Renomear tocaria em 6 arquivos que hoje importam de lá sem nenhum ganho
+técnico real — só limpeza estética. A regra do projeto desde sempre foi
+"nunca renomear sem motivo técnico real", e aqui não havia um.
+
+### Sobre o refinamento visual desta fase
+Foi deliberadamente contido: tokens de sombra/raio/espaçamento e os
+componentes de cartão/tabela/indicador mais usados no dia a dia. Não
+tocou em Button, Input, Select, Badge (já estavam consistentes e não
+foram apontados como problema) nem redesenhou telas inteiras — refinar a
+base compartilhada por component reuso já eleva o sistema inteiro de uma
+vez, sem o risco de uma reescrita tela por tela.

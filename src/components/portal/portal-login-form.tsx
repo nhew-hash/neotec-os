@@ -31,6 +31,9 @@ export function PortalLoginForm() {
       </div>
       {erro && <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{erro}</p>}
       <Button type="submit" disabled={isPending}>{isPending ? "Entrando..." : "Entrar"}</Button>
+      <Link href="/portal/cadastro" className="text-center text-xs text-primary hover:underline">
+        Não tenho conta — criar agora
+      </Link>
       <Link href="/login" className="text-center text-xs text-muted-foreground hover:underline">← Voltar</Link>
     </form>
   );

@@ -7,8 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { criarCardAction, concluirFollowupAction } from "@/services/crm-pipeline/crm-pipeline.actions";
+import { concluirRetornoAction } from "@/services/crm/crm.actions";
 import { formatDateTime } from "@/utils";
+import { Badge } from "@/components/ui/badge";
 import type { Cliente, CrmEtapa, CrmFollowup, CrmCard } from "@/types";
+import type { RetornoComCliente } from "@/services/crm/crm.service";
 
 export function NovaOportunidadeForm({ clientes, etapas }: { clientes: Cliente[]; etapas: CrmEtapa[] }) {
   const router = useRouter();
@@ -42,27 +45,49 @@ export function NovaOportunidadeForm({ clientes, etapas }: { clientes: Cliente[]
   );
 }
 
-export function FollowupsPendentesList({ followups }: { followups: (CrmFollowup & { card: Pick<CrmCard, "id" | "titulo"> })[] }) {
+interface FollowupsPendentesListProps {
+  followups: (CrmFollowup & { card: Pick<CrmCard, "id" | "titulo"> })[];
+  retornosHoje: RetornoComCliente[];
+}
+
+interface ItemUnificado {
+  id: string;
+  tipo: "followup" | "retorno";
+  titulo: string;
+  quando: string;
+}
+
+export function FollowupsPendentesList({ followups, retornosHoje }: FollowupsPendentesListProps) {
   const [isPending, startTransition] = useTransition();
 
-  if (followups.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nenhum follow-up pendente.</p>;
+  const itens: ItemUnificado[] = [
+    ...followups.map((f) => ({ id: f.id, tipo: "followup" as const, titulo: f.motivo, quando: f.data_agendada })),
+    ...retornosHoje.map((r) => ({ id: r.id, tipo: "retorno" as const, titulo: `${r.cliente.nome} — ${r.motivo}`, quando: r.data_retorno })),
+  ].sort((a, b) => a.quando.localeCompare(b.quando));
+
+  if (itens.length === 0) {
+    return <p className="text-sm text-muted-foreground">Nenhum follow-up pendente, nem retorno pra hoje.</p>;
+  }
+
+  function handleConcluir(item: ItemUnificado) {
+    startTransition(() => {
+      if (item.tipo === "followup") void concluirFollowupAction(item.id);
+      else void concluirRetornoAction(item.id);
+    });
   }
 
   return (
     <div className="flex flex-col gap-2">
-      {followups.map((f) => (
-        <div key={f.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+      {itens.map((item) => (
+        <div key={`${item.tipo}-${item.id}`} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
           <div className="flex flex-col">
-            <span className="text-foreground">{f.motivo}</span>
-            <span className="text-xs text-muted-foreground">{formatDateTime(f.data_agendada)}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-foreground">{item.titulo}</span>
+              {item.tipo === "retorno" && <Badge variant="secondary" className="text-[10px]">Retorno de hoje</Badge>}
+            </div>
+            <span className="text-xs text-muted-foreground">{formatDateTime(item.quando)}</span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={isPending}
-            onClick={() => startTransition(() => { void concluirFollowupAction(f.id); })}
-          >
+          <Button variant="ghost" size="sm" disabled={isPending} onClick={() => handleConcluir(item)}>
             <CheckCircle2 className="h-4 w-4" />
           </Button>
         </div>

@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
-import { buscarInvestidorPorId, buscarResumoInvestidor, listarMovimentosPorInvestidor, listarAparelhosPorInvestidor } from "@/services/investidores/investidores.service";
-import { ResumoInvestidorCards, MovimentoInvestidorForm } from "@/components/investidores/investidor-components";
+import {
+  buscarInvestidorPorId, buscarResumoInvestidor, listarMovimentosPorInvestidor,
+  listarAparelhosPorInvestidor, listarAparelhosSemInvestidor,
+} from "@/services/investidores/investidores.service";
+import { ResumoInvestidorCards, MovimentoInvestidorForm, VincularAparelhoForm } from "@/components/investidores/investidor-components";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDateTime } from "@/utils";
@@ -10,8 +13,8 @@ export default async function InvestidorDetailPage({ params }: { params: Promise
   const investidor = await buscarInvestidorPorId(id);
   if (!investidor) notFound();
 
-  const [resumo, movimentos, aparelhos] = await Promise.all([
-    buscarResumoInvestidor(id), listarMovimentosPorInvestidor(id), listarAparelhosPorInvestidor(id),
+  const [resumo, movimentos, aparelhos, aparelhosDisponiveis] = await Promise.all([
+    buscarResumoInvestidor(id), listarMovimentosPorInvestidor(id), listarAparelhosPorInvestidor(id), listarAparelhosSemInvestidor(),
   ]);
 
   return (
@@ -50,10 +53,17 @@ export default async function InvestidorDetailPage({ params }: { params: Promise
           </Card>
         </div>
 
-        <Card className="h-fit">
-          <CardHeader><CardTitle>Novo movimento</CardTitle></CardHeader>
-          <CardContent><MovimentoInvestidorForm investidorId={id} /></CardContent>
-        </Card>
+        <div className="flex h-fit flex-col gap-6">
+          <Card>
+            <CardHeader><CardTitle>Novo movimento</CardTitle></CardHeader>
+            <CardContent><MovimentoInvestidorForm investidorId={id} /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Vincular aparelho existente</CardTitle></CardHeader>
+            <CardContent><VincularAparelhoForm investidorId={id} aparelhosDisponiveis={aparelhosDisponiveis} /></CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

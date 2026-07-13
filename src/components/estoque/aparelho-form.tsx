@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import type { Produto } from "@/types";
+import type { Produto, Investidor } from "@/types";
 
 const CONDICOES = [
   { value: "novo", label: "Novo" },
@@ -29,7 +29,7 @@ const ORIGENS_ENTRADA = [
   { value: "leilao", label: "Leilão" },
 ] as const;
 
-export function AparelhoForm({ produtos }: { produtos: Produto[] }) {
+export function AparelhoForm({ produtos, investidores }: { produtos: Produto[]; investidores: Investidor[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -173,6 +173,19 @@ export function AparelhoForm({ produtos }: { produtos: Produto[] }) {
             </FormItem>
           )} />
         </div>
+
+        <FormField control={form.control} name="investidor_id" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Investidor vinculado (opcional)</FormLabel>
+            <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <FormControl><SelectTrigger><SelectValue placeholder="Nenhum — capital da própria loja" /></SelectTrigger></FormControl>
+              <SelectContent>
+                {investidores.map((i) => <SelectItem key={i.id} value={i.id}>{i.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )} />
 
         {erro && <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{erro}</p>}
 

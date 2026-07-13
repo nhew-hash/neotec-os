@@ -32,6 +32,7 @@ export async function reordenarEtapas(ordemIds: string[]): Promise<void> {
 export interface CardComRelacoes extends CrmCard {
   cliente: Pick<Cliente, "id" | "nome" | "whatsapp">;
   tags: CrmTag[];
+  conversa: { id: string; naoLidas: number } | null;
 }
 
 export async function listarCards(): Promise<CardComRelacoes[]> {
@@ -43,10 +44,30 @@ export async function listarCards(): Promise<CardComRelacoes[]> {
 
   if (error) throw new Error(`Não foi possível carregar os cards: ${error.message}`);
 
+  const cardIds = (data ?? []).map((c) => c.id);
+  const conversaPorCard = new Map<string, { id: string; naoLidas: number }>();
+
+  if (cardIds.length > 0) {
+    const { data: conversas } = await supabase
+      .from("whatsapp_conversas")
+      .select("id, card_id, nao_lidas, ultima_mensagem_em")
+      .in("card_id", cardIds)
+      .order("ultima_mensagem_em", { ascending: false, nullsFirst: false });
+
+    // Se por algum motivo houver mais de uma conversa pro mesmo card, fica
+    // com a mais recente — a lista já vem ordenada por última mensagem.
+    (conversas ?? []).forEach((c) => {
+      if (c.card_id && !conversaPorCard.has(c.card_id)) {
+        conversaPorCard.set(c.card_id, { id: c.id, naoLidas: c.nao_lidas ?? 0 });
+      }
+    });
+  }
+
   return (data ?? []).map((card) => ({
     ...(card as unknown as CrmCard),
     cliente: (card as { cliente: Pick<Cliente, "id" | "nome" | "whatsapp"> }).cliente,
     tags: ((card as { card_tags?: { tag: CrmTag }[] }).card_tags ?? []).map((ct) => ct.tag),
+    conversa: conversaPorCard.get(card.id) ?? null,
   }));
 }
 

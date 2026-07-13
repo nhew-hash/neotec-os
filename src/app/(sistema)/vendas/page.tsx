@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { listarOrcamentos, listarVendas } from "@/services/vendas/vendas.service";
 import { OrcamentosTable } from "@/components/vendas/orcamentos-table";
@@ -25,9 +25,14 @@ export default async function VendasPage() {
           <h1 className="font-display text-xl font-semibold text-foreground">Vendas</h1>
           <p className="text-sm text-muted-foreground">{vendas.length} venda(s) · {orcamentos.length} orçamento(s)</p>
         </div>
-        <Button asChild>
-          <Link href="/vendas/orcamentos/novo"><Plus className="h-4 w-4" />Novo orçamento</Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/vendas/orcamentos/novo"><Plus className="h-4 w-4" />Novo orçamento</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/vendas/pdv"><Zap className="h-4 w-4" />Nova venda</Link>
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="orcamentos">

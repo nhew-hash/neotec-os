@@ -54,6 +54,7 @@ export async function buscarOSPorId(id: string): Promise<OSComCliente | null> {
 export async function criarOrdemServico(input: {
   cliente_id: string;
   aparelho_id?: string;
+  aparelho_descricao?: string;
   defeito: string;
   garantia_dias?: number;
   prazo?: string;
@@ -67,6 +68,7 @@ export async function criarOrdemServico(input: {
     .insert({
       cliente_id: input.cliente_id,
       aparelho_id: input.aparelho_id || null,
+      aparelho_descricao: input.aparelho_descricao || null,
       defeito: input.defeito,
       garantia_dias: input.garantia_dias ?? null,
       prazo: input.prazo || null,

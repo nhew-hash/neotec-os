@@ -3,22 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { retornoSchema } from "./crm.schema";
-import { moverConversaEtapa, criarRetorno, concluirRetorno } from "./crm.service";
-import type { ActionResult, EtapaFunil } from "@/types";
-
-export async function moverConversaEtapaAction(
-  conversaId: string,
-  etapa: EtapaFunil
-): Promise<ActionResult> {
-  try {
-    await moverConversaEtapa(conversaId, etapa);
-    revalidatePath("/crm");
-    return { success: true, data: undefined };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Erro ao mover o lead";
-    return { success: false, error: message };
-  }
-}
+import { criarRetorno, concluirRetorno } from "./crm.service";
+import type { ActionResult } from "@/types";
 
 export async function criarRetornoAction(formData: FormData): Promise<ActionResult> {
   const raw = {
@@ -39,7 +25,7 @@ export async function criarRetornoAction(formData: FormData): Promise<ActionResu
     if (!user) return { success: false, error: "Sessão expirada, faça login novamente" };
 
     await criarRetorno({ ...parsed.data, usuario_id: user.id });
-    revalidatePath("/crm");
+    revalidatePath("/crm/retornos");
     return { success: true, data: undefined };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro ao agendar retorno";
@@ -50,7 +36,7 @@ export async function criarRetornoAction(formData: FormData): Promise<ActionResu
 export async function concluirRetornoAction(id: string): Promise<ActionResult> {
   try {
     await concluirRetorno(id);
-    revalidatePath("/crm");
+    revalidatePath("/crm/retornos");
     return { success: true, data: undefined };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro ao concluir retorno";

@@ -29,7 +29,12 @@ npm run dev
 6. `supabase/migrations/fase6_estoque_origens.sql` — origem de entrada do aparelho, fornecedor, preço mínimo/sugerido, colunas de vínculo com investidor/consignação (sem FK ainda).
 7. `supabase/migrations/fase7_investidores_consignacao.sql` — módulos de Investidores e Consignação, e liga os FKs pendentes da Fase 6.
 8. `supabase/migrations/fase8_portal_cliente_consulta_publica.sql` — acesso do Portal do Cliente e consulta pública de OS.
-9. `supabase/migrations/fase9_central_comunicacao.sql` — CRM configurável (etapas/cards/tags/follow-ups) e Central de Comunicação (conversas/mensagens/templates/logs do WhatsApp). **Não apaga nem renomeia** `conversas`/`mensagens`/`retornos` da Fase 1 — o `/crm` antigo continua funcionando.
+9. `supabase/migrations/fase9_central_comunicacao.sql` — CRM configurável (etapas/cards/tags/follow-ups) e Central de Comunicação (conversas/mensagens/templates/logs do WhatsApp).
+10. `supabase/migrations/fase10_remover_funil_antigo.sql` — remove `conversas.etapa_funil` e o funil antigo por completo. **A partir daqui, `/crm` é o Pipeline configurável** (não convive mais com o funil de 8 etapas da Fase 1).
+11. `supabase/migrations/fase11_senha_aparelho_os.sql` — campo real de senha/PIN do aparelho no checklist da OS.
+12. `supabase/migrations/fase12_os_aparelho_descricao.sql` — descrição livre do aparelho na OS (não depende de estoque cadastrado).
+13. `supabase/migrations/fase13_tipo_senha_aparelho.sql` — distingue senha numérica de padrão de desenho.
+14. `supabase/migrations/fase14_venda_sem_cliente.sql` — venda de balcão sem cliente vinculado (PDV).
 
 Todas aditivas — nenhuma reescreve ou apaga dado das fases anteriores.
 
@@ -133,14 +138,25 @@ Passo a passo para ligar de verdade, quando for a hora:
 
 Nenhum código muda — só variáveis de ambiente.
 
-### CRM configurável (`/comunicacao/pipeline`) x CRM antigo (`/crm`)
+### CRM = Pipeline (consolidado na Fase 10)
 
-Os dois convivem de propósito. `/crm` (Fase 1) continua igual, com o funil
-fixo de 8 etapas. `/comunicacao/pipeline` (Fase 9) é o funil novo,
-totalmente configurável (`crm_etapas`), com 13 etapas pré-cadastradas
-(Lead → ... → Cliente VIP). Consolidar os dois em um só é uma decisão de
-produto — qual funil a equipe realmente vai usar no dia a dia — não uma
-decisão técnica para tomar sem validar com quem vende. Ver `ARCHITECTURE.md`.
+`/crm` é o Pipeline configurável: 13 etapas pré-cadastradas
+(Lead → ... → Cliente VIP), totalmente editáveis (`crm_etapas`). O funil
+fixo de 8 etapas da Fase 1 foi removido — os dois conviveram por uma
+fase inteira de propósito, pra validar qual a equipe usaria de verdade;
+a resposta veio rápido (o funil antigo ficou órfão assim que a automação
+de mensagens passou a alimentar só o novo) e foi decisão consciente
+apagar, não só aposentar. Ver `ARCHITECTURE.md`.
+
+`/comunicacao` ficou só com as conversas (lista + chat). Um card do CRM
+pode estar vinculado a uma conversa (`whatsapp_conversas.card_id`), mas
+o card é a entidade principal — a conversa é histórico dentro dele.
+
+### Sidebar por cargo
+
+O menu lateral é agrupado (Relacionamento / Operação / Gestão / Sistema)
+e cada item só aparece pros cargos que conseguem de fato usá-lo — reflete
+o que o RLS já bloqueava no dado, só que agora também no menu.
 
 ### Automação (sem IA, como pedido)
 

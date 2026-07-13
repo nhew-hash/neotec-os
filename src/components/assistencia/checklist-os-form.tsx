@@ -2,6 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { salvarChecklistOSAction } from "@/services/assistencia/assistencia.actions";
@@ -55,6 +58,36 @@ export function ChecklistOSForm({ osId, tipo, inicial }: ChecklistOSFormProps) {
           </label>
         ))}
       </div>
+
+      {/* A senha em si só faz sentido capturar no recebimento — é o que o
+          técnico usa pra testar o aparelho, não algo a registrar de novo
+          na entrega. */}
+      {tipo === "recebimento" && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="senha_valor">Senha do aparelho (opcional)</Label>
+          <div className="flex gap-2">
+            <Select name="senha_tipo" defaultValue={inicial?.senha_tipo ?? "numerica"}>
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="numerica">Senha normal</SelectItem>
+                <SelectItem value="desenho">Padrão de desenho</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              id="senha_valor"
+              name="senha_valor"
+              placeholder="Ex: 1234, ou descreva o desenho (ex: L invertido, Z, U)"
+              defaultValue={inicial?.senha_valor ?? ""}
+              autoComplete="off"
+              className="flex-1"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Visível só para a equipe técnica — usado apenas para testar o aparelho.
+          </p>
+        </div>
+      )}
+
       <Textarea name="observacoes" placeholder="Observações" defaultValue={inicial?.observacoes ?? ""} />
       {mensagem && <p className="text-xs text-muted-foreground">{mensagem}</p>}
       <Button type="submit" disabled={isPending} className="w-fit">

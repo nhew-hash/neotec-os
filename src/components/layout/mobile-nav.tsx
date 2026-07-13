@@ -5,9 +5,10 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NavList } from "./nav-list";
+import type { CargoUsuario } from "@/types";
 
 /** Navegação para telas pequenas — abre a mesma NavList dentro de um Sheet. */
-export function MobileNav() {
+export function MobileNav({ cargo }: { cargo: CargoUsuario }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -25,7 +26,7 @@ export function MobileNav() {
           </div>
           <span className="font-display text-[15px] font-semibold text-white">Neotec OS</span>
         </div>
-        <NavList onNavigate={() => setOpen(false)} />
+        <NavList cargo={cargo} onNavigate={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   );

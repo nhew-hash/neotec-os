@@ -18,7 +18,7 @@ export async function criarCardAction(formData: FormData): Promise<ActionResult>
 
   try {
     await criarCard(parsed.data);
-    revalidatePath("/comunicacao/pipeline");
+    revalidatePath("/crm");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao criar oportunidade" };
@@ -28,7 +28,7 @@ export async function criarCardAction(formData: FormData): Promise<ActionResult>
 export async function moverCardEtapaAction(cardId: string, etapaId: string): Promise<ActionResult> {
   try {
     await moverCardEtapa(cardId, etapaId);
-    revalidatePath("/comunicacao/pipeline");
+    revalidatePath("/crm");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao mover card" };
@@ -49,7 +49,7 @@ export async function criarFollowupAction(formData: FormData): Promise<ActionRes
     if (!user) return { success: false, error: "Sessão expirada" };
 
     await criarFollowup({ ...parsed.data, usuario_id: user.id });
-    revalidatePath("/comunicacao/pipeline");
+    revalidatePath("/crm");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao agendar follow-up" };
@@ -59,7 +59,7 @@ export async function criarFollowupAction(formData: FormData): Promise<ActionRes
 export async function concluirFollowupAction(id: string): Promise<ActionResult> {
   try {
     await concluirFollowup(id);
-    revalidatePath("/comunicacao/pipeline");
+    revalidatePath("/crm");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao concluir follow-up" };

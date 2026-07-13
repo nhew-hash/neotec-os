@@ -8,9 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { criarInvestidorAction, registrarMovimentoInvestidorAction } from "@/services/investidores/investidores.actions";
+import { criarInvestidorAction, registrarMovimentoInvestidorAction, vincularAparelhoAction } from "@/services/investidores/investidores.actions";
 import { formatCurrency } from "@/utils";
-import type { InvestidorResumo } from "@/types";
+import type { InvestidorResumo, Aparelho } from "@/types";
 
 export function InvestidoresTable({ investidores }: { investidores: InvestidorResumo[] }) {
   if (investidores.length === 0) {
@@ -131,5 +131,38 @@ export function ResumoInvestidorCards({ resumo }: { resumo: { capital_investido:
         </Card>
       ))}
     </div>
+  );
+}
+
+export function VincularAparelhoForm({ investidorId, aparelhosDisponiveis }: { investidorId: string; aparelhosDisponiveis: Aparelho[] }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+
+  function handleSubmit(formData: FormData) {
+    setErro(null);
+    formData.set("investidor_id", investidorId);
+    startTransition(async () => {
+      const result = await vincularAparelhoAction(formData);
+      if (!result.success) return setErro(result.error);
+      router.refresh();
+    });
+  }
+
+  if (aparelhosDisponiveis.length === 0) {
+    return <p className="text-xs text-muted-foreground">Nenhum aparelho sem investidor disponível pra vincular agora.</p>;
+  }
+
+  return (
+    <form action={handleSubmit} className="flex flex-col gap-3">
+      <Select name="aparelho_id">
+        <SelectTrigger><SelectValue placeholder="Selecione um aparelho" /></SelectTrigger>
+        <SelectContent>
+          {aparelhosDisponiveis.map((a) => <SelectItem key={a.id} value={a.id}>{a.imei}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {erro && <p className="text-xs text-danger">{erro}</p>}
+      <Button type="submit" size="sm" disabled={isPending}>{isPending ? "Vinculando..." : "Vincular aparelho"}</Button>
+    </form>
   );
 }
