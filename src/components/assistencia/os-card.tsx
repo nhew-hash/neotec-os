@@ -7,19 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { atualizarStatusOSAction } from "@/services/assistencia/assistencia.actions";
 import { formatCurrency, formatDate } from "@/utils";
+import { STATUS_OS_OPTIONS } from "@/utils/status-os";
 import type { StatusOS } from "@/types";
 import type { OSComCliente } from "@/services/assistencia/assistencia.service";
-
-const STATUS_OPTIONS: { value: StatusOS; label: string }[] = [
-  { value: "recebido", label: "Recebido" },
-  { value: "diagnostico", label: "Diagnóstico" },
-  { value: "orcamento", label: "Orçamento" },
-  { value: "aguardando_aprovacao", label: "Aguardando aprovação" },
-  { value: "em_reparo", label: "Em reparo" },
-  { value: "teste", label: "Teste" },
-  { value: "pronto", label: "Pronto" },
-  { value: "entregue", label: "Entregue" },
-];
 
 export function OSCard({ os }: { os: OSComCliente }) {
   const [isPending, startTransition] = useTransition();
@@ -68,7 +58,7 @@ export function OSCard({ os }: { os: OSComCliente }) {
       <Select defaultValue={os.status} onValueChange={handleChangeStatus} disabled={isPending}>
         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
         <SelectContent>
-          {STATUS_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+          {STATUS_OS_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
         </SelectContent>
       </Select>
     </div>

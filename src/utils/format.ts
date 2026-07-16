@@ -42,3 +42,17 @@ export function getInitials(name: string): string {
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
   return (first + last).toUpperCase();
 }
+
+/**
+ * Saudação por horário — usa o fuso de Araguari (America/Sao_Paulo)
+ * explicitamente, não o horário do servidor (a Vercel roda em Washington,
+ * fuso diferente do Brasil — calcular sem isso dava saudação errada).
+ */
+export function getSaudacao(): string {
+  const hora = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }).format(new Date())
+  );
+  if (hora < 12) return "Bom dia";
+  if (hora < 18) return "Boa tarde";
+  return "Boa noite";
+}

@@ -1,13 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { WhatsappLog, DirecaoMensagem } from "@/types";
 
 /**
  * Toda chamada de API (envio) e todo webhook recebido gera uma linha em
  * `whatsapp_logs` — independente de sucesso ou falha. É o primeiro lugar
  * a olhar quando "a mensagem não chegou": aqui fica registrado se o
- * sistema tentou, o que a Meta respondeu, e por quê falhou.
+ * sistema tentou, o que a Meta/Bridge respondeu, e por quê falhou.
+ *
+ * Usa a Service Role Key de propósito: isto é infraestrutura de
+ * auditoria, não dado de usuário — nunca deveria depender de política de
+ * RLS (a tabela só tinha SELECT pra admin, nunca teve INSERT pra
+ * ninguém, o que sempre fez esse log falhar silenciosamente).
  */
-
 export async function registrarLog(input: {
   direcao: DirecaoMensagem;
   evento: string;
@@ -15,7 +20,7 @@ export async function registrarLog(input: {
   sucesso: boolean;
   erro?: string;
 }): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("whatsapp_logs").insert({
     direcao: input.direcao,
     evento: input.evento,

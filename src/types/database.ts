@@ -148,6 +148,7 @@ export interface Produto {
   descricao: string | null;
   preco_venda: number | null;
   custo: number | null;
+  estoque_minimo: number;
   status: "ativo" | "inativo";
   created_at: string;
   updated_at: string;
@@ -266,6 +267,7 @@ export interface OrdemServico {
   cliente_id: string;
   aparelho_id: string | null;
   aparelho_descricao: string | null;
+  diagnostico_inicial: string | null;
   tecnico_id: string | null;
   numero_os: string;
   defeito: string;
@@ -461,6 +463,7 @@ export interface WhatsappConversa {
   cliente_id: string | null;
   card_id: string | null;
   telefone: string;
+  jid_envio: string | null;
   status: StatusConversaWhatsapp;
   responsavel_id: string | null;
   nao_lidas: number;
@@ -508,4 +511,24 @@ export interface WhatsappLog {
   sucesso: boolean;
   erro: string | null;
   criado_em: string;
+}
+
+// ---- Fase 22: Multi-provider WhatsApp ----
+
+export type WhatsappProviderTipo = "meta_cloud" | "whatsapp_web";
+export type StatusConexaoWhatsapp = "desconectado" | "conectando" | "aguardando_qr" | "conectado" | "erro";
+
+export interface IntegracaoWhatsapp {
+  id: string;
+  loja_id: string;
+  provider: WhatsappProviderTipo;
+  status: StatusConexaoWhatsapp;
+  numero: string | null;
+  session_id: string | null;
+  qr_code: string | null;
+  mensagens_hoje: number;
+  ultima_conexao: string | null;
+  ultimo_erro: string | null;
+  created_at: string;
+  updated_at: string;
 }

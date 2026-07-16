@@ -56,6 +56,7 @@ export async function criarOrdemServico(input: {
   aparelho_id?: string;
   aparelho_descricao?: string;
   defeito: string;
+  diagnostico_inicial?: string;
   garantia_dias?: number;
   prazo?: string;
   urgente?: boolean;
@@ -70,6 +71,7 @@ export async function criarOrdemServico(input: {
       aparelho_id: input.aparelho_id || null,
       aparelho_descricao: input.aparelho_descricao || null,
       defeito: input.defeito,
+      diagnostico_inicial: input.diagnostico_inicial || null,
       garantia_dias: input.garantia_dias ?? null,
       prazo: input.prazo || null,
       urgente: input.urgente ?? false,

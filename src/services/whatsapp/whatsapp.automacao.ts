@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { paraFormatoLocalBR } from "@/utils/telefone";
 
 /**
  * Automação da Central de Comunicação:
@@ -13,11 +14,16 @@ export async function processarAutomacaoNovaMensagem(params: {
 }): Promise<{ clienteId: string; cardId: string }> {
   const supabase = createAdminClient();
 
+  // Mensagem chega com o telefone completo (com "55", tanto da Meta
+  // quanto do WhatsApp Web) — mas clientes.whatsapp nunca tem o "55".
+  // Sem normalizar aqui, nunca casava com cliente já cadastrado.
+  const telefoneLocal = paraFormatoLocalBR(params.telefone);
+
   // 1) Buscar cliente pelo WhatsApp
   const { data: clienteExistente } = await supabase
     .from("clientes")
     .select("id")
-    .eq("whatsapp", params.telefone)
+    .eq("whatsapp", telefoneLocal)
     .maybeSingle();
 
   let clienteId: string | undefined = clienteExistente?.id;
@@ -27,8 +33,8 @@ export async function processarAutomacaoNovaMensagem(params: {
     const { data: novoCliente, error: erroCliente } = await supabase
       .from("clientes")
       .insert({
-        nome: params.nomeContato || `Contato ${params.telefone}`,
-        whatsapp: params.telefone,
+        nome: params.nomeContato || `Contato ${telefoneLocal}`,
+        whatsapp: telefoneLocal,
       })
       .select("id")
       .single();
@@ -89,7 +95,7 @@ export async function processarAutomacaoNovaMensagem(params: {
         cliente_id: clienteId,
         etapa_id: etapaLead.id,
         titulo: `Contato via WhatsApp — ${
-          params.nomeContato || params.telefone
+          params.nomeContato || telefoneLocal
         }`,
       })
       .select("id")

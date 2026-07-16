@@ -38,6 +38,12 @@ export default async function ImprimirOSPage({
       <div className="flex flex-col gap-1">
         <p><strong>Defeito relatado:</strong></p>
         <p>{os.defeito}</p>
+        {os.diagnostico_inicial && (
+          <>
+            <p className="mt-2"><strong>Diagnóstico inicial:</strong></p>
+            <p>{os.diagnostico_inicial}</p>
+          </>
+        )}
         {os.diagnostico && (
           <>
             <p className="mt-2"><strong>Diagnóstico:</strong></p>

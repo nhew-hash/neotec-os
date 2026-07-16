@@ -175,3 +175,23 @@ export interface ResultadoEnvioWhatsapp {
 
   whatsappMessageId?: string;
 }
+/**
+ * Formato normalizado de mensagem recebida — independente de provedor.
+ * O webhook da Meta traduz o payload dela pra este formato antes de
+ * chamar `receberMensagemNormalizada`; o endpoint que recebe evento do
+ * Bridge do WhatsApp Web faz a mesma tradução do lado dele. A lógica de
+ * "achar/criar cliente, abrir conversa, rodar automação" fica uma vez só.
+ */
+export interface MensagemRecebidaNormalizada {
+  telefone: string;
+  nomeContato?: string;
+  tipo: "texto" | "imagem" | "documento" | "audio";
+  conteudo: string;
+  idExterno: string;
+  /**
+   * JID completo de origem (com @lid ou @s.whatsapp.net) — só o
+   * WhatsApp Web preenche isso. Usado pra responder direto quando o
+   * telefone real não está disponível (contas migradas pra LID).
+   */
+  jidOriginal?: string;
+}

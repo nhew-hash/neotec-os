@@ -18,6 +18,44 @@ export async function listarProdutos(): Promise<Produto[]> {
   return (data ?? []) as unknown as Produto[];
 }
 
+/** Saldo calculado por produto (nunca armazenado solto — soma de entradas/saídas). */
+export async function listarSaldosProdutos(): Promise<Map<string, number>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("vw_produtos_saldo").select("produto_id, saldo");
+  if (error) throw new Error(`Não foi possível calcular o saldo dos produtos: ${error.message}`);
+  return new Map((data ?? []).map((r) => [r.produto_id, Number(r.saldo)]));
+}
+
+/**
+ * Entrada em lote — recebimento de mercadoria com vários produtos de
+ * uma vez, sem precisar abrir um cadastro por item. Cada linha vira uma
+ * movimentação de estoque; se um custo unitário novo for informado, o
+ * catálogo (`produtos.custo`) é atualizado junto — reflete a prática real
+ * de "chegou mercadoria com preço novo do fornecedor".
+ */
+export async function registrarEntradaLote(
+  itens: { produto_id: string; quantidade: number; custo_unitario?: number }[],
+  fornecedor: string | undefined,
+  usuarioId: string
+): Promise<void> {
+  const supabase = await createClient();
+
+  for (const item of itens) {
+    const { error: erroMovimento } = await supabase.from("movimentos_estoque").insert({
+      produto_id: item.produto_id,
+      tipo: "entrada",
+      quantidade: item.quantidade,
+      motivo: fornecedor ? `Entrada em lote — ${fornecedor}` : "Entrada em lote",
+      usuario_id: usuarioId,
+    });
+    if (erroMovimento) throw new Error(`Não foi possível registrar a entrada: ${erroMovimento.message}`);
+
+    if (item.custo_unitario != null) {
+      await supabase.from("produtos").update({ custo: item.custo_unitario }).eq("id", item.produto_id);
+    }
+  }
+}
+
 export async function criarProduto(input: {
   categoria: Produto["categoria"];
   marca?: string;
@@ -26,6 +64,7 @@ export async function criarProduto(input: {
   descricao?: string;
   preco_venda?: number;
   custo?: number;
+  estoque_minimo?: number;
 }): Promise<Produto> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -38,6 +77,7 @@ export async function criarProduto(input: {
       descricao: input.descricao || null,
       preco_venda: input.preco_venda ?? null,
       custo: input.custo ?? null,
+      estoque_minimo: input.estoque_minimo ?? 0,
     })
     .select("*")
     .single();

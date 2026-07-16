@@ -44,7 +44,7 @@ export function OrdemServicoForm({ clientes, aparelhos }: { clientes: Cliente[];
     resolver: zodResolver(ordemServicoSchema),
     defaultValues: {
       cliente_id: "", cliente_novo_nome: "", cliente_novo_whatsapp: "",
-      aparelho_id: "", aparelho_descricao: "", defeito: "", prazo: "", urgente: false,
+      aparelho_id: "", aparelho_descricao: "", defeito: "", diagnostico_inicial: "", prazo: "", urgente: false,
     },
   });
 
@@ -152,6 +152,16 @@ export function OrdemServicoForm({ clientes, aparelhos }: { clientes: Cliente[];
           <FormItem>
             <FormLabel>Defeito relatado</FormLabel>
             <FormControl><Textarea placeholder="Ex: Sem imagem, tela não liga" {...field} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+
+        <FormField control={form.control} name="diagnostico_inicial" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Diagnóstico inicial (opcional)</FormLabel>
+            <FormControl>
+              <Textarea placeholder="Primeira impressão de quem recebeu o aparelho, antes de abrir" {...field} />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />

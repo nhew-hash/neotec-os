@@ -22,7 +22,11 @@ interface ClienteInput {
   observacoes?: string;
 }
 
-export async function listarClientes(params?: { busca?: string }): Promise<Cliente[]> {
+export async function listarClientes(params?: {
+  busca?: string;
+  nivel?: Cliente["nivel"];
+  origem?: Cliente["origem"];
+}): Promise<Cliente[]> {
   const supabase = await createClient();
 
   let query = supabase
@@ -31,8 +35,16 @@ export async function listarClientes(params?: { busca?: string }): Promise<Clien
     .order("data_cadastro", { ascending: false });
 
   if (params?.busca) {
-    query = query.or(`nome.ilike.%${params.busca}%,whatsapp.ilike.%${params.busca}%`);
+    const termo = params.busca.trim();
+    // Nome, WhatsApp, CPF e e-mail — os quatro campos que fazem sentido
+    // pra alguém no balcão achar um cliente rapidamente.
+    query = query.or(
+      `nome.ilike.%${termo}%,whatsapp.ilike.%${termo}%,cpf.ilike.%${termo}%,email.ilike.%${termo}%`
+    );
   }
+
+  if (params?.nivel) query = query.eq("nivel", params.nivel);
+  if (params?.origem) query = query.eq("origem", params.origem);
 
   const { data, error } = await query;
 

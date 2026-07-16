@@ -1,20 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-import { enviarTexto, enviarTemplate } from "./whatsapp.api";
 import { registrarLog } from "./whatsapp.logs";
 import { processarAutomacaoNovaMensagem } from "./whatsapp.automacao";
+import { getActiveProvider } from "./providers/provider-resolver";
+import { paraFormatoInternacionalBR } from "@/utils/telefone";
+import type { DisparoWhatsapp, MensagemRecebidaNormalizada } from "./whatsapp.types";
+import type { WhatsappConversa, WhatsappMensagem, Cliente } from "@/types";
 
-import type {
-  DisparoWhatsapp,
-  MetaWebhookMensagem
-} from "./whatsapp.types";
-
-import type {
-  WhatsappConversa,
-  WhatsappMensagem,
-  Cliente
-} from "@/types";
 /**
  * Ponto único de disparo de comunicação TRANSACIONAL (venda aprovada, OS
  * pronta, aniversário...) — mecanismo pré-existente desde a Fase 5/G,
@@ -73,11 +65,15 @@ export async function marcarConversaComoLida(conversaId: string): Promise<void> 
 }
 
 /**
- * Envio de mensagem pela equipe. Sempre grava a mensagem no histórico
- * (`whatsapp_mensagens`) independente do envio real ter acontecido —
- * `status_entrega` reflete o resultado (`enviado` se a API respondeu ok,
- * `erro` se a integração está desativada ou falhou). Isso mantém a
- * conversa auditável mesmo enquanto a integração real está desligada.
+ * Envio de mensagem pela equipe. Passa pelo provider ATIVO no momento
+ * (`getActiveProvider()`) — nunca chama Meta ou Bridge diretamente. Troca
+ * de provedor na tela de Configurações muda esse comportamento na hora,
+ * sem precisar alterar nenhum código.
+ *
+ * Sempre grava a mensagem no histórico (`whatsapp_mensagens`)
+ * independente do envio real ter acontecido — `status_entrega` reflete
+ * o resultado. Isso mantém a conversa auditável mesmo se o provedor
+ * estiver desligado/indisponível.
  */
 export async function enviarMensagem(input: {
   conversaId: string;
@@ -86,12 +82,24 @@ export async function enviarMensagem(input: {
   usuarioId: string;
 }): Promise<WhatsappMensagem> {
   const supabase = await createClient();
-  const resultado = await enviarTexto(input.telefone, input.texto);
+
+  const { data: conversa } = await supabase
+    .from("whatsapp_conversas")
+    .select("jid_envio")
+    .eq("id", input.conversaId)
+    .maybeSingle();
+
+  const provider = await getActiveProvider();
+  const resultado = await provider.enviarTexto(
+    paraFormatoInternacionalBR(input.telefone),
+    input.texto,
+    conversa?.jid_envio ?? undefined
+  );
 
   await registrarLog({
     direcao: "saida",
     evento: "enviar_texto",
-    payload: { telefone: input.telefone, texto: input.texto },
+    payload: { telefone: input.telefone, texto: input.texto, provider: provider.nome },
     sucesso: resultado.enviado,
     erro: resultado.motivo,
   });
@@ -128,12 +136,13 @@ export async function enviarMensagemTemplate(input: {
   usuarioId: string;
 }): Promise<WhatsappMensagem> {
   const supabase = await createClient();
-  const resultado = await enviarTemplate(input.telefone, input.nomeTemplate, input.idioma, input.variaveis);
+  const provider = await getActiveProvider();
+  const resultado = await provider.enviarTemplate(paraFormatoInternacionalBR(input.telefone), input.nomeTemplate, input.idioma, input.variaveis);
 
   await registrarLog({
     direcao: "saida",
     evento: "enviar_template",
-    payload: { telefone: input.telefone, template: input.nomeTemplate, variaveis: input.variaveis },
+    payload: { telefone: input.telefone, template: input.nomeTemplate, variaveis: input.variaveis, provider: provider.nome },
     sucesso: resultado.enviado,
     erro: resultado.motivo,
   });
@@ -158,59 +167,52 @@ export async function enviarMensagemTemplate(input: {
 }
 
 /**
- * Recebimento de mensagem via webhook da Meta. Roda com a Service Role
- * Key (sem sessão de usuário — é uma chamada servidor-a-servidor da
- * Meta). Cria a conversa se for o primeiro contato desse telefone, grava
- * a mensagem, e dispara a automação (lead → cliente → follow-up → CRM).
+ * Recebimento de mensagem — chamado tanto pelo webhook da Meta quanto
+ * pelo endpoint que recebe evento do Bridge do WhatsApp Web. Os dois
+ * traduzem o payload específico deles pra este formato normalizado antes
+ * de chamar esta função — a lógica de "achar/criar cliente, abrir
+ * conversa, gravar mensagem, rodar automação" existe só aqui, uma vez.
+ *
+ * Roda com a Service Role Key (sem sessão de usuário — é uma chamada
+ * servidor-a-servidor, seja da Meta ou do Bridge).
  */
-export async function receberMensagemWebhook(
-  telefone: string,
-  nomeContato: string | undefined,
-  mensagem: MetaWebhookMensagem
-): Promise<void> {
+export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizada): Promise<void> {
   const supabase = createAdminClient();
 
   await registrarLog({
     direcao: "entrada",
-    evento: "webhook_mensagem",
-    payload: { telefone, mensagem },
+    evento: "mensagem_recebida",
+    payload: { telefone: msg.telefone, tipo: msg.tipo, idExterno: msg.idExterno },
     sucesso: true,
   });
 
   let { data: conversa } = await supabase
     .from("whatsapp_conversas")
     .select("*")
-    .eq("telefone", telefone)
+    .eq("telefone", msg.telefone)
     .eq("status", "aberta")
     .maybeSingle();
 
   if (!conversa) {
     const { data: novaConversa, error } = await supabase
       .from("whatsapp_conversas")
-      .insert({ telefone, status: "aberta" })
+      .insert({ telefone: msg.telefone, status: "aberta", jid_envio: msg.jidOriginal ?? null })
       .select("*")
       .single();
     if (error || !novaConversa) throw new Error(`Não foi possível criar a conversa: ${error?.message}`);
     conversa = novaConversa;
+  } else if (msg.jidOriginal && conversa.jid_envio !== msg.jidOriginal) {
+    // Atualiza se o JID mudou (ex: WhatsApp resolveu o LID pro número
+    // real numa mensagem seguinte) — não custa manter atualizado.
+    await supabase.from("whatsapp_conversas").update({ jid_envio: msg.jidOriginal }).eq("id", conversa.id);
   }
-
-  const conteudo =
-    mensagem.type === "text" ? mensagem.text?.body ?? "" :
-    mensagem.type === "image" ? (mensagem.image?.caption ?? "[Imagem]") :
-    mensagem.type === "document" ? (mensagem.document?.filename ?? "[Documento]") :
-    "[Áudio]";
-
-  const tipoMensagem =
-    mensagem.type === "text" ? "texto" :
-    mensagem.type === "image" ? "imagem" :
-    mensagem.type === "document" ? "documento" : "audio";
 
   await supabase.from("whatsapp_mensagens").insert({
     conversa_id: conversa.id,
     direcao: "entrada",
-    tipo: tipoMensagem,
-    conteudo,
-    whatsapp_message_id: mensagem.id,
+    tipo: msg.tipo,
+    conteudo: msg.conteudo,
+    whatsapp_message_id: msg.idExterno,
     status_entrega: "entregue",
   });
 
@@ -225,7 +227,7 @@ export async function receberMensagemWebhook(
 
   // Automação — preparada, sem IA (ver whatsapp.automacao.ts)
   try {
-    await processarAutomacaoNovaMensagem({ telefone, nomeContato, conversaId: conversa.id });
+    await processarAutomacaoNovaMensagem({ telefone: msg.telefone, nomeContato: msg.nomeContato, conversaId: conversa.id });
   } catch (err) {
     console.error("Falha na automação de nova mensagem:", err);
   }

@@ -20,6 +20,7 @@ export async function criarProdutoAction(formData: FormData): Promise<ActionResu
     descricao: String(formData.get("descricao") ?? ""),
     preco_venda: String(formData.get("preco_venda") ?? ""),
     custo: String(formData.get("custo") ?? ""),
+    estoque_minimo: String(formData.get("estoque_minimo") ?? "0"),
   };
 
   const parsed = produtoSchema.safeParse(raw);

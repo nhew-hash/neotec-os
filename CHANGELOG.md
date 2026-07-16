@@ -2,6 +2,280 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 26] — WhatsApp Web: suporte a contas migradas pra LID
+
+### Contexto
+O WhatsApp está migrando parte das contas pra um identificador interno
+("LID"), diferente do número de telefone — pra algumas contas, o
+telefone real simplesmente não fica disponível pro Bridge nenhuma hora.
+Isso quebrava tanto o recebimento (telefone errado salvo) quanto a
+resposta (resolução por telefone falhava).
+
+### Adicionado
+- Migração `fase23_jid_envio_whatsapp_web.sql`: coluna
+  `whatsapp_conversas.jid_envio` — guarda o identificador exato de
+  resposta que o WhatsApp deu na mensagem recebida (LID ou telefone),
+  separado do `telefone` (que continua só pra exibição/achar-criar
+  cliente).
+- `WhatsappProvider.enviarTexto` ganhou um terceiro parâmetro opcional
+  (`jidDireto`) — Meta Cloud API ignora, WhatsApp Web usa quando
+  disponível, evitando depender de resolver telefone pra responder.
+- Bridge: `/enviar` aceita `jid` direto agora; só tenta resolver por
+  telefone (`onWhatsApp`) quando não tem o JID de uma conversa anterior.
+- Logs de diagnóstico adicionados no Bridge (`messages.upsert` recebido,
+  mensagem processada, confirmação do Neotec OS) — antes só logava erro,
+  dificultando saber se o problema era "não chegou" ou "chegou e falhou
+  em algum ponto depois".
+
+---
+
+## [Fase 25] — Correção: formato do telefone (causa raiz de envio falhar e leads duplicando)
+
+### Corrigido
+- **Telefone salvo no cadastro nunca tem "55"** (código do Brasil) — só
+  DDD + número (`clientes.schema.ts` sempre validou assim). Mensagem
+  recebida (Meta ou WhatsApp Web) chega com o número **completo**, com
+  "55". Isso causava dois problemas reais, silenciosos até agora:
+  1. **Envio falhava** — `to: telefone` ia sem "55" pra Meta, e a
+     resolução de JID do WhatsApp Web (`onWhatsApp`) não achava o
+     contato. Corrigido com `paraFormatoInternacionalBR()`, aplicado no
+     único ponto de envio (`whatsapp.service.ts`) — vale pros dois
+     provedores de uma vez.
+  2. **Lead duplicava a cada mensagem, mesmo de cliente já cadastrado**
+     — a automação comparava telefone com "55" contra cadastro sem "55",
+     nunca casava. Corrigido com `paraFormatoLocalBR()` em
+     `whatsapp.automacao.ts`, aplicado antes de buscar/criar cliente.
+- Utilitários novos em `utils/telefone.ts` — um único lugar que sabe
+  converter entre os dois formatos, ao invés de cada ponto do sistema
+  reinventar isso.
+
+### Pendência que fica pra você decidir (não mexi sozinho)
+Clientes criados automaticamente **antes** desse fix podem ter ficado
+com `whatsapp` salvo COM "55" (formato errado, diferente do resto do
+cadastro) — e podem existir duplicados de um mesmo cliente por causa
+disso. Não fiz limpeza de dado automática porque mesclar cadastro de
+cliente é operação sensível (risco de perder histórico se feito errado).
+Se quiser, rodo uma consulta pra você primeiro ver quantos casos existem
+antes de decidirmos o que fazer.
+
+---
+
+## [Fase 24] — Correção: whatsapp_logs sem política de INSERT
+
+### Corrigido
+- `whatsapp_logs` só tinha RLS de SELECT (admin) desde que a tabela foi
+  criada na Fase 9 — nunca teve política de INSERT pra ninguém. Isso
+  fazia todo log de envio/recebimento falhar silenciosamente
+  (`registrarLog` engole o erro de propósito, pra log não derrubar o
+  envio de verdade) — mas também escondia o motivo real de falhas de
+  entrega, dificultando diagnóstico.
+- `registrarLog` agora usa a Service Role Key — é infraestrutura de
+  auditoria, não dado de usuário, não deveria depender de RLS de sessão.
+
+---
+
+## [Fase 23] — Correção: erro ao salvar provedor de WhatsApp
+
+### Corrigido
+- `salvarProviderAtivo` usava `.neq("id", "")` tentando dizer "atualiza a
+  única linha que existir" sem saber o id de antemão — mas `id` é `uuid`,
+  e comparar com string vazia quebra (`invalid input syntax for type
+  uuid: ""`). Corrigido: busca o id real da linha (RLS já garante que só
+  existe uma por loja) antes de atualizar.
+
+---
+
+## [Fase 22] — Multi-provider WhatsApp: Meta Cloud API + WhatsApp Web (QR Code)
+
+### Achado arquitetural crítico (documentado antes de implementar)
+A Vercel roda em funções serverless — sem estado entre requisições, sem
+processo em segundo plano. O Baileys (WhatsApp Web) precisa de uma
+conexão WebSocket permanente, aberta 24h. Isso é incompatível com
+serverless por natureza, não por configuração. Solução: o serviço que
+roda o Baileys de verdade (`whatsapp-bridge/`, projeto **separado**, fora
+deste repositório) precisa de hospedagem própria e sempre ligada
+(recomendado: Railway). Ele conversa com o Neotec OS só por HTTP
+autenticado — nunca acessa o banco diretamente.
+
+### Adicionado
+- Migração `fase22_integracoes_whatsapp_multiprovider.sql`: tabela
+  `integracoes_whatsapp` (provider ativo, status, número, QR Code, contador
+  de mensagens do dia), função `incrementar_mensagens_hoje_whatsapp_web()`,
+  Realtime habilitado nesta tabela.
+- **Camada de abstração `WhatsappProvider`** (`services/whatsapp/providers/`):
+  interface única (`enviarTexto`, `enviarTemplate`, `obterStatus`).
+  `MetaCloudProvider` encapsula a integração oficial já existente (nenhuma
+  lógica de envio mudou, só passou a ficar atrás da interface).
+  `WhatsAppWebProvider` é um cliente HTTP puro pro serviço Bridge — não
+  roda Baileys dentro do Neotec OS. `provider-resolver.ts` é o único
+  lugar que decide qual provider está ativo, lendo do banco.
+- `whatsapp.service.ts` refatorado: `enviarMensagem`/`enviarMensagemTemplate`
+  passam pelo provider ativo. Recebimento de mensagem normalizado
+  (`receberMensagemNormalizada` — substitui `receberMensagemWebhook`):
+  tanto o webhook da Meta quanto o endpoint que recebe evento do Bridge
+  traduzem seu payload específico pro mesmo formato antes de chamar essa
+  função — a lógica de "achar/criar cliente, abrir conversa, rodar
+  automação" existe uma vez só, os dois provedores compartilham.
+- 3 endpoints novos (`/api/integracoes/whatsapp-web/{status,qr,mensagem}`),
+  autenticados por segredo compartilhado (`WHATSAPP_WEB_BRIDGE_SECRET`),
+  chamados pelo Bridge — nunca por sessão de usuário.
+- Tela **Configurações → Integrações → WhatsApp**: escolha do provider,
+  card de status do WhatsApp Web com QR Code, atualização em tempo real
+  via Supabase Realtime (sem precisar recarregar a página) — tema escuro,
+  conforme pedido.
+- Card de status do WhatsApp no Dashboard.
+- **`whatsapp-bridge/`**: projeto Node.js separado, com Baileys, pronto
+  pra deploy no Railway (README com passo a passo completo). Reconexão
+  automática, logout de verdade (limpa sessão), geração de QR Code,
+  encaminha mensagem recebida pro Neotec OS em formato já normalizado.
+
+### Confirmado, não quebrado
+- O funil do CRM (automação "nova mensagem → lead → cliente → follow-up →
+  card") continua funcionando exatamente igual — só mudou o nome da
+  função de entrada (`receberMensagemWebhook` → `receberMensagemNormalizada`),
+  nenhuma lógica de automação foi alterada.
+- Meta Cloud API continua sendo o provider padrão; nada muda pra quem não
+  mexer na tela de Configurações.
+
+### Risco documentado, não escondido
+Baileys é biblioteca não-oficial (engenharia reversa do protocolo do
+WhatsApp) — risco real de banimento do número em uso comercial intenso.
+Decisão consciente do dono do produto, registrada aqui e no
+`whatsapp-bridge/README.md`.
+
+---
+
+## [Fase 21] — Correção crítica: erro de servidor em /crm e /clientes
+
+### Corrigido
+- **Bug real, introduzido na Fase 20**: `paginar()` (dentro de
+  `components/ui/pagination.tsx`) e `contarFollowupsUrgentes()` (dentro
+  de `components/crm/pipeline-sidebar.tsx`) são funções utilitárias
+  puras, mas estavam em arquivos com `"use client"` no topo. Server
+  Components (`/clientes` e `/crm`, ambos `page.tsx` assíncronos) as
+  importavam e chamavam diretamente — isso quebra em runtime, porque o
+  bundler trata **todo** export de um arquivo `"use client"` como
+  referência de cliente, mesmo que não seja um componente React.
+- **Correção**: as duas funções foram extraídas pra arquivos utilitários
+  puros, sem `"use client"` — `utils/paginar.ts` e `utils/followups.ts`
+  (esse último também exporta `categorizarFollowups`, usada pelo
+  componente visual `FollowupsPanel`, e o tipo `ItemFollowupUnificado`).
+  Os componentes React (`Pagination`, `FollowupsPanel`,
+  `NovaOportunidadeButton`) continuam nos arquivos `"use client"`
+  originais — só a lógica pura saiu de lá.
+- Rodada uma varredura no projeto inteiro atrás do mesmo padrão (função
+  utilitária de nome minúsculo exportada de arquivo `"use client"`) —
+  os únicos outros casos encontrados são hooks React (`useCurrentUser`,
+  `useClientes`), que **corretamente** ficam em arquivos client (hook só
+  pode ser chamado de dentro de Client Component). Nenhum outro caso do
+  bug real.
+
+### Nota técnica pra não repetir
+Regra prática: um arquivo `"use client"` só deve exportar **componentes
+React** e **hooks** — nunca uma função utilitária pura que algum Server
+Component vá chamar diretamente. Se uma função não usa `useState`,
+`useEffect` ou outro hook, e não retorna JSX, ela não pertence a um
+arquivo `"use client"`.
+
+---
+
+## [Fase 20] — Reformulação visual: Design System
+
+Etapa exclusivamente visual — nenhuma regra de negócio ou funcionalidade
+nova, conforme pedido. Abordagem: melhorar os **componentes
+compartilhados** (Card, Table, Button, Badge...) em vez de reescrever
+cada uma das ~40 telas — como a maioria já é composta a partir desses
+primitivos, a melhoria se propaga sozinha.
+
+### Adicionado
+- **`Dialog`** (`components/ui/dialog.tsx`) — modal de verdade, não
+  existia (só havia `Sheet`, painel lateral).
+- **`StatusBadge`** único — substitui as 48 ocorrências de cor de status
+  escrita na mão (`text-success`, `bg-danger`...) encontradas na
+  auditoria. Aplicado em Assistência (OS), Vendas, Orçamentos e
+  Financeiro nesta rodada; os mapeamentos de status por domínio ficam em
+  `utils/status-os.ts` e `utils/status-venda.ts`.
+- **`PageHeader`** — título de página padronizado (a auditoria achou 4
+  tamanhos de título diferentes sem critério). Aplicado em Clientes como
+  referência.
+- **`Pagination`** (via query string, mesmo padrão da busca de Clientes)
+  — aplicada em Clientes; volume ainda pequeno nas outras listagens, mas
+  o componente já está pronto pra quando fizer sentido.
+- **Estados de carregamento**: `loading.tsx` em 9 rotas principais
+  (Dashboard, Clientes, Estoque, Vendas, Assistência, CRM, Financeiro,
+  Investidores, Consignação) usando `Skeleton` — componente existia desde
+  o Sprint 0, nunca tinha sido usado em lugar nenhum.
+- **Variante `success` no Button** — antes só existia `default` pra
+  qualquer ação, inclusive "aprovar"/"concluir".
+- **Saudação por horário no Topbar** ("Bom dia, Nhew") — calculada com
+  fuso horário explícito de São Paulo (o servidor da Vercel roda em
+  Washington, calcular sem isso dava saudação errada).
+- **Busca rápida no cabeçalho** — atalho pra busca de Clientes que já
+  existia, sem criar infraestrutura de busca nova.
+- **`DESIGN_SYSTEM.md`** — guia de referência dos padrões (tipografia,
+  cor de status, botões, cards, modais, layout de página), incluindo o
+  que foi deliberadamente deixado de fora e por quê.
+
+### Auditoria — o que foi encontrado e a decisão tomada
+- Notificações reais, date picker customizado, busca global de
+  verdade e ordenação de coluna em toda tabela foram avaliados e
+  **deixados de fora de propósito** — todos exigiriam ou inventar dado
+  que não existe, ou um esforço desproporcional pra uma etapa
+  exclusivamente visual. Detalhado no `DESIGN_SYSTEM.md`.
+
+---
+
+## [Fase 19] — UX/UI premium: Clientes, Assistência, Estoque, CRM
+
+### Clientes
+- Busca por nome, telefone, CPF **e e-mail** (antes só nome/telefone),
+  com filtros de nível (Normal/VIP) e origem — tudo via query string
+  (`?busca=...&nivel=...&origem=...`), sem estado de cliente escondido:
+  resultado é compartilhável e volta certo se der F5.
+
+### Assistência Técnica
+- Migração `fase18_diagnostico_inicial_estoque_minimo.sql`: campo
+  **Diagnóstico Inicial** — terceiro nível, separado de `defeito`
+  (relato do cliente) e `diagnostico` (avaliação técnica pós-abertura).
+  Capturado na abertura da OS, visível o tempo todo na tela de detalhe e
+  na impressão.
+- **Página de detalhe da OS redesenhada por completo**: cabeçalho com
+  controle de status embutido (antes só dava pra mudar status pelo
+  Kanban — bug de fluxo real, corrigido) e indicação do próximo passo
+  ("Próximo passo: Definir o orçamento do reparo"); coluna principal com
+  a "história" do reparo em ordem (defeito → diagnóstico inicial →
+  diagnóstico técnico); sidebar com aparelho, cliente (com link) e
+  prazos/garantia sempre visíveis sem rolar a tela; checklists de
+  recebimento/entrega viraram abas em vez de dois cards competindo por
+  espaço.
+- `STATUS_OS_OPTIONS` virou fonte única (`utils/status-os.ts`) — Kanban e
+  página de detalhe usavam listas duplicadas antes.
+- Confirmado por auditoria: **não existia** "Checklist de Entrega" na
+  abertura da OS pra remover — só existe "Checklist de recebimento" ali.
+  O checklist de entrega sempre foi exclusivo da tela de detalhe.
+
+### Estoque
+- Migração inclui `produtos.estoque_minimo` — limite definido
+  manualmente (a quantidade em si continua **calculada**, nunca
+  armazenada solta, mesmo princípio de sempre).
+- Tabela de produtos agora mostra quantidade atual (com destaque visual
+  quando abaixo do mínimo), estoque mínimo, custo, preço de venda e
+  **lucro** (calculado, só visível pra quem já via custo).
+- **Entrada em lote** (`/estoque/entrada-lote`): lança vários produtos de
+  uma vez ao receber mercadoria, sem abrir cadastro por item. Custo
+  unitário informado atualiza o catálogo junto (reflete preço novo do
+  fornecedor).
+
+### CRM
+- "Nova oportunidade" virou botão de destaque (`size="lg"`), abre um
+  painel lateral em vez de ocupar espaço fixo na tela o tempo todo.
+- Follow-ups pendentes virou **aba própria**, com badge de contagem
+  (conta atrasados + hoje — "o que precisa de atenção agora"). Categoriza
+  em Atrasados (destacados em vermelho), Hoje e Próximos — antes só
+  mostrava "hoje", achados em atraso ficavam invisíveis.
+
+---
+
 ## [Fase 17] — Bug crítico: loop de redirecionamento no Portal do Cliente
 
 ### Corrigido

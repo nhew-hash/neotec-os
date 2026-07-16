@@ -35,6 +35,27 @@ npm run dev
 12. `supabase/migrations/fase12_os_aparelho_descricao.sql` — descrição livre do aparelho na OS (não depende de estoque cadastrado).
 13. `supabase/migrations/fase13_tipo_senha_aparelho.sql` — distingue senha numérica de padrão de desenho.
 14. `supabase/migrations/fase14_venda_sem_cliente.sql` — venda de balcão sem cliente vinculado (PDV).
+18. `supabase/migrations/fase18_diagnostico_inicial_estoque_minimo.sql` — Diagnóstico Inicial na OS e estoque mínimo no catálogo (numeração retoma daqui — Fases 15/16/17 desta lista foram só código, sem migração).
+22. `supabase/migrations/fase22_integracoes_whatsapp_multiprovider.sql` — suporte a múltiplos provedores de WhatsApp (Meta Cloud API + WhatsApp Web).
+
+## WhatsApp — dois provedores
+
+O Neotec OS suporta **Meta Cloud API** (oficial) e **WhatsApp Web via QR
+Code** (não-oficial, usando Baileys). A escolha fica em Configurações →
+Integrações → WhatsApp.
+
+**Importante**: o WhatsApp Web precisa de um serviço à parte, sempre
+ligado, que não faz parte deste repositório — está em `whatsapp-bridge/`
+(projeto separado), com passo a passo de deploy no Railway no README de
+lá. Isso existe porque a Vercel é serverless e não sustenta a conexão
+permanente que o WhatsApp Web exige. Sem configurar o Bridge, o sistema
+continua funcionando normal com a Meta Cloud API (provider padrão).
+
+Variáveis de ambiente novas (só necessárias se for usar o WhatsApp Web):
+```
+WHATSAPP_WEB_BRIDGE_URL=https://seu-bridge.up.railway.app
+WHATSAPP_WEB_BRIDGE_SECRET=mesmo-valor-configurado-no-bridge
+```
 
 Todas aditivas — nenhuma reescreve ou apaga dado das fases anteriores.
 

@@ -10,7 +10,7 @@ import { formatCurrency } from "@/utils";
 import type { Produto } from "@/types";
 import type { PecaOSComProduto } from "@/services/assistencia/assistencia.service";
 
-export function DiagnosticoForm({ osId, diagnosticoInicial }: { osId: string; diagnosticoInicial: string | null }) {
+export function DiagnosticoForm({ osId, diagnosticoAtual }: { osId: string; diagnosticoAtual: string | null }) {
   const [isPending, startTransition] = useTransition();
   const [mensagem, setMensagem] = useState<string | null>(null);
 
@@ -24,7 +24,7 @@ export function DiagnosticoForm({ osId, diagnosticoInicial }: { osId: string; di
 
   return (
     <form action={handleSubmit} className="flex flex-col gap-3">
-      <Textarea name="diagnostico" placeholder="Descreva o diagnóstico técnico" defaultValue={diagnosticoInicial ?? ""} />
+      <Textarea name="diagnostico" placeholder="Descreva o diagnóstico técnico" defaultValue={diagnosticoAtual ?? ""} />
       <Input name="valor" type="number" step="0.01" placeholder="Valor do orçamento do reparo" />
       {mensagem && <p className="text-xs text-muted-foreground">{mensagem}</p>}
       <Button type="submit" disabled={isPending} className="w-fit">

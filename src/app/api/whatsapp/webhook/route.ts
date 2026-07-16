@@ -1,12 +1,30 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 
-import { receberMensagemWebhook } from "@/services/whatsapp/whatsapp.service";
+import { receberMensagemNormalizada } from "@/services/whatsapp/whatsapp.service";
 import { registrarLog } from "@/services/whatsapp/whatsapp.logs";
 
 import type {
-  MetaWebhookPayload
+  MetaWebhookPayload,
+  MetaWebhookMensagem,
+  MensagemRecebidaNormalizada,
 } from "@/services/whatsapp/whatsapp.types";
+
+/** Traduz o formato específico da Meta pro formato normalizado, compartilhado entre provedores. */
+function normalizarMensagemMeta(mensagem: MetaWebhookMensagem, nomeContato: string | undefined): MensagemRecebidaNormalizada {
+  const conteudo =
+    mensagem.type === "text" ? mensagem.text?.body ?? "" :
+    mensagem.type === "image" ? (mensagem.image?.caption ?? "[Imagem]") :
+    mensagem.type === "document" ? (mensagem.document?.filename ?? "[Documento]") :
+    "[Áudio]";
+
+  const tipo =
+    mensagem.type === "text" ? "texto" :
+    mensagem.type === "image" ? "imagem" :
+    mensagem.type === "document" ? "documento" : "audio";
+
+  return { telefone: mensagem.from, nomeContato, tipo, conteudo, idExterno: mensagem.id };
+}
 
 
 /**
@@ -193,10 +211,8 @@ export async function POST(
         ) {
 
 
-          await receberMensagemWebhook(
-            mensagem.from,
-            nomeContato,
-            mensagem
+          await receberMensagemNormalizada(
+            normalizarMensagemMeta(mensagem, nomeContato)
           );
 
 

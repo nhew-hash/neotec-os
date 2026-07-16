@@ -9,7 +9,7 @@ import { lancamentoSchema, type LancamentoFormValues } from "@/services/financei
 import { criarLancamentoAction } from "@/services/financeiro/financeiro.actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -78,7 +78,7 @@ export function LancamentosTable({ lancamentos }: { lancamentos: LancamentoFinan
             <TableCell className="font-medium text-foreground">{l.categoria}</TableCell>
             <TableCell className="text-xs text-muted-foreground">{l.origem_tipo}</TableCell>
             <TableCell>
-              <Badge variant={l.tipo === "entrada" ? "success" : "danger"}>{l.tipo === "entrada" ? "Entrada" : "Saída"}</Badge>
+              <StatusBadge label={l.tipo === "entrada" ? "Entrada" : "Saída"} tone={l.tipo === "entrada" ? "success" : "danger"} />
             </TableCell>
             <TableCell>{formatCurrency(l.valor)}</TableCell>
             <TableCell className="text-xs text-muted-foreground">{formatDateTime(l.data)}</TableCell>

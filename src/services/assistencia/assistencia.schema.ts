@@ -29,6 +29,7 @@ export const ordemServicoSchema = z
     aparelho_id: z.string().optional().or(z.literal("")),
     aparelho_descricao: z.string().trim().optional().or(z.literal("")),
     defeito: z.string().trim().min(3, "Descreva o defeito relatado"),
+    diagnostico_inicial: z.string().trim().optional().or(z.literal("")),
     garantia_dias: z.coerce.number().int().min(0).optional(),
     prazo: z.string().optional().or(z.literal("")),
     urgente: z.boolean().default(false),

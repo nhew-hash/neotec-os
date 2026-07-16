@@ -5,8 +5,10 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { obterResumoOperacional } from "@/services/dashboard/dashboard.service";
+import { buscarIntegracaoWhatsapp } from "@/services/integracoes/integracoes-whatsapp.service";
 import { ActionButton } from "@/components/dashboard/action-button";
 import { IndicadorCard } from "@/components/dashboard/indicador-card";
+import { WhatsappStatusCard } from "@/components/dashboard/whatsapp-status-card";
 import { formatCurrency } from "@/utils";
 import type { CargoUsuario } from "@/types";
 
@@ -21,6 +23,7 @@ const ACOES = [
 
 export default async function DashboardPage() {
   const resumo = await obterResumoOperacional();
+  const integracaoWhatsapp = await buscarIntegracaoWhatsapp();
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -73,7 +76,8 @@ export default async function DashboardPage() {
 
       <div>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Comunicação</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <WhatsappStatusCard integracao={integracaoWhatsapp} />
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <IndicadorCard label="Mensagens hoje" value={resumo.comunicacao.mensagensHoje} icon={MessageCircle} href="/comunicacao" />
           <IndicadorCard label="Conversas abertas" value={resumo.comunicacao.conversasAbertas} icon={MessagesSquare} href="/comunicacao" />
           <IndicadorCard

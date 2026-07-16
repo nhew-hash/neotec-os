@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, formatDate } from "@/utils";
 import { podeVerCusto } from "@/utils/permissions";
+import { STATUS_VENDA_CONFIG } from "@/utils/status-venda";
 import type { Venda, Cliente, CargoUsuario } from "@/types";
 
 interface VendasTableProps {
@@ -48,7 +49,9 @@ export function VendasTable({ vendas, cargo }: VendasTableProps) {
             </TableCell>
             <TableCell>{formatCurrency(venda.valor_total)}</TableCell>
             {podeVerLucro && <TableCell className="text-muted-foreground">{venda.lucro != null ? formatCurrency(venda.lucro) : "—"}</TableCell>}
-            <TableCell><Badge variant={venda.status === "concluida" ? "success" : "secondary"}>{venda.status}</Badge></TableCell>
+            <TableCell>
+              <StatusBadge label={STATUS_VENDA_CONFIG[venda.status].label} tone={STATUS_VENDA_CONFIG[venda.status].tone} />
+            </TableCell>
             <TableCell className="text-xs text-muted-foreground">{formatDate(venda.data_venda)}</TableCell>
           </TableRow>
         ))}

@@ -3,21 +3,12 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { aprovarOrcamentoAction } from "@/services/vendas/vendas.actions";
 import { formatCurrency, formatDate } from "@/utils";
-import type { StatusOrcamento } from "@/types";
+import { STATUS_ORCAMENTO_CONFIG } from "@/utils/status-venda";
 import type { OrcamentoComCliente } from "@/services/vendas/vendas.service";
-
-const STATUS_CONFIG: Record<StatusOrcamento, { label: string; variant: "default" | "success" | "warning" | "danger" | "secondary" }> = {
-  criado: { label: "Criado", variant: "secondary" },
-  enviado: { label: "Enviado", variant: "default" },
-  visualizado: { label: "Visualizado", variant: "default" },
-  aprovado: { label: "Aprovado", variant: "success" },
-  recusado: { label: "Recusado", variant: "danger" },
-  expirado: { label: "Expirado", variant: "secondary" },
-};
 
 export function OrcamentosTable({ orcamentos }: { orcamentos: OrcamentoComCliente[] }) {
   const [isPending, startTransition] = useTransition();
@@ -54,11 +45,13 @@ export function OrcamentosTable({ orcamentos }: { orcamentos: OrcamentoComClient
           <TableRow key={orcamento.id}>
             <TableCell className="font-medium text-foreground">{orcamento.cliente.nome}</TableCell>
             <TableCell>{formatCurrency(orcamento.valor)}</TableCell>
-            <TableCell><Badge variant={STATUS_CONFIG[orcamento.status].variant}>{STATUS_CONFIG[orcamento.status].label}</Badge></TableCell>
+            <TableCell>
+              <StatusBadge label={STATUS_ORCAMENTO_CONFIG[orcamento.status].label} tone={STATUS_ORCAMENTO_CONFIG[orcamento.status].tone} />
+            </TableCell>
             <TableCell className="text-xs text-muted-foreground">{formatDate(orcamento.data_criacao)}</TableCell>
             <TableCell>
               {orcamento.status !== "aprovado" && (
-                <Button size="sm" disabled={isPending} onClick={() => handleAprovar(orcamento.id)}>
+                <Button size="sm" variant="success" disabled={isPending} onClick={() => handleAprovar(orcamento.id)}>
                   Aprovar e gerar venda
                 </Button>
               )}

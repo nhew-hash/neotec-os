@@ -2,6 +2,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/utils";
 import { podeVerCusto } from "@/utils/permissions";
+import { cn } from "@/lib/utils";
 import type { Produto, CargoUsuario } from "@/types";
 
 const CATEGORIA_LABEL: Record<Produto["categoria"], string> = {
@@ -15,10 +16,11 @@ const CATEGORIA_LABEL: Record<Produto["categoria"], string> = {
 
 interface ProdutosTableProps {
   produtos: Produto[];
+  saldos: Map<string, number>;
   cargo: CargoUsuario;
 }
 
-export function ProdutosTable({ produtos, cargo }: ProdutosTableProps) {
+export function ProdutosTable({ produtos, saldos, cargo }: ProdutosTableProps) {
   const podeVerCustoAtual = podeVerCusto(cargo);
 
   if (produtos.length === 0) {
@@ -35,25 +37,47 @@ export function ProdutosTable({ produtos, cargo }: ProdutosTableProps) {
         <TableRow>
           <TableHead>Nome</TableHead>
           <TableHead>Categoria</TableHead>
+          <TableHead>Estoque</TableHead>
           <TableHead>Preço de venda</TableHead>
           {podeVerCustoAtual && <TableHead>Custo</TableHead>}
+          {podeVerCustoAtual && <TableHead>Lucro</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {produtos.map((produto) => (
-          <TableRow key={produto.id}>
-            <TableCell className="font-medium text-foreground">{produto.nome}</TableCell>
-            <TableCell>
-              <Badge variant="secondary">{CATEGORIA_LABEL[produto.categoria]}</Badge>
-            </TableCell>
-            <TableCell>{produto.preco_venda ? formatCurrency(produto.preco_venda) : "—"}</TableCell>
-            {podeVerCustoAtual && (
-              <TableCell className="text-muted-foreground">
-                {produto.custo ? formatCurrency(produto.custo) : "—"}
+        {produtos.map((produto) => {
+          const saldo = saldos.get(produto.id) ?? 0;
+          const abaixoDoMinimo = saldo <= produto.estoque_minimo;
+          const lucro = produto.preco_venda != null && produto.custo != null ? produto.preco_venda - produto.custo : null;
+
+          return (
+            <TableRow key={produto.id}>
+              <TableCell className="font-medium text-foreground">{produto.nome}</TableCell>
+              <TableCell>
+                <Badge variant="secondary">{CATEGORIA_LABEL[produto.categoria]}</Badge>
               </TableCell>
-            )}
-          </TableRow>
-        ))}
+              <TableCell>
+                <span className={cn("font-medium", abaixoDoMinimo ? "text-danger" : "text-foreground")}>
+                  {saldo}
+                </span>
+                {produto.estoque_minimo > 0 && (
+                  <span className="ml-1 text-xs text-muted-foreground">/ mín. {produto.estoque_minimo}</span>
+                )}
+                {abaixoDoMinimo && <Badge variant="danger" className="ml-2 text-[10px]">Baixo</Badge>}
+              </TableCell>
+              <TableCell>{produto.preco_venda ? formatCurrency(produto.preco_venda) : "—"}</TableCell>
+              {podeVerCustoAtual && (
+                <TableCell className="text-muted-foreground">
+                  {produto.custo ? formatCurrency(produto.custo) : "—"}
+                </TableCell>
+              )}
+              {podeVerCustoAtual && (
+                <TableCell className={lucro != null && lucro >= 0 ? "text-success" : "text-muted-foreground"}>
+                  {lucro != null ? formatCurrency(lucro) : "—"}
+                </TableCell>
+              )}
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );

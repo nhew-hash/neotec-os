@@ -8,6 +8,7 @@ export const produtoSchema = z.object({
   descricao: z.string().trim().optional().or(z.literal("")),
   preco_venda: z.coerce.number().min(0, "Informe um valor válido").optional(),
   custo: z.coerce.number().min(0, "Informe um valor válido").optional(),
+  estoque_minimo: z.coerce.number().int().min(0).default(0),
 });
 export type ProdutoFormValues = z.infer<typeof produtoSchema>;
 

@@ -27,7 +27,7 @@ export function ProdutoForm() {
 
   const form = useForm<ProdutoFormValues>({
     resolver: zodResolver(produtoSchema),
-    defaultValues: { categoria: "acessorio", marca: "", modelo: "", nome: "", descricao: "" },
+    defaultValues: { categoria: "acessorio", marca: "", modelo: "", nome: "", descricao: "", estoque_minimo: 0 },
   });
 
   function onSubmit(values: ProdutoFormValues) {
@@ -108,6 +108,15 @@ export function ProdutoForm() {
             </FormItem>
           )} />
         </div>
+
+        <FormField control={form.control} name="estoque_minimo" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Estoque mínimo</FormLabel>
+            <FormControl><Input type="number" min={0} placeholder="0" {...field} /></FormControl>
+            <p className="text-[11px] text-muted-foreground">Abaixo desse número, o produto aparece como estoque baixo.</p>
+            <FormMessage />
+          </FormItem>
+        )} />
 
         {erro && <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{erro}</p>}
 
