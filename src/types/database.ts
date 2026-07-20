@@ -76,9 +76,11 @@ export interface Cliente {
 }
 
 /**
- * @deprecated Tipo morto, sem uso real no projeto (o sistema usa
- * WhatsappConversa, não este). Mantido só porque removê-lo não muda
- * comportamento nenhum — mas não crie nada novo baseado nele.
+ * Tabela real, existe desde a Fase 1 — usada na aba "Conversas" do
+ * Cliente 360°. NÃO é a mesma coisa que WhatsappConversa (Fase 9, o
+ * sistema de mensagens de verdade) nem que clientes.temperatura (Fase
+ * 28, IA de Atendimento) — são três conceitos parecidos de nome, mas
+ * genuinamente diferentes, em tabelas diferentes.
  */
 export interface Conversa {
   id: string;
@@ -87,6 +89,7 @@ export interface Conversa {
   responsavel_id: string | null;
   canal: "whatsapp" | "outro";
   status: "aberta" | "resolvida" | "perdida";
+  temperatura: TemperaturaLead;
   produto_interesse: string | null;
   data_inicio: string;
   updated_at: string;
