@@ -68,12 +68,18 @@ export interface Cliente {
   observacoes: string | null;
   origem: OrigemCliente | null;
   nivel: NivelCliente;
+  temperatura: TemperaturaLead;
   portal_user_id: string | null;
   senha_provisoria: boolean;
   data_cadastro: string;
   updated_at: string;
 }
 
+/**
+ * @deprecated Tipo morto, sem uso real no projeto (o sistema usa
+ * WhatsappConversa, não este). Mantido só porque removê-lo não muda
+ * comportamento nenhum — mas não crie nada novo baseado nele.
+ */
 export interface Conversa {
   id: string;
   loja_id: string;
@@ -81,7 +87,6 @@ export interface Conversa {
   responsavel_id: string | null;
   canal: "whatsapp" | "outro";
   status: "aberta" | "resolvida" | "perdida";
-  temperatura: TemperaturaLead;
   produto_interesse: string | null;
   data_inicio: string;
   updated_at: string;
