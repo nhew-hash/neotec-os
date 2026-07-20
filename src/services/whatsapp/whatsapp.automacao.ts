@@ -126,6 +126,27 @@ export async function processarAutomacaoNovaMensagem(params: {
     })
     .eq("id", params.conversaId);
 
+  // Marca quando o cliente respondeu por último — independente do
+  // atendimento automático estar ligado ou não agora. Sem isso, se a IA
+  // for ativada depois, o follow-up de recuperação não teria de onde
+  // contar o tempo decorrido pra esse lead. Também reseta a sequência de
+  // recuperação — cliente respondendo de novo tira o card de
+  // "sem_retorno", mesmo com a IA desligada nesse momento.
+  const { data: cardAntesDoReset } = await supabase
+    .from("crm_cards")
+    .select("sequencia_followup")
+    .eq("id", cardId)
+    .maybeSingle();
+
+  await supabase
+    .from("crm_cards")
+    .update({
+      ultima_resposta_cliente_em: new Date().toISOString(),
+      sequencia_followup: 0,
+      status_recuperacao: (cardAntesDoReset?.sequencia_followup ?? 0) > 0 ? "recuperado" : "ativo",
+    })
+    .eq("id", cardId);
+
 
   // 3) Criar follow-up automático
   const dataFollowup = new Date();

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageCircle, Users, Settings as SettingsIcon } from "lucide-react";
+import { MessageCircle, Users, Settings as SettingsIcon, Sparkles, Tags, Bell } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -9,6 +9,27 @@ const ITENS = [
     titulo: "Integração WhatsApp",
     descricao: "Meta Cloud API ou WhatsApp Web (QR Code)",
     icon: MessageCircle,
+    disponivel: true,
+  },
+  {
+    href: "/configuracoes/notificacoes",
+    titulo: "Notificações",
+    descricao: "Som, notificação desktop, auto-abrir conversa",
+    icon: Bell,
+    disponivel: true,
+  },
+  {
+    href: "/configuracoes/ia",
+    titulo: "IA",
+    descricao: "Provedor, modelo, prompt e consumo",
+    icon: Sparkles,
+    disponivel: true,
+  },
+  {
+    href: "/configuracoes/cotacoes",
+    titulo: "Cotações",
+    descricao: "Mapeamento de emoji e prioridade de busca",
+    icon: Tags,
     disponivel: true,
   },
   {

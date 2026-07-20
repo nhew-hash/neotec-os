@@ -425,6 +425,8 @@ export interface CrmTag {
   created_at: string;
 }
 
+export type StatusRecuperacaoLead = "ativo" | "sem_retorno" | "recuperado";
+
 export interface CrmCard {
   id: string;
   loja_id: string;
@@ -435,8 +437,25 @@ export interface CrmCard {
   responsavel_id: string | null;
   origem: OrigemCliente | null;
   entrou_etapa_em: string;
+  score: number;
+  objecao: string | null;
+  resumo_ia: string | null;
+  proxima_acao: string | null;
+  status_recuperacao: StatusRecuperacaoLead;
+  sequencia_followup: number;
+  ultima_resposta_cliente_em: string | null;
+  perdido: boolean;
+  motivo_perda: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface CrmScoreEvento {
+  id: string;
+  card_id: string;
+  motivo: string;
+  pontos: number;
+  created_at: string;
 }
 
 export type StatusFollowup = "pendente" | "concluido" | "cancelado";
@@ -464,6 +483,7 @@ export interface WhatsappConversa {
   card_id: string | null;
   telefone: string;
   jid_envio: string | null;
+  ia_pausada: boolean;
   status: StatusConversaWhatsapp;
   responsavel_id: string | null;
   nao_lidas: number;
@@ -484,6 +504,7 @@ export interface WhatsappMensagem {
   status_entrega: StatusEntregaMensagem;
   whatsapp_message_id: string | null;
   enviado_por: string | null;
+  enviado_por_ia: boolean;
   lida_em: string | null;
   criado_em: string;
 }
@@ -529,6 +550,90 @@ export interface IntegracaoWhatsapp {
   mensagens_hoje: number;
   ultima_conexao: string | null;
   ultimo_erro: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---- Fase 26: Infraestrutura central de IA ----
+
+export type IAProviderTipo = "openai" | "anthropic" | "gemini" | "local";
+
+export interface ConfiguracaoIA {
+  id: string;
+  loja_id: string;
+  provider: IAProviderTipo;
+  modelo: string;
+  ativo: boolean;
+  atendimento_automatico_ativo: boolean;
+  temperatura: number;
+  limite_tokens: number;
+  prompt_sistema: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IALog {
+  id: string;
+  loja_id: string;
+  modulo: string;
+  provider: IAProviderTipo;
+  modelo: string;
+  tokens_entrada: number | null;
+  tokens_saida: number | null;
+  custo_estimado_usd: number | null;
+  duracao_ms: number | null;
+  sucesso: boolean;
+  erro: string | null;
+  cache_hit: boolean;
+  created_at: string;
+}
+
+// ---- Fase 27: Central de Cotações Inteligente ----
+
+export type StatusCotacao = "ativa" | "arquivada";
+
+export interface Cotacao {
+  id: string;
+  loja_id: string;
+  fornecedor: string;
+  categoria: string;
+  data_cotacao: string;
+  status: StatusCotacao;
+  observacao: string | null;
+  texto_original: string;
+  quantidade_aparelhos: number;
+  usuario_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CotacaoItem {
+  id: string;
+  cotacao_id: string;
+  tipo_produto: string;
+  modelo: string;
+  armazenamento: string | null;
+  cor: string | null;
+  bateria_percentual: number | null;
+  preco: number;
+  quantidade: number;
+  garantia: string | null;
+  observacao: string | null;
+  created_at: string;
+}
+
+export interface MapeamentoEmojiCor {
+  id: string;
+  loja_id: string;
+  emoji: string;
+  cor: string;
+  created_at: string;
+}
+
+export interface PrioridadeBuscaPreco {
+  id: string;
+  loja_id: string;
+  ordem: string[];
   created_at: string;
   updated_at: string;
 }

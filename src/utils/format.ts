@@ -56,3 +56,17 @@ export function getSaudacao(): string {
   if (hora < 18) return "Boa tarde";
   return "Boa noite";
 }
+
+/** "Hoje" / "Ontem" / data por extenso — usado nos separadores de dia do chat. */
+export function formatDiaRelativo(dataIso: string): string {
+  const data = new Date(dataIso);
+  const hoje = new Date();
+  const ontem = new Date(hoje);
+  ontem.setDate(ontem.getDate() - 1);
+
+  const mesmoDia = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+
+  if (mesmoDia(data, hoje)) return "Hoje";
+  if (mesmoDia(data, ontem)) return "Ontem";
+  return data.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: data.getFullYear() !== hoje.getFullYear() ? "numeric" : undefined });
+}

@@ -3,7 +3,12 @@ import { listarClientes } from "@/services/clientes/clientes.service";
 import { listarAparelhos } from "@/services/estoque/estoque.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default async function NovaOSPage() {
+interface NovaOSPageProps {
+  searchParams: Promise<{ clienteId?: string }>;
+}
+
+export default async function NovaOSPage({ searchParams }: NovaOSPageProps) {
+  const { clienteId } = await searchParams;
   const [clientes, aparelhos] = await Promise.all([listarClientes(), listarAparelhos()]);
 
   return (
@@ -11,7 +16,7 @@ export default async function NovaOSPage() {
       <h1 className="font-display text-xl font-semibold text-foreground">Nova ordem de serviço</h1>
       <Card>
         <CardHeader><CardTitle>Dados da OS</CardTitle></CardHeader>
-        <CardContent><OrdemServicoForm clientes={clientes} aparelhos={aparelhos} /></CardContent>
+        <CardContent><OrdemServicoForm clientes={clientes} aparelhos={aparelhos} clienteIdInicial={clienteId} /></CardContent>
       </Card>
     </div>
   );

@@ -26,9 +26,10 @@ interface OrcamentoFormProps {
   clientes: Cliente[];
   produtos: Produto[];
   aparelhos: AparelhoComProduto[];
+  clienteIdInicial?: string;
 }
 
-export function OrcamentoForm({ clientes, produtos, aparelhos }: OrcamentoFormProps) {
+export function OrcamentoForm({ clientes, produtos, aparelhos, clienteIdInicial }: OrcamentoFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -36,7 +37,7 @@ export function OrcamentoForm({ clientes, produtos, aparelhos }: OrcamentoFormPr
 
   const form = useForm<OrcamentoFormValues>({
     resolver: zodResolver(orcamentoSchema),
-    defaultValues: { cliente_id: "", produto_id: "", aparelho_id: "", valor: 0 },
+    defaultValues: { cliente_id: clienteIdInicial ?? "", produto_id: "", aparelho_id: "", valor: 0 },
   });
 
   const aparelhosDisponiveis = aparelhos.filter((a) => a.status === "disponivel");

@@ -34,3 +34,15 @@ export async function marcarConversaComoLidaAction(conversaId: string): Promise<
     return { success: false, error: err instanceof Error ? err.message : "Erro ao marcar como lida" };
   }
 }
+
+export async function alternarIAPausadaAction(conversaId: string, pausar: boolean): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("whatsapp_conversas").update({ ia_pausada: pausar }).eq("id", conversaId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/comunicacao");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar a IA" };
+  }
+}

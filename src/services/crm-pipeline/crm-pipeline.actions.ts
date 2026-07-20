@@ -65,3 +65,33 @@ export async function concluirFollowupAction(id: string): Promise<ActionResult> 
     return { success: false, error: err instanceof Error ? err.message : "Erro ao concluir follow-up" };
   }
 }
+
+export async function marcarCardPerdidoAction(cardId: string, motivo: string): Promise<{ success: true; data: undefined } | { success: false; error: string }> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("crm_cards")
+      .update({ perdido: true, motivo_perda: motivo, status_recuperacao: "sem_retorno" })
+      .eq("id", cardId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/crm");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao marcar como perdido" };
+  }
+}
+
+export async function reabrirCardAction(cardId: string): Promise<{ success: true; data: undefined } | { success: false; error: string }> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("crm_cards")
+      .update({ perdido: false, motivo_perda: null, status_recuperacao: "ativo" })
+      .eq("id", cardId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/crm");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao reabrir" };
+  }
+}

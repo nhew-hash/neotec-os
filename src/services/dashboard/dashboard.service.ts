@@ -5,6 +5,7 @@ import type { Cliente } from "@/types";
 
 export interface ResumoOperacional {
   clientesTotal: number;
+  clientesNovosHoje: number;
   retornosHoje: number;
   aparelhosDisponiveis: number;
   osEmAndamento: number;
@@ -76,6 +77,7 @@ export async function obterResumoOperacional(): Promise<ResumoOperacional> {
 
   const [
     { count: clientesTotal },
+    { count: clientesNovosHoje },
     { count: retornosHoje },
     { count: aparelhosDisponiveis },
     { count: osEmAndamento },
@@ -89,6 +91,7 @@ export async function obterResumoOperacional(): Promise<ResumoOperacional> {
     financeiroHoje,
   ] = await Promise.all([
     supabase.from("clientes").select("*", { count: "exact", head: true }),
+    supabase.from("clientes").select("*", { count: "exact", head: true }).gte("data_cadastro", hojeInicio.toISOString()),
     supabase.from("retornos").select("*", { count: "exact", head: true }).eq("status", "pendente").gte("data_retorno", hojeInicio.toISOString()),
     supabase.from("vw_aparelhos_seguro").select("*", { count: "exact", head: true }).eq("status", "disponivel"),
     supabase.from("ordens_servico").select("*", { count: "exact", head: true }).in("status", ["em_reparo", "diagnostico", "teste"]),
@@ -109,6 +112,7 @@ export async function obterResumoOperacional(): Promise<ResumoOperacional> {
 
   return {
     clientesTotal: clientesTotal ?? 0,
+    clientesNovosHoje: clientesNovosHoje ?? 0,
     retornosHoje: retornosHoje ?? 0,
     aparelhosDisponiveis: aparelhosDisponiveis ?? 0,
     osEmAndamento: osEmAndamento ?? 0,

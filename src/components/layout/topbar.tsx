@@ -10,6 +10,7 @@ interface TopbarProps {
     email: string;
     cargo: CargoUsuario;
   };
+  naoLidasInicial: number;
   titulo?: string;
 }
 
@@ -18,13 +19,13 @@ interface TopbarProps {
  * (buscados no layout do grupo (sistema)). Só o UserMenu, MobileNav e
  * BuscaRapida, que precisam de interatividade, são Client Components.
  */
-export function Topbar({ usuario, titulo }: TopbarProps) {
+export function Topbar({ usuario, naoLidasInicial, titulo }: TopbarProps) {
   const primeiroNome = usuario.nome.split(" ")[0];
 
   return (
     <header className="flex h-16 items-center justify-between gap-4 border-b border-border bg-card px-4 md:px-6">
       <div className="flex min-w-0 items-center gap-3">
-        <MobileNav cargo={usuario.cargo} />
+        <MobileNav cargo={usuario.cargo} naoLidasInicial={naoLidasInicial} />
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">
             {titulo ?? `${getSaudacao()}, ${primeiroNome}`}

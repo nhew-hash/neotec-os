@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registrarLog } from "./whatsapp.logs";
 import { processarAutomacaoNovaMensagem } from "./whatsapp.automacao";
+import { processarRespostaIA } from "@/services/ia/ia-atendimento-orquestrador.service";
 import { getActiveProvider } from "./providers/provider-resolver";
 import { paraFormatoInternacionalBR } from "@/utils/telefone";
 import type { DisparoWhatsapp, MensagemRecebidaNormalizada } from "./whatsapp.types";
@@ -120,6 +121,59 @@ export async function enviarMensagem(input: {
 
   if (error) throw new Error(`Não foi possível registrar a mensagem: ${error.message}`);
 
+  // Humano mandou mensagem nesta conversa — pausa a IA de atendimento
+  // aqui automaticamente. É um "assumir conversa" implícito: se alguém
+  // da equipe está respondendo na mão, a IA não deveria continuar
+  // respondendo em paralelo na mesma conversa.
+  await supabase
+    .from("whatsapp_conversas")
+    .update({ ultima_mensagem_em: new Date().toISOString(), ia_pausada: true })
+    .eq("id", input.conversaId);
+
+  return data as unknown as WhatsappMensagem;
+}
+
+/**
+ * Mesmo caminho de envio de `enviarMensagem`, mas usado pela IA de
+ * Atendimento — marca `enviado_por_ia: true` (pro selo visual no chat) e
+ * NÃO define `enviado_por` (não foi nenhum usuário humano que mandou).
+ * Diferente de `enviarMensagem`, não mexe em `ia_pausada` — quem decide
+ * pausar é o orquestrador da IA, não o envio em si.
+ */
+export async function enviarMensagemIA(input: {
+  conversaId: string;
+  telefone: string;
+  texto: string;
+  jidEnvio?: string | null;
+}): Promise<WhatsappMensagem> {
+  const supabase = await createClient();
+  const provider = await getActiveProvider();
+  const resultado = await provider.enviarTexto(paraFormatoInternacionalBR(input.telefone), input.texto, input.jidEnvio ?? undefined);
+
+  await registrarLog({
+    direcao: "saida",
+    evento: "enviar_texto_ia",
+    payload: { telefone: input.telefone, texto: input.texto, provider: provider.nome },
+    sucesso: resultado.enviado,
+    erro: resultado.motivo,
+  });
+
+  const { data, error } = await supabase
+    .from("whatsapp_mensagens")
+    .insert({
+      conversa_id: input.conversaId,
+      direcao: "saida",
+      tipo: "texto",
+      conteudo: input.texto,
+      status_entrega: resultado.enviado ? "enviado" : "erro",
+      whatsapp_message_id: resultado.whatsappMessageId ?? null,
+      enviado_por_ia: true,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(`Não foi possível registrar a mensagem da IA: ${error.message}`);
+
   await supabase.from("whatsapp_conversas").update({ ultima_mensagem_em: new Date().toISOString() }).eq("id", input.conversaId);
 
   return data as unknown as WhatsappMensagem;
@@ -225,10 +279,28 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
     })
     .eq("id", conversa.id);
 
-  // Automação — preparada, sem IA (ver whatsapp.automacao.ts)
+  // Automação de CRM (lead/card) — sem IA nenhuma, regra determinística (ver whatsapp.automacao.ts)
   try {
     await processarAutomacaoNovaMensagem({ telefone: msg.telefone, nomeContato: msg.nomeContato, conversaId: conversa.id });
   } catch (err) {
     console.error("Falha na automação de nova mensagem:", err);
   }
+
+  // IA de Atendimento — busca a conversa de novo porque a automação
+  // acima pode ter setado card_id/cliente_id que não existiam antes.
+  try {
+    const { data: conversaAtualizada } = await supabase.from("whatsapp_conversas").select("*").eq("id", conversa.id).maybeSingle();
+    if (conversaAtualizada) {
+      await processarRespostaIA(conversaAtualizada, msg.conteudo);
+    }
+  } catch (err) {
+    console.error("Falha na IA de atendimento:", err);
+  }
+}
+
+/** Total de conversas com mensagem não lida — usado no badge do menu lateral. */
+export async function contarConversasNaoLidas(): Promise<number> {
+  const supabase = await createClient();
+  const { count } = await supabase.from("whatsapp_conversas").select("*", { count: "exact", head: true }).gt("nao_lidas", 0);
+  return count ?? 0;
 }

@@ -1,14 +1,21 @@
 import {
   Wrench, ShoppingCart, PackagePlus, UserPlus, Search, CalendarClock,
   AlertTriangle, Truck, PackageX, ListTodo, Wallet, Cake,
-  MessageCircle, MessagesSquare, Clock,
+  MessageCircle, MessagesSquare, Clock, TrendingUp, UserCheck, ClipboardList,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { obterResumoOperacional } from "@/services/dashboard/dashboard.service";
 import { buscarIntegracaoWhatsapp } from "@/services/integracoes/integracoes-whatsapp.service";
+import {
+  obterVendasPorPeriodo, obterOrigemClientes, obterFunilCRM, obterDesempenhoEquipe,
+} from "@/services/dashboard/dashboard-graficos.service";
+import { listarFollowupsPendentes } from "@/services/crm-pipeline/crm-pipeline.service";
+import { listarRetornosPendentes } from "@/services/crm/crm.service";
+import { categorizarFollowups } from "@/utils/followups";
 import { ActionButton } from "@/components/dashboard/action-button";
 import { IndicadorCard } from "@/components/dashboard/indicador-card";
 import { WhatsappStatusCard } from "@/components/dashboard/whatsapp-status-card";
+import { GraficosDashboard } from "@/components/dashboard/graficos-dashboard";
 import { formatCurrency } from "@/utils";
 import type { CargoUsuario } from "@/types";
 
@@ -24,6 +31,12 @@ const ACOES = [
 export default async function DashboardPage() {
   const resumo = await obterResumoOperacional();
   const integracaoWhatsapp = await buscarIntegracaoWhatsapp();
+
+  const [vendasPorPeriodo, origemClientes, funilCRM, desempenhoEquipe, followups, retornos] = await Promise.all([
+    obterVendasPorPeriodo(), obterOrigemClientes(), obterFunilCRM(), obterDesempenhoEquipe(),
+    listarFollowupsPendentes(), listarRetornosPendentes(),
+  ]);
+  const followupsAtrasados = categorizarFollowups(followups, retornos).filter((i) => i.categoria === "atrasado").length;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -48,6 +61,17 @@ export default async function DashboardPage() {
 
       {/* Indicadores operacionais do dia */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <IndicadorCard label="Vendas hoje" value={resumo.vendasHoje} icon={TrendingUp} href="/vendas" tom="sucesso" />
+        <IndicadorCard label="Faturamento hoje" value={formatCurrency(resumo.faturamentoHoje)} icon={Wallet} href="/vendas" tom="sucesso" />
+        <IndicadorCard label="Novos clientes hoje" value={resumo.clientesNovosHoje} icon={UserCheck} href="/clientes" />
+        <IndicadorCard label="OS em andamento" value={resumo.osEmAndamento} icon={ClipboardList} href="/assistencia" />
+        <IndicadorCard
+          label="Follow-ups atrasados"
+          value={followupsAtrasados}
+          icon={AlertTriangle}
+          href="/crm"
+          tom={followupsAtrasados > 0 ? "alerta" : "neutro"}
+        />
         <IndicadorCard
           label="OS em atraso"
           value={resumo.osAtrasadas}
@@ -72,6 +96,16 @@ export default async function DashboardPage() {
           tom="sucesso"
         />
         <IndicadorCard label="Próximos aniversários" value={resumo.aniversariantes.length} icon={Cake} href="/clientes" />
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Visão geral</h2>
+        <GraficosDashboard
+          vendasPorPeriodo={vendasPorPeriodo}
+          origemClientes={origemClientes}
+          funilCRM={funilCRM}
+          desempenhoEquipe={desempenhoEquipe}
+        />
       </div>
 
       <div>

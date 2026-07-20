@@ -30,7 +30,7 @@ const ITENS_CHECKLIST: { key: keyof ChecklistOS; label: string }[] = [
   { key: "senha_informada", label: "Senha informada" },
 ];
 
-export function OrdemServicoForm({ clientes, aparelhos }: { clientes: Cliente[]; aparelhos: AparelhoComProduto[] }) {
+export function OrdemServicoForm({ clientes, aparelhos, clienteIdInicial }: { clientes: Cliente[]; aparelhos: AparelhoComProduto[]; clienteIdInicial?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -43,7 +43,7 @@ export function OrdemServicoForm({ clientes, aparelhos }: { clientes: Cliente[];
   const form = useForm<OrdemServicoFormValues>({
     resolver: zodResolver(ordemServicoSchema),
     defaultValues: {
-      cliente_id: "", cliente_novo_nome: "", cliente_novo_whatsapp: "",
+      cliente_id: clienteIdInicial ?? "", cliente_novo_nome: "", cliente_novo_whatsapp: "",
       aparelho_id: "", aparelho_descricao: "", defeito: "", diagnostico_inicial: "", prazo: "", urgente: false,
     },
   });

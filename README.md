@@ -37,6 +37,12 @@ npm run dev
 14. `supabase/migrations/fase14_venda_sem_cliente.sql` — venda de balcão sem cliente vinculado (PDV).
 18. `supabase/migrations/fase18_diagnostico_inicial_estoque_minimo.sql` — Diagnóstico Inicial na OS e estoque mínimo no catálogo (numeração retoma daqui — Fases 15/16/17 desta lista foram só código, sem migração).
 22. `supabase/migrations/fase22_integracoes_whatsapp_multiprovider.sql` — suporte a múltiplos provedores de WhatsApp (Meta Cloud API + WhatsApp Web).
+23. `supabase/migrations/fase23_jid_envio_whatsapp_web.sql` — JID de envio direto (contas WhatsApp migradas pra LID, sem telefone real disponível).
+24. `supabase/migrations/fase24_realtime_comunicacao.sql` — Realtime em conversas e mensagens (chat atualiza sozinho).
+25. `supabase/migrations/fase25_realtime_crm.sql` — Realtime no Pipeline do CRM.
+26. `supabase/migrations/fase26_infraestrutura_ia.sql` — infraestrutura central de IA multi-provedor (config, logs, cache).
+27. `supabase/migrations/fase27_central_cotacoes.sql` — Central de Cotações Inteligente.
+28. `supabase/migrations/fase28_ia_atendimento.sql` — IA de Atendimento (pausa por conversa, selo de mensagem enviada pela IA).
 
 ## WhatsApp — dois provedores
 

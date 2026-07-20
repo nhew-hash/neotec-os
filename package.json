@@ -1,6 +1,6 @@
 {
   "name": "neotec-os",
-  "version": "1.9.0",
+  "version": "1.14.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

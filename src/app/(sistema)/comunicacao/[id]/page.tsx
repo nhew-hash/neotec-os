@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { listarConversas, listarMensagens, marcarConversaComoLida } from "@/services/whatsapp/whatsapp.service";
+import { obterResumoClienteAtendimento } from "@/services/comunicacao/comunicacao-cliente-resumo.service";
 import { ChatPanel } from "@/components/comunicacao/chat-panel";
+import { ClienteInfoPanel } from "@/components/comunicacao/cliente-info-panel";
 
 export default async function ConversaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -11,7 +13,10 @@ export default async function ConversaPage({ params }: { params: Promise<{ id: s
   const conversa = conversas.find((c) => c.id === id);
   if (!conversa) notFound();
 
-  const mensagens = await listarMensagens(id);
+  const [mensagens, resumoCliente] = await Promise.all([
+    listarMensagens(id),
+    obterResumoClienteAtendimento(conversa.cliente_id, conversa.card_id),
+  ]);
   if (conversa.nao_lidas > 0) await marcarConversaComoLida(id);
 
   return (
@@ -20,7 +25,12 @@ export default async function ConversaPage({ params }: { params: Promise<{ id: s
         <ArrowLeft className="h-3.5 w-3.5" />
         Voltar às conversas
       </Link>
-      <ChatPanel conversa={conversa} mensagens={mensagens} />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col">
+          <ChatPanel conversa={conversa} mensagens={mensagens} />
+        </div>
+        <ClienteInfoPanel resumo={resumoCliente} />
+      </div>
     </div>
   );
 }

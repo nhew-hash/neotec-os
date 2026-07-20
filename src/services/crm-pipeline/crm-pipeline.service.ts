@@ -30,7 +30,7 @@ export async function reordenarEtapas(ordemIds: string[]): Promise<void> {
 // ---- Cards ----
 
 export interface CardComRelacoes extends CrmCard {
-  cliente: Pick<Cliente, "id" | "nome" | "whatsapp">;
+  cliente: Pick<Cliente, "id" | "nome" | "whatsapp" | "temperatura">;
   tags: CrmTag[];
   conversa: { id: string; naoLidas: number } | null;
 }
@@ -39,7 +39,7 @@ export async function listarCards(): Promise<CardComRelacoes[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("crm_cards")
-    .select("*, cliente:clientes(id, nome, whatsapp), card_tags:crm_card_tags(tag:crm_tags(*))")
+    .select("*, cliente:clientes(id, nome, whatsapp, temperatura), card_tags:crm_card_tags(tag:crm_tags(*))")
     .order("updated_at", { ascending: false });
 
   if (error) throw new Error(`Não foi possível carregar os cards: ${error.message}`);
@@ -65,7 +65,7 @@ export async function listarCards(): Promise<CardComRelacoes[]> {
 
   return (data ?? []).map((card) => ({
     ...(card as unknown as CrmCard),
-    cliente: (card as { cliente: Pick<Cliente, "id" | "nome" | "whatsapp"> }).cliente,
+    cliente: (card as { cliente: Pick<Cliente, "id" | "nome" | "whatsapp" | "temperatura"> }).cliente,
     tags: ((card as { card_tags?: { tag: CrmTag }[] }).card_tags ?? []).map((ct) => ct.tag),
     conversa: conversaPorCard.get(card.id) ?? null,
   }));

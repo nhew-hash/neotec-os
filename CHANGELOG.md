@@ -2,6 +2,304 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 32] — CRM inteligente: lead score, follow-up de recuperação automático, relatórios
+
+### Infraestrutura nova: Vercel Cron
+A sequência de follow-up (D+0/D+1/D+3/D+5) precisa de checagem periódica
+— "algumas horas depois do cliente parar de responder" não é algo que
+dispara sozinho por evento, precisa de algo perguntando "já passou
+tempo suficiente?" de tempos em tempos. Implementado como Vercel Cron
+Job (`vercel.json`, roda de hora em hora) chamando
+`/api/cron/follow-up-vendas`, autenticado por `CRON_SECRET` (não por
+sessão de usuário — rota liberada no middleware, protegida por dentro).
+
+**Atenção**: o plano Hobby da Vercel historicamente só permite cron 1x
+por dia, não de hora em hora — pra granularidade fina como "algumas
+horas depois" funcionar de verdade, pode ser necessário o plano Pro.
+Confirme isso no painel da Vercel antes de contar com o D+0 funcionando
+no mesmo dia.
+
+### Adicionado
+- Migração `fase32_crm_inteligente.sql`: `crm_cards` ganha `score`,
+  `objecao`, `resumo_ia`, `proxima_acao`, `status_recuperacao`
+  (ativo/sem_retorno/recuperado), `sequencia_followup`,
+  `ultima_resposta_cliente_em`, `perdido`, `motivo_perda`.
+  `crm_score_eventos` guarda cada motivo de pontuação (não só o total).
+- **Lead score**: pesos fixos em código (perguntou preço +10,
+  disponibilidade +20, condição de pagamento +30, compra hoje +25,
+  reserva +30, comparou modelos +15) — a IA detecta QUAL sinal apareceu,
+  o código soma os pontos. Mantém auditável, evita a IA "inventar" score
+  diferente a cada chamada.
+- **Temperatura refinada**: critérios específicos no prompt (quente =
+  quer comprar/perguntou pagamento/pediu reserva/comparou modelos; morno
+  = pesquisando; frio = só pediu informação).
+- **Recuperação de objeção de preço**: "achei caro" não perde a venda —
+  a IA pergunta o valor que o cliente tinha em mente e oferece verificar
+  a melhor condição, em vez de desistir.
+- **Follow-up de recuperação automático**: sequência D+0 (3h sem
+  resposta) → D+1 → D+3 → D+5 (final, marca "sem retorno"). Mensagens
+  baseadas nos templates definidos pelo dono do produto, com a IA
+  personalizando pro contexto (nome, produto, resumo da conversa) — se a
+  IA falhar, cai pro template puro (isso roda sem supervisão humana,
+  precisa sempre mandar algo). Respeita IA pausada — humano assumiu a
+  conversa, o follow-up automático não passa por cima.
+- **Card do Kanban enriquecido**: badge de score, resumo da IA, badge de
+  objeção, badge de "sem retorno"/"recuperado pela IA", próxima ação
+  sugerida, botão "Marcar como perdido" (com motivo) / "Reabrir".
+- **Relatórios do CRM** (`/crm/relatorios`): total de leads, taxa de
+  conversão (cliente com pelo menos 1 venda concluída ÷ total de leads),
+  tempo médio até fechar, vendas por vendedor (reaproveita
+  `obterDesempenhoEquipe`, já existente), motivos de perda, contagem de
+  recuperados pela IA e sem retorno.
+
+### Ficou de fora, com honestidade
+- **"Aprendizado da IA" (quais mensagens convertem mais, qual abordagem
+  funciona melhor)**: não implementado como análise automática — exigiria
+  volume de dados histórico + um pipeline de correlação mensagem→
+  resultado que ainda não existe. O que ESTÁ pronto agora é a **captura**
+  dos dados que essa análise precisaria (score events, motivo de perda,
+  recuperação pela IA) — a base pra fazer isso depois, não a análise em
+  si.
+- Score e temperatura continuam sendo classificados pela IA a cada
+  mensagem — não há ajuste automático de peso com base em resultado
+  passado (isso seria a parte de "aprendizado" mencionada acima).
+
+---
+
+## [Fase 31] — Evolução da Central de Comunicação
+
+Auditoria prévia confirmou que boa parte do pedido já existia (IA
+ativa/pausada, status de entrega, tempo real, painel do cliente, RLS
+multi-loja) — o esforço foi todo nos itens genuinamente novos.
+
+### Adicionado
+- **Chat**: auto-scroll pra mensagem mais recente (só quando o usuário já
+  estava perto do fim — não interrompe quem está lendo mensagens
+  antigas), botão "Ir para mensagem mais recente" quando necessário,
+  separador de dia ("Hoje"/"Ontem"/data), animação sutil em mensagem
+  nova, seletor de emoji (sem dependência nova — Popover não existia no
+  projeto, implementado com estado local + clique-fora).
+- **Lista de conversas**: busca por nome/telefone, filtros (Todos / Não
+  lidas / IA ativa / Aguardando humano).
+- **Badge de não lidas no menu lateral** ("Comunicação" com contador
+  vermelho), em tempo real via Realtime — aparece na sidebar desktop e
+  no menu mobile.
+- **Notificações configuráveis** (`Configurações → Notificações`): som
+  (beep sintetizado via Web Audio, sem arquivo externo), notificação
+  desktop, auto-abrir conversa nova. Guardado em `localStorage` de
+  propósito — é preferência do dispositivo/navegador, não da loja (única
+  exceção válida à regra geral de não usar localStorage no projeto).
+- **Ações rápidas no chat**: Criar OS e Criar Orçamento (levam pra tela
+  certa com o cliente já pré-selecionado via `?clienteId=`), Adicionar
+  observação (cria follow-up urgente no CRM na hora).
+- **Painel do cliente enriquecido**: tags computadas (Novo cliente /
+  Cliente antigo / Compra realizada / Em assistência / VIP) e etapa
+  atual no funil do CRM, com a cor da etapa.
+
+### Ficou de fora, com honestidade
+- **Enviar catálogo / Enviar localização**: dependem de conteúdo real
+  que ainda não existe configurado (PDF do catálogo, coordenadas da
+  loja) — um botão sem o que enviar seria pior que não ter o botão.
+- **Envio de imagem/documento/áudio/vídeo**: continua dependendo de
+  Storage + endpoint de mídia (Cloud API/Bridge), decisão já registrada
+  desde a Fase 9.
+- **Preview da última mensagem na lista de conversas**: exigiria uma
+  consulta adicional por conversa (subquery ou join complexo) — avaliado
+  como não crítico frente ao resto do escopo desta rodada.
+- **Paginação/carregamento incremental na lista de conversas**: não
+  implementado — interage de forma não trivial com o Realtime (que
+  insere no topo da lista); no volume de uma loja física isso não é
+  gargalo real ainda. Fica documentado como próximo passo se o volume
+  crescer muito.
+
+---
+
+## [Fase 30] — Redesign visual: dashboard com gráficos, CRM enriquecido, painel do cliente na conversa
+
+Escopo revisado por auditoria antes de implementar — Design System (Dialog,
+StatusBadge, PageHeader, skeletons) já existia da Fase 20, não foi refeito.
+
+### Decisão de arquitetura de navegação
+A reestruturação de sidebar em submenus aninhados (CRM > Clientes/
+Conversas/Oportunidades, Vendas > Produtos/Estoque/Orçamentos...) foi
+avaliada e **não implementada como pedido** — reorganizaria itens hoje
+independentes em sub-itens de outro módulo, mudando a arquitetura de
+navegação que a equipe já usa (decisão pensada na Fase 10), não só o
+visual. Em vez disso, refinei o que já existe: transição mais suave no
+hover/ativo, indicador de página atual com opacidade animada, ícone reage
+ao estado ativo. Fica registrado como decisão pra revisitar se o dono do
+produto confirmar que quer a reestruturação completa mesmo.
+
+### Adicionado
+- **Dashboard**: cards que faltavam (Vendas hoje, Faturamento hoje,
+  Novos clientes hoje, OS em andamento, Follow-ups atrasados — esse
+  último reaproveita `categorizarFollowups`, já existente, não duplica
+  lógica). 4 gráficos novos (recharts, já era dependência): vendas por
+  período, origem dos clientes, funil do CRM, desempenho da equipe.
+- **CRM**: card do Kanban agora mostra telefone, origem, temperatura
+  (com `StatusBadge` colorido e borda lateral por cor), última interação
+  — além do que já existia (produto/título, valor, tags, indicador de
+  conversa). Animação sutil de entrada quando o card muda de coluna
+  (`animate-fade-in`, token já existente da Fase 20 — sem adicionar
+  biblioteca de animação nova).
+- **Comunicação**: painel lateral com informações do cliente na tela de
+  conversa (compras, OS em aberto, garantias ativas, cashback) — visível
+  em telas grandes, link direto pro perfil completo. Reaproveita
+  `obterSaldoCashback` já existente.
+- Paleta de cores conferida contra o pedido (azul tecnológico, verde,
+  vermelho, âmbar) — já batia, nenhuma mudança necessária.
+
+---
+
+## [Fase 29] — Correção: erro de build no interpretador de cotações
+
+### Corrigido
+- `cotacoes-ia.service.ts` usava `.map().filter((item): item is Tipo => item !== null)`
+  pra descartar itens sem preço válido — o TypeScript não conseguia
+  provar a substituição de tipo de forma confiável nesse encadeamento
+  específico, quebrando o build (`npm run build` falhava). Reescrito com
+  um loop `for...of` simples, empurrando pro array só os itens válidos —
+  mesmo resultado, sem a ambiguidade de tipo.
+
+---
+
+## [Fase 27-28] — Central de Cotações Inteligente + IA de Atendimento
+
+### Central de Cotações Inteligente (Fase 27)
+- Migração `fase27_central_cotacoes.sql`: `cotacoes`, `cotacao_itens`,
+  `mapeamento_emoji_cor` (configurável, semente com os 7 emojis da
+  missão original), `prioridade_busca_preco` (configurável — Estoque →
+  Seminovos → Lacrados → Fornecedores por padrão). `categoria` e
+  `fornecedor` são texto livre, não enum — permite qualquer categoria
+  sem migração nova, como pedido.
+- **Motor de interpretação por IA** (`cotacoes-ia.service.ts`): o prompt
+  entende sequência de bateria como múltiplos aparelhos (ex:
+  "90%⚫️90%🩶92%💛93%⚪️" → 4 itens separados), usa o mapa de emoji do
+  banco (não hard-coded), nunca inventa preço — item sem preço claro é
+  descartado, não estimado.
+- **Nova Cotação**: colar texto → "Interpretar com IA" → prévia
+  totalmente editável (cada campo, adicionar/remover linha) → só depois
+  salva. IA nunca grava direto.
+- Histórico nunca apaga — arquivar/reativar/duplicar. Comparação entre
+  duas cotações (subiu/caiu/só numa das duas, com percentual). Dashboard
+  com última importação, preço médio, quantidade por categoria, gráfico
+  de evolução (recharts).
+- Busca rápida **sem IA** — parser determinístico, cobre os exemplos da
+  missão ("15 pro", "16 preto", "14 acima de 90%", "13 256"...). Decisão
+  deliberada: latência de chamada de IA a cada busca seria ruim demais
+  pra "pesquisa extremamente rápida".
+- Configurações → Cotações: mapeamento de emoji (adicionar/remover) e
+  reordenar prioridade de busca.
+
+### IA de Atendimento (Fase 28)
+- Migração `fase28_ia_atendimento.sql`: `configuracoes_ia.atendimento_automatico_ativo`
+  (flag PRÓPRIA, separada de "IA ativa" — dá pra ligar IA só pra
+  Cotações sem deixar ela falar com cliente ainda), `whatsapp_conversas.ia_pausada`,
+  `whatsapp_mensagens.enviado_por_ia`.
+- **4 regras de escalonamento pra humano**, definidas pelo dono do
+  produto: cliente classificado como "quente" (reaproveita o campo
+  `temperatura` que já existia em `clientes`, não é conceito novo),
+  cliente pede atendimento humano explicitamente, IA sem confiança pra
+  responder, e botão manual de pausa em toda conversa. Qualquer uma
+  delas pausa a IA naquela conversa e cria um follow-up urgente (15 min)
+  no CRM.
+- **Nunca inventa preço**: busca primeiro (RAG simples — Estoque →
+  Seminovos → Lacrados → Fornecedores, na ordem configurada em
+  Configurações → Cotações), injeta o resultado real no prompt como
+  fato. Sem resultado nenhum, a IA admite que não sabe e escala.
+- Auto-pausa quando um humano manda mensagem manualmente na conversa —
+  "assumir conversa" implícito, sem precisar de ação extra.
+- Chat: selo "🤖 IA" nas mensagens que a IA mandou, botão "IA ativa /
+  IA pausada" no cabeçalho de cada conversa.
+
+### Confirmado por auditoria antes de implementar
+Central de Cotações é domínio separado do estoque (`produtos`/`aparelhos`)
+de propósito — cotação é oferta de fornecedor, nunca vira inventário da
+Neotec automaticamente. IA de Atendimento só entra em produção depois
+que Central de Cotações estiver validada em uso real, conforme decidido.
+
+---
+
+## [Fase 26] — Infraestrutura central de IA (multi-provedor)
+
+Base pra Central de Cotações Inteligente (próxima fase) e qualquer
+módulo futuro que precisar de IA — mesmo padrão de abstração já usado
+pro WhatsApp (`WhatsappProvider`), aplicado aqui pra `AIProvider`.
+
+### Adicionado
+- Migração `fase26_infraestrutura_ia.sql`: `configuracoes_ia` (provedor
+  ativo, modelo, temperatura, limite de tokens, prompt de sistema,
+  ligado/desligado), `ia_logs` (toda chamada, sucesso ou erro, tokens,
+  custo estimado, duração), `ia_cache` (preparado, opcional por chamada).
+- **`AIProvider`**: interface única. Implementações reais: `OpenAIProvider`
+  (padrão ativo) e `AnthropicProvider` (segunda implementação completa,
+  não só um stub — confirma que a abstração funciona de verdade com mais
+  de um provedor). `GeminiProvider` e `LocalProvider` são stubs
+  explícitos, com erro claro se selecionados antes de serem
+  implementados de verdade.
+- **`executarPromptIA()`**: ponto único de entrada pra IA no sistema
+  inteiro — retry (3 tentativas, backoff simples), timeout (30s por
+  provider), log automático, cache opcional por `cacheKey`. Nenhum
+  módulo deve chamar um provider diretamente.
+- **Configurações → IA**: escolher provedor/modelo, ativar/desativar,
+  temperatura, limite de tokens, prompt de sistema, botão "Testar
+  conexão" (chama a IA de verdade com um prompt trivial), painel de
+  consumo estimado (chamadas, tokens, custo aproximado, taxa de sucesso
+  dos últimos 30 dias).
+
+### Decisão de segurança
+A API Key em si **nunca** fica no banco nem trafega pro navegador — vive
+só em variável de ambiente (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+`GEMINI_API_KEY`). A tela de Configurações mostra se cada provedor tem
+chave configurada (✓/✗), não edita o valor. Todo o resto (provedor
+ativo, modelo, comportamento) fica no banco, trocável sem deploy.
+
+### Confirmado por auditoria antes de implementar
+Não existia nenhuma IA/atendente construído no Neotec OS até esta fase —
+a única menção a "IA" no código era um comentário indicando ausência
+dela. "IA do atendimento" continua fora do escopo desta entrega — é a
+Central de Cotações (próxima fase) que vai consumir essa infraestrutura
+primeiro.
+
+---
+
+## [Fase 25] — CRM em tempo real
+
+### Adicionado
+- Migração `fase25_realtime_crm.sql`: Realtime habilitado em `crm_cards`,
+  `crm_followups` e `retornos`.
+- `useCrmRealtime` / `CrmRealtimeListener`: diferente do chat (Fase 24),
+  os cards do Pipeline dependem de dado combinado (cliente, tags,
+  conversa vinculada) que o payload puro do Realtime não traz pronto —
+  em vez de duplicar a lógica de junção no navegador, o hook só escuta
+  mudança em `crm_cards`/`crm_followups` e pede pro Next.js buscar os
+  dados de novo (`router.refresh()`, com debounce de 600ms pra não
+  disparar várias vezes seguidas se chegar mensagem em rajada).
+- Resultado prático: lead criado automaticamente por mensagem nova do
+  WhatsApp aparece no Pipeline sozinho, sem precisar recarregar a tela.
+
+---
+
+## [Fase 24] — Central de Comunicação em tempo real + notificação do navegador
+
+### Adicionado
+- Migração `fase24_realtime_comunicacao.sql`: Realtime habilitado em
+  `whatsapp_conversas` e `whatsapp_mensagens` (só `integracoes_whatsapp`
+  tinha isso até agora).
+- `ChatPanel`: mensagem nova (recebida ou enviada) aparece na conversa
+  aberta sozinha, sem precisar recarregar a página. Atualização de
+  status de entrega (enviado → entregue → lido) também chega em tempo
+  real.
+- `ConversasList`: lista de conversas atualiza sozinha — conversa nova
+  aparece, contador de não lidas muda, ordenação por última mensagem se
+  ajusta — tudo sem F5.
+- **Notificação do navegador**: mensagem de entrada dispara notificação
+  nativa quando a aba não está em foco (pede permissão uma vez,
+  silenciosa se negada). Só notifica mensagem do CLIENTE — nunca a que a
+  própria equipe manda.
+
+---
+
 ## [Fase 26] — WhatsApp Web: suporte a contas migradas pra LID
 
 ### Contexto

@@ -11,6 +11,7 @@ import {
   Wallet,
   Landmark,
   HandCoins,
+  Tags,
   Settings,
 } from "lucide-react";
 import type { CargoUsuario } from "@/types";
@@ -52,6 +53,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
     label: "Operação",
     items: [
       { label: "Estoque", href: "/estoque", icon: Package, cargos: ["admin", "gerente", "vendedor", "tecnico"] },
+      { label: "Cotações", href: "/cotacoes", icon: Tags, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Vendas", href: "/vendas", icon: ShoppingCart, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Assistência", href: "/assistencia", icon: Wrench, cargos: ["admin", "gerente", "tecnico"] },
     ],

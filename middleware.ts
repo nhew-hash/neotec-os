@@ -19,6 +19,7 @@ export async function middleware(request: NextRequest) {
   "/loja",
   "/api/whatsapp/webhook",
   "/api/integracoes/whatsapp-web",
+  "/api/cron",
 ];
 
 

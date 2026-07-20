@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { sidebarNavGroups } from "./nav-items";
+import { useContagemNaoLidas } from "@/hooks/use-contagem-nao-lidas";
 import type { CargoUsuario } from "@/types";
 
 interface NavListProps {
   cargo: CargoUsuario;
+  naoLidasInicial?: number;
   onNavigate?: () => void;
 }
 
@@ -17,8 +19,9 @@ interface NavListProps {
  * por área de uso e filtrada por cargo — cada grupo só aparece se sobrar
  * pelo menos um item visível para o cargo atual.
  */
-export function NavList({ cargo, onNavigate }: NavListProps) {
+export function NavList({ cargo, naoLidasInicial = 0, onNavigate }: NavListProps) {
   const pathname = usePathname();
+  const naoLidas = useContagemNaoLidas(naoLidasInicial);
 
   return (
     <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-2">
@@ -34,6 +37,7 @@ export function NavList({ cargo, onNavigate }: NavListProps) {
             {itensVisiveis.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.icon;
+              const badge = item.href === "/comunicacao" ? naoLidas : 0;
 
               return (
                 <Link
@@ -41,17 +45,25 @@ export function NavList({ cargo, onNavigate }: NavListProps) {
                   href={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200",
                     isActive
                       ? "bg-sidebar-active text-white"
-                      : "text-sidebar-foreground hover:bg-sidebar-hover hover:text-white"
+                      : "text-sidebar-foreground hover:translate-x-0.5 hover:bg-sidebar-hover hover:text-white"
                   )}
                 >
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-primary to-cold" />
+                  <span
+                    className={cn(
+                      "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-primary to-cold transition-opacity duration-200",
+                      isActive ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <Icon className={cn("h-[18px] w-[18px] shrink-0 transition-transform duration-200", isActive && "scale-110")} />
+                  <span className="flex-1">{item.label}</span>
+                  {badge > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
+                      {badge}
+                    </span>
                   )}
-                  <Icon className="h-[18px] w-[18px] shrink-0" />
-                  <span>{item.label}</span>
                 </Link>
               );
             })}

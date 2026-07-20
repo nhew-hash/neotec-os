@@ -8,7 +8,7 @@ import { NavList } from "./nav-list";
 import type { CargoUsuario } from "@/types";
 
 /** Navegação para telas pequenas — abre a mesma NavList dentro de um Sheet. */
-export function MobileNav({ cargo }: { cargo: CargoUsuario }) {
+export function MobileNav({ cargo, naoLidasInicial }: { cargo: CargoUsuario; naoLidasInicial: number }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -26,7 +26,7 @@ export function MobileNav({ cargo }: { cargo: CargoUsuario }) {
           </div>
           <span className="font-display text-[15px] font-semibold text-white">Neotec OS</span>
         </div>
-        <NavList cargo={cargo} onNavigate={() => setOpen(false)} />
+        <NavList cargo={cargo} naoLidasInicial={naoLidasInicial} onNavigate={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   );
