@@ -2,6 +2,33 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 38] — Correção importante: mesmo bug da Fase 37, achado em mais 3 lugares
+
+### Corrigido
+- **`getActiveProvider()`** (resolver de WhatsApp — Meta ou WhatsApp Web):
+  usava client de sessão. Sem sessão (webhook), a RLS não achava a
+  configuração, caía no padrão `"meta_cloud"` mesmo com WhatsApp Web
+  selecionado — e como a Meta não estava configurada de verdade, todo
+  envio da IA falhava com "Authentication Error". Envio manual
+  funcionava normal (esse caminho tem sessão), por isso o sintoma
+  confundia: "manual funciona, só a IA não manda nada".
+- **`enviarMensagemIA()`**: mesma causa, uma camada abaixo — a gravação
+  da mensagem em `whatsapp_mensagens` também usava client de sessão,
+  falhando por RLS mesmo depois do envio (quando funcionava) já ter
+  dado certo.
+- **`buscarPrecoParaAtendimento()`** e **`buscarPrioridadeBuscaPreco()`**:
+  mesma causa — a busca de preço (Estoque/Cotações) que a IA usa sempre
+  voltava vazia sem sessão, fazendo a IA nunca achar preço nenhum.
+- Todos os 4 corrigidos pra Service Role Key. As funções de **escrita**
+  que ficam no mesmo arquivo (`salvarPrioridadeBuscaPreco`,
+  `criarMapeamentoEmojiCor`, etc.) foram deixadas com client de sessão
+  DE PROPÓSITO — são protegidas por RLS de cargo (admin/gerente), e
+  trocar pra Service Role enfraqueceria essa proteção. Varredura
+  completa do caminho do webhook confirmou que não sobrou mais nenhum
+  client de sessão em código que roda sem usuário logado.
+
+---
+
 ## [Fase 37] — Correção importante: IA de Atendimento falhava silenciosamente (sem sessão de usuário)
 
 ### Corrigido

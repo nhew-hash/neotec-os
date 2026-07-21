@@ -1,8 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { MapeamentoEmojiCor, PrioridadeBuscaPreco } from "@/types";
 
+/**
+ * Service Role Key só nesta função — é leitura (não escrita), chamada
+ * tanto da tela de Configurações (com sessão) quanto de dentro da busca
+ * de preço da IA de Atendimento (webhook, sem sessão nenhuma). As
+ * demais funções deste arquivo continuam com o client de sessão de
+ * propósito — são escrita, e a RLS restringe a admin/gerente; trocar
+ * pra Service Role ali enfraqueceria essa proteção.
+ */
 export async function buscarPrioridadeBuscaPreco(): Promise<PrioridadeBuscaPreco | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.from("prioridade_busca_preco").select("*").maybeSingle();
   if (error) throw new Error(`Não foi possível carregar a prioridade de busca: ${error.message}`);
   return data;

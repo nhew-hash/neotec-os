@@ -1,5 +1,14 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { buscarPrioridadeBuscaPreco } from "@/services/cotacoes/cotacoes-config.service";
+
+/**
+ * Service Role Key em todo o arquivo — as duas funções aqui rodam
+ * dentro do processamento de webhook (IA de Atendimento respondendo
+ * cliente), sem sessão de usuário nenhuma. Com o client de sessão, a
+ * RLS não achava nada, a busca de preço sempre voltava vazia, e a IA
+ * nunca encontrava preço nenhum (mesmo bug da Fase 37/38, encontrado
+ * aqui também em teste).
+ */
 
 export interface ResultadoBuscaPreco {
   fonte: "estoque" | "seminovos" | "lacrados" | "fornecedores";
@@ -11,7 +20,7 @@ export interface ResultadoBuscaPreco {
 }
 
 async function buscarNoEstoque(termo: string): Promise<ResultadoBuscaPreco[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   // Tabela base, não a view mascarada — só selecionamos preco_venda
   // (nunca custo), então a máscara de custo não tem relevância aqui, e
   // views não carregam metadado de FK pro PostgREST fazer o join.
@@ -35,7 +44,7 @@ async function buscarNoEstoque(termo: string): Promise<ResultadoBuscaPreco[]> {
 }
 
 async function buscarEmCotacoes(termo: string, filtroCategoria: (categoria: string) => boolean, fonte: "seminovos" | "lacrados" | "fornecedores"): Promise<ResultadoBuscaPreco[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("cotacao_itens")
     .select("modelo, armazenamento, cor, bateria_percentual, preco, cotacao:cotacoes!inner(fornecedor, categoria, data_cotacao, status)")

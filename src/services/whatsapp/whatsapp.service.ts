@@ -146,7 +146,11 @@ export async function enviarMensagemIA(input: {
   texto: string;
   jidEnvio?: string | null;
 }): Promise<WhatsappMensagem> {
-  const supabase = await createClient();
+  // Service Role — mesma razão da Fase 37/38: roda dentro do
+  // processamento de webhook, sem sessão de usuário. Com o client de
+  // sessão, a gravação da mensagem falhava por RLS mesmo depois do
+  // envio pelo WhatsApp já ter dado certo.
+  const supabase = createAdminClient();
   const provider = await getActiveProvider();
   const resultado = await provider.enviarTexto(paraFormatoInternacionalBR(input.telefone), input.texto, input.jidEnvio ?? undefined);
 
