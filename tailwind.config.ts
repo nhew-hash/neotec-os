@@ -42,14 +42,14 @@ const config: Config = {
         },
 
         // ---- Tokens de marca da Neotec OS (fora do padrão shadcn) ----
-        app: "#F6F7F9",
+        app: "#F7F8FA",
         sidebar: {
-          DEFAULT: "#11131A",
-          hover: "#191C27",
-          active: "#1F2333",
-          border: "#22252F",
+          DEFAULT: "#0B0D12",
+          hover: "#161923",
+          active: "#1C2030",
+          border: "#1C2028",
           foreground: "#C7CBD1",
-          muted: "#7C8298",
+          muted: "#767C90",
         },
         success: { DEFAULT: "#16A34A", soft: "#E9F8EF" },
         warning: { DEFAULT: "#D97706", soft: "#FDF3E7" },
@@ -67,12 +67,15 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        card: "16px",
+        card: "8px",
       },
       boxShadow: {
-        card: "0 1px 2px 0 rgba(17, 19, 26, 0.03), 0 1px 3px 0 rgba(17, 19, 26, 0.04)",
-        "card-hover": "0 2px 8px -2px rgba(17, 19, 26, 0.08), 0 1px 3px -1px rgba(17, 19, 26, 0.05)",
-        popover: "0 4px 12px -2px rgba(17, 19, 26, 0.12), 0 2px 4px -2px rgba(17, 19, 26, 0.08)",
+        // Sombra quase inexistente de propósito — a definição do card
+        // agora vem da borda de 1px, não de profundidade simulada. Isso
+        // é a mudança de "app fofo" pra "ferramenta de precisão".
+        card: "0 1px 2px 0 rgba(11, 13, 18, 0.03)",
+        "card-hover": "0 1px 2px 0 rgba(11, 13, 18, 0.06)",
+        popover: "0 8px 20px -4px rgba(11, 13, 18, 0.14), 0 2px 6px -2px rgba(11, 13, 18, 0.08)",
       },
       keyframes: {
         "accordion-down": {

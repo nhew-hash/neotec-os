@@ -644,4 +644,8 @@ export interface PrioridadeBuscaPreco {
   ordem: string[];
   created_at: string;
   updated_at: string;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 5ec20fa (oo)

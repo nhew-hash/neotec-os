@@ -121,7 +121,7 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais }: ChatPanelP
       <div className="flex items-center justify-between border-b border-border p-3">
         <div className="flex flex-col">
           <span className="text-sm font-medium text-foreground">{conversa.cliente?.nome ?? conversa.telefone}</span>
-          <span className="text-xs text-muted-foreground">{conversa.telefone}</span>
+          <span className="neotec-id-tag mt-0.5 w-fit">{conversa.telefone}</span>
         </div>
         <Button
           type="button"

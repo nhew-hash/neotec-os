@@ -1,7 +1,11 @@
 import {
   Wrench, ShoppingCart, PackagePlus, UserPlus, Search, CalendarClock,
   AlertTriangle, Truck, PackageX, ListTodo, Wallet, Cake,
+<<<<<<< HEAD
   MessageCircle, MessagesSquare, Clock, TrendingUp, UserCheck, ClipboardList,
+=======
+  MessageCircle, MessagesSquare, Clock, TrendingUp, UserCheck, ClipboardList, Sparkles,
+>>>>>>> 5ec20fa (oo)
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { obterResumoOperacional } from "@/services/dashboard/dashboard.service";
@@ -14,8 +18,13 @@ import { listarRetornosPendentes } from "@/services/crm/crm.service";
 import { categorizarFollowups } from "@/utils/followups";
 import { ActionButton } from "@/components/dashboard/action-button";
 import { IndicadorCard } from "@/components/dashboard/indicador-card";
+import { HeroStatCard } from "@/components/dashboard/hero-stat-card";
 import { WhatsappStatusCard } from "@/components/dashboard/whatsapp-status-card";
 import { GraficosDashboard } from "@/components/dashboard/graficos-dashboard";
+<<<<<<< HEAD
+=======
+import { contarConversasNaoLidas } from "@/services/whatsapp/whatsapp.service";
+>>>>>>> 5ec20fa (oo)
 import { formatCurrency } from "@/utils";
 import type { CargoUsuario } from "@/types";
 
@@ -31,6 +40,7 @@ const ACOES = [
 export default async function DashboardPage() {
   const resumo = await obterResumoOperacional();
   const integracaoWhatsapp = await buscarIntegracaoWhatsapp();
+<<<<<<< HEAD
 
   const [vendasPorPeriodo, origemClientes, funilCRM, desempenhoEquipe, followups, retornos] = await Promise.all([
     obterVendasPorPeriodo(), obterOrigemClientes(), obterFunilCRM(), obterDesempenhoEquipe(),
@@ -38,7 +48,18 @@ export default async function DashboardPage() {
   ]);
   const followupsAtrasados = categorizarFollowups(followups, retornos).filter((i) => i.categoria === "atrasado").length;
 
+=======
+>>>>>>> 5ec20fa (oo)
   const supabase = await createClient();
+
+  const [vendasPorPeriodo, origemClientes, funilCRM, desempenhoEquipe, followups, retornos, naoLidas, configIA] = await Promise.all([
+    obterVendasPorPeriodo(), obterOrigemClientes(), obterFunilCRM(), obterDesempenhoEquipe(),
+    listarFollowupsPendentes(), listarRetornosPendentes(), contarConversasNaoLidas(),
+    supabase.from("configuracoes_ia").select("ativo, atendimento_automatico_ativo").maybeSingle().then((r) => r.data),
+  ]);
+  const followupsAtrasados = categorizarFollowups(followups, retornos).filter((i) => i.categoria === "atrasado").length;
+  const totalLeads = funilCRM.reduce((acc, e) => acc + e.quantidade, 0);
+
   const { data: { user } } = await supabase.auth.getUser();
   const { data: perfil } = await supabase
     .from("usuarios").select("cargo").eq("id", user?.id ?? "").single<{ cargo: CargoUsuario }>();
@@ -50,6 +71,16 @@ export default async function DashboardPage() {
       <div>
         <h1 className="font-display text-xl font-semibold text-foreground">O que você quer fazer?</h1>
         <p className="text-sm text-muted-foreground">Central de Operações — Neotec Araguari</p>
+      </div>
+
+      {/* Cards grandes — visão executiva do dia, tratamento visual diferente do resto do dashboard de propósito */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <HeroStatCard label="Faturamento" value={formatCurrency(resumo.faturamentoHoje)} icon={Wallet} href="/vendas" destaque="success" />
+        <HeroStatCard label="Vendas hoje" value={resumo.vendasHoje} icon={TrendingUp} href="/vendas" destaque="success" />
+        <HeroStatCard label="Leads" value={totalLeads} icon={UserCheck} href="/crm" />
+        <HeroStatCard label="Assistência" value={resumo.osEmAndamento} icon={Wrench} href="/assistencia" />
+        <HeroStatCard label="WhatsApp" value={naoLidas} icon={MessageCircle} href="/comunicacao" destaque={naoLidas > 0 ? "warning" : "primary"} />
+        <HeroStatCard label="IA" value={configIA?.ativo ? "Ativa" : "Desligada"} icon={Sparkles} href="/configuracoes/ia" destaque={configIA?.ativo ? "success" : "primary"} />
       </div>
 
       {/* Grandes botões de ação — mobile first, alvo de toque generoso, filtrados por cargo */}

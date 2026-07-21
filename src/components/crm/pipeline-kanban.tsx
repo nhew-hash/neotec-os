@@ -2,14 +2,22 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+<<<<<<< HEAD
 import { MessageCircle, Phone, Clock, Flame, AlertTriangle, Sparkles, X, RotateCcw } from "lucide-react";
+=======
+import { MessageCircle, Clock, Flame, AlertTriangle, Sparkles, X, RotateCcw } from "lucide-react";
+>>>>>>> 5ec20fa (oo)
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { moverCardEtapaAction, marcarCardPerdidoAction, reabrirCardAction } from "@/services/crm-pipeline/crm-pipeline.actions";
+<<<<<<< HEAD
 import { formatCurrency, formatWhatsapp, formatDateTime } from "@/utils";
+=======
+import { formatCurrency, formatWhatsapp, formatDateTime, getInitials } from "@/utils";
+>>>>>>> 5ec20fa (oo)
 import { cn } from "@/lib/utils";
 import type { CrmEtapa, TemperaturaLead } from "@/types";
 import type { CardComRelacoes } from "@/services/crm-pipeline/crm-pipeline.service";
@@ -50,14 +58,29 @@ function CardItem({ card, etapas }: { card: CardComRelacoes; etapas: CrmEtapa[] 
       )}
     >
       <div className="flex items-start justify-between gap-2">
+<<<<<<< HEAD
         <Link href={`/clientes/${card.cliente.id}`} className="text-sm font-medium text-foreground hover:underline">
           {card.cliente.nome}
         </Link>
+=======
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+            {getInitials(card.cliente.nome)}
+          </div>
+          <Link href={`/clientes/${card.cliente.id}`} className="truncate text-sm font-medium text-foreground hover:underline">
+            {card.cliente.nome}
+          </Link>
+        </div>
+>>>>>>> 5ec20fa (oo)
 
         <div className="flex items-center gap-1">
           {card.score > 0 && (
             <span
+<<<<<<< HEAD
               className="flex items-center gap-0.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-foreground"
+=======
+              className="neotec-dado flex items-center gap-0.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-foreground"
+>>>>>>> 5ec20fa (oo)
               title={`Lead score: ${card.score} pontos`}
             >
               <Flame className="h-3 w-3 text-danger" />{card.score}
@@ -84,9 +107,13 @@ function CardItem({ card, etapas }: { card: CardComRelacoes; etapas: CrmEtapa[] 
         </div>
       </div>
 
+<<<<<<< HEAD
       <span className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
         <Phone className="h-3 w-3" />{formatWhatsapp(card.cliente.whatsapp)}
       </span>
+=======
+      <span className="neotec-id-tag w-fit">{formatWhatsapp(card.cliente.whatsapp)}</span>
+>>>>>>> 5ec20fa (oo)
 
       <p className="line-clamp-2 text-xs text-muted-foreground">{card.titulo}</p>
 
@@ -119,7 +146,11 @@ function CardItem({ card, etapas }: { card: CardComRelacoes; etapas: CrmEtapa[] 
       )}
 
       <div className="flex items-center justify-between">
+<<<<<<< HEAD
         {card.valor_estimado != null && <span className="text-xs font-medium text-foreground">{formatCurrency(card.valor_estimado)}</span>}
+=======
+        {card.valor_estimado != null && <span className="neotec-dado text-xs font-medium text-foreground">{formatCurrency(card.valor_estimado)}</span>}
+>>>>>>> 5ec20fa (oo)
         <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
           <Clock className="h-3 w-3" />{formatDateTime(card.updated_at)}
         </span>

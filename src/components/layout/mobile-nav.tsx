@@ -20,7 +20,7 @@ export function MobileNav({ cargo, naoLidasInicial }: { cargo: CargoUsuario; nao
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="flex flex-col bg-sidebar p-0">
-        <div className="flex h-16 items-center gap-2 px-5">
+        <div className="flex h-14 items-center gap-2 px-5 border-b border-sidebar-border">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary font-display text-sm font-bold text-white">
             N
           </div>

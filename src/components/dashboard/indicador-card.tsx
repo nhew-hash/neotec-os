@@ -20,15 +20,15 @@ export function IndicadorCard({ label, value, icon: Icon, href, tom = "neutro" }
   const conteudo = (
     <div
       className={cn(
-        "flex items-center gap-3.5 rounded-card border border-border/70 bg-card p-4 shadow-card transition-all",
-        href && "hover:-translate-y-0.5 hover:border-border hover:shadow-card-hover"
+        "flex items-center gap-3.5 rounded-card border border-border bg-card p-4 shadow-card transition-all",
+        href && "hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-card-hover"
       )}
     >
       <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", TOM_CLASSES[tom])}>
         <Icon className="h-[18px] w-[18px]" />
       </div>
       <div className="flex flex-col">
-        <span className="font-display text-lg font-semibold leading-tight text-foreground">{value}</span>
+        <span className="neotec-dado font-display text-lg font-semibold leading-tight text-foreground">{value}</span>
         <span className="text-xs text-muted-foreground">{label}</span>
       </div>
     </div>

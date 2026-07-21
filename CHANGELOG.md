@@ -2,6 +2,108 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+<<<<<<< HEAD
+=======
+## [Fase 36] — Redesign visual estrutural (aprovado após inventário + plano)
+
+Diferente das rodadas anteriores (aditivas — mais card, mais gráfico, em
+cima da mesma base visual), esta mexeu na BASE: tokens, tipografia,
+componentes compartilhados. Isso propaga a mudança pras 51 páginas do
+sistema de uma vez, sem precisar tocar cada tela individualmente.
+
+### Camada 1 — Global (afeta o sistema inteiro)
+- Sidebar aprofundada pra quase-preto (`#0B0D12`, era `#11131A`) —
+  reforça o "chrome de controle" contra o conteúdo claro.
+- Raio de canto reduzido: cards de 16px → 8px, controles de 10px → 6px.
+  Sombra praticamente removida (`shadow-card` quase zero) — definição
+  agora vem de borda de 1px, não de profundidade simulada.
+- Fonte de display trocada: Sora → **Space Grotesk** (mais geométrica e
+  angulosa — menos "app de consumo", mais "ferramenta técnica").
+- Duas classes utilitárias novas, usadas em todo o sistema a partir de
+  agora: `.neotec-dado` (números tabulares monoespaçados — todo valor
+  grande de dashboard/score/dinheiro) e `.neotec-id-tag` (identificador
+  estilo etiqueta — telefone, IMEI, número de OS).
+- `PageHeader` (usado em quase toda tela): título maior, divisor sutil.
+- Header mais compacto (16 → 14 de altura), alinhado com o bloco de logo
+  da sidebar.
+
+### Camada 2 — Dashboard
+- `HeroStatCard` novo: linha de 6 cards grandes no topo (Faturamento,
+  Vendas, Leads, Assistência, WhatsApp, IA) — tratamento visual
+  deliberadamente diferente dos indicadores secundários (ícone como
+  marca d'água, número em display, sem badge colorido ao redor).
+
+### Camada 3 — CRM (Kanban)
+- Avatar com iniciais no card (não existe upload de foto de cliente no
+  sistema — iniciais é a alternativa honesta, não fingi ter uma foto).
+- Telefone com `.neotec-id-tag`, score e valor com `.neotec-dado`.
+- Produto desejado, temperatura, próxima ação, última interação já
+  existiam (Fase 32) — só receberam o tratamento visual novo.
+
+### Camada 4 — WhatsApp
+- Telefone no cabeçalho do chat e na lista de conversas com
+  `.neotec-id-tag`. Bolhas de mensagem herdam o raio menor
+  automaticamente (via token compartilhado).
+
+---
+
+## [Fase 35] — Correção: eu tinha removido um campo real por engano na Fase 34
+
+### Corrigido
+- Na Fase 34, ao corrigir `clientes.temperatura` (que realmente não
+  existia), removi por engano `temperatura` de `Conversa` também,
+  presumindo (errado — pesquisa incompleta minha) que fosse tipo morto.
+  `conversas` é uma tabela real, existe desde a Fase 1, usada na aba
+  "Conversas" do Cliente 360° (`cliente-profile-tabs.tsx`) — e
+  `temperatura` sempre foi uma coluna real dela, documentada
+  explicitamente como "continua existindo" na própria Fase 10.
+- **São três conceitos parecidos de nome, genuinamente diferentes**,
+  cada um em sua tabela: `conversas.temperatura` (Fase 1, aba Conversas
+  do Cliente 360°), `WhatsappConversa` (Fase 9, sistema de mensagens de
+  verdade), `clientes.temperatura` (Fase 28, IA de Atendimento + Kanban).
+  As três agora coexistem corretamente nos tipos.
+- A migração da Fase 34 (criar `clientes.temperatura`) continua válida e
+  necessária — o erro foi só na remoção indevida do campo de `Conversa`,
+  não na adição em `Cliente`.
+
+---
+
+## [Fase 34] — Correção importante: clientes.temperatura nunca existiu no banco
+
+### Corrigido
+- Desde a Fase 28 (IA de Atendimento), várias partes do código
+  referenciavam `clientes.temperatura` (o Kanban do CRM, o orquestrador
+  da IA atualizando a temperatura do lead) — mas a coluna **nunca foi
+  criada de verdade** no banco. O `temperatura: TemperaturaLead` que
+  existia nos tipos pertencia a uma interface `Conversa` morta (nunca
+  importada em lugar nenhum do projeto — sobra de um rascunho bem
+  antigo), não ao `Cliente` real.
+- Efeito prático até agora: a IA tentava gravar a temperatura do
+  cliente a cada mensagem e isso falhava contra o banco real
+  silenciosamente (sem travar o fluxo, mas sem gravar nada também); o
+  Kanban não tinha como mostrar a cor de temperatura corretamente.
+- Migração `fase34_temperatura_cliente.sql`: cria a coluna de verdade em
+  `clientes` (`quente`/`morno`/`frio`, padrão `frio`). `Cliente` no
+  TypeScript agora tem o campo certo; `Conversa` (tipo morto) perdeu o
+  campo que nunca deveria ter tido.
+
+---
+
+## [Fase 33] — Correção: cron ajustado pro limite do plano Hobby da Vercel
+
+### Corrigido
+- `vercel.json` pedia execução de hora em hora (`0 * * * *`) — Vercel
+  Hobby só permite 1x por dia. Ajustado pra `0 17 * * *` (14h Brasília).
+  Efeito prático: o estágio D+0 ("algumas horas depois") deixa de ser
+  preciso — dispara no mesmo dia se o cliente parou de responder de
+  manhã, ou no dia seguinte se foi à tarde. D+1/D+3/D+5 não são afetados
+  de forma relevante, já que são medidos em dias inteiros. Precisão de
+  hora em hora exigiria o plano Pro da Vercel — registrado como
+  limitação de infraestrutura, não de código.
+
+---
+
+>>>>>>> 5ec20fa (oo)
 ## [Fase 32] — CRM inteligente: lead score, follow-up de recuperação automático, relatórios
 
 ### Infraestrutura nova: Vercel Cron

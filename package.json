@@ -1,6 +1,10 @@
 {
   "name": "neotec-os",
+<<<<<<< HEAD
   "version": "1.14.0",
+=======
+  "version": "1.15.0",
+>>>>>>> 5ec20fa (oo)
   "private": true,
   "scripts": {
     "dev": "next dev",

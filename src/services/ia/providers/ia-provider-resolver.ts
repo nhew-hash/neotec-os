@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { OpenAIProvider } from "./openai.provider";
 import { AnthropicProvider } from "./anthropic.provider";
 import { GeminiProvider } from "./gemini.provider";
@@ -10,9 +11,17 @@ import type { ConfiguracaoIA } from "@/types";
  * Único lugar do sistema que decide "qual provedor de IA está ativo
  * agora, com qual modelo". Todo o resto chama `getActiveAIProvider()` —
  * nunca importa `OpenAIProvider`/`AnthropicProvider` diretamente.
+ *
+ * Usa Service Role Key de propósito: essa função é chamada tanto da
+ * tela de Configurações (com sessão de usuário) quanto de dentro do
+ * processamento de webhook — IA de Atendimento, follow-up de
+ * recuperação (sem NENHUMA sessão, servidor conversando com servidor).
+ * Com o client de sessão, a política de RLS não achava nada fora do
+ * contexto de usuário logado, e a IA falhava silenciosamente antes de
+ * tentar responder (bug real, encontrado em teste — corrigido aqui).
  */
 export async function buscarConfiguracaoIA(): Promise<ConfiguracaoIA | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.from("configuracoes_ia").select("*").maybeSingle();
   if (error) throw new Error(`Não foi possível carregar a configuração de IA: ${error.message}`);
   return data;

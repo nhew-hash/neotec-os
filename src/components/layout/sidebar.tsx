@@ -8,7 +8,7 @@ import type { CargoUsuario } from "@/types";
 export function Sidebar({ cargo, naoLidasInicial }: { cargo: CargoUsuario; naoLidasInicial: number }) {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
-      <div className="flex h-16 items-center gap-2 px-5">
+      <div className="flex h-14 items-center gap-2 px-5 border-b border-sidebar-border">
         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary font-display text-sm font-bold text-white">
           N
         </div>
