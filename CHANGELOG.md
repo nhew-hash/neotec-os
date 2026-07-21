@@ -2,8 +2,30 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
-<<<<<<< HEAD
-=======
+## [Fase 37] — Correção importante: IA de Atendimento falhava silenciosamente (sem sessão de usuário)
+
+### Corrigido
+- `buscarConfiguracaoIA()` usava o client de sessão de usuário
+  (`createClient()`). Isso funciona normal quando chamado da tela
+  Configurações → IA (tem sessão), mas a IA de Atendimento e o
+  follow-up de recuperação de venda rodam dentro do processamento do
+  **webhook** — servidor conversando com servidor, sem NENHUMA sessão de
+  usuário. Sem sessão, a política de RLS não achava a configuração, a
+  função retornava `null`, `getActiveAIProvider()` lançava erro **antes**
+  de sequer tentar chamar a IA — e como esse erro específico acontece
+  antes do laço de tentativas em `executarPromptIA`, não gerava nem
+  linha em `ia_logs`. O sintoma: mensagem chegava, a conversa era pausada
+  automaticamente (proteção contra erro técnico), mas sem nenhuma
+  resposta e sem rastro nos logs — parecia que a IA nunca tinha tentado.
+- Corrigido: `buscarConfiguracaoIA()` agora usa Service Role Key —
+  funciona igual com ou sem sessão de usuário.
+- Central de Cotações não foi afetada por esse bug (a interpretação
+  roda numa Server Action disparada por usuário logado, então tinha
+  sessão) — só os caminhos disparados por webhook (Atendimento, cron de
+  follow-up) estavam quebrados.
+
+---
+
 ## [Fase 36] — Redesign visual estrutural (aprovado após inventário + plano)
 
 Diferente das rodadas anteriores (aditivas — mais card, mais gráfico, em
@@ -103,7 +125,6 @@ sistema de uma vez, sem precisar tocar cada tela individualmente.
 
 ---
 
->>>>>>> 5ec20fa (oo)
 ## [Fase 32] — CRM inteligente: lead score, follow-up de recuperação automático, relatórios
 
 ### Infraestrutura nova: Vercel Cron

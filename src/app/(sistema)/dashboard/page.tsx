@@ -1,11 +1,7 @@
 import {
   Wrench, ShoppingCart, PackagePlus, UserPlus, Search, CalendarClock,
   AlertTriangle, Truck, PackageX, ListTodo, Wallet, Cake,
-<<<<<<< HEAD
-  MessageCircle, MessagesSquare, Clock, TrendingUp, UserCheck, ClipboardList,
-=======
   MessageCircle, MessagesSquare, Clock, TrendingUp, UserCheck, ClipboardList, Sparkles,
->>>>>>> 5ec20fa (oo)
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { obterResumoOperacional } from "@/services/dashboard/dashboard.service";
@@ -21,10 +17,7 @@ import { IndicadorCard } from "@/components/dashboard/indicador-card";
 import { HeroStatCard } from "@/components/dashboard/hero-stat-card";
 import { WhatsappStatusCard } from "@/components/dashboard/whatsapp-status-card";
 import { GraficosDashboard } from "@/components/dashboard/graficos-dashboard";
-<<<<<<< HEAD
-=======
 import { contarConversasNaoLidas } from "@/services/whatsapp/whatsapp.service";
->>>>>>> 5ec20fa (oo)
 import { formatCurrency } from "@/utils";
 import type { CargoUsuario } from "@/types";
 
@@ -40,16 +33,6 @@ const ACOES = [
 export default async function DashboardPage() {
   const resumo = await obterResumoOperacional();
   const integracaoWhatsapp = await buscarIntegracaoWhatsapp();
-<<<<<<< HEAD
-
-  const [vendasPorPeriodo, origemClientes, funilCRM, desempenhoEquipe, followups, retornos] = await Promise.all([
-    obterVendasPorPeriodo(), obterOrigemClientes(), obterFunilCRM(), obterDesempenhoEquipe(),
-    listarFollowupsPendentes(), listarRetornosPendentes(),
-  ]);
-  const followupsAtrasados = categorizarFollowups(followups, retornos).filter((i) => i.categoria === "atrasado").length;
-
-=======
->>>>>>> 5ec20fa (oo)
   const supabase = await createClient();
 
   const [vendasPorPeriodo, origemClientes, funilCRM, desempenhoEquipe, followups, retornos, naoLidas, configIA] = await Promise.all([
