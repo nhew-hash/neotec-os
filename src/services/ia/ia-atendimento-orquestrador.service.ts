@@ -42,14 +42,17 @@ export async function processarRespostaIA(conversa: WhatsappConversa, mensagemCl
     return;
   }
 
-  const deveEscalar = resposta.temperatura === "quente" || resposta.querHumano || resposta.confiancaBaixa;
+  // "Quente" não pausa mais a IA de propósito (decisão do dono do
+  // produto) — ela continua tentando fechar a venda sozinha. Só pausa
+  // quando o cliente pede humano explicitamente, ou quando a IA não tem
+  // confiança pra responder (isso é o que protege contra informação
+  // falsa — nunca foi removido).
+  const precisaHumano = resposta.querHumano || resposta.confiancaBaixa;
 
-  if (deveEscalar) {
+  if (precisaHumano) {
     const motivo = resposta.querHumano
       ? "Cliente pediu atendimento humano"
-      : resposta.temperatura === "quente"
-        ? "Cliente demonstrou interesse forte de fechar negócio — lead quente"
-        : "IA não teve confiança pra responder sozinha";
+      : "IA não teve confiança pra responder sozinha";
 
     // Ainda manda a resposta de transição da IA (ex: "já te encaminho
     // com alguém") — não deixa o cliente sem nenhuma reação.
@@ -57,6 +60,13 @@ export async function processarRespostaIA(conversa: WhatsappConversa, mensagemCl
     await pausarEEscalar(conversa, motivo);
   } else {
     await enviarMensagemIA({ conversaId: conversa.id, telefone: conversa.telefone, texto: resposta.resposta, jidEnvio: conversa.jid_envio });
+
+    // Lead ficou quente — avisa o time (follow-up, sem urgência de
+    // "abandonar tudo agora"), mas a IA continua no controle da
+    // conversa até alguém apertar "Pausar" manualmente.
+    if (resposta.temperatura === "quente" && conversa.card_id) {
+      await sinalizarLeadQuente(conversa.card_id);
+    }
   }
 
   // Atualiza a temperatura do cliente (campo que já existe, não é
@@ -99,4 +109,21 @@ async function pausarEEscalar(conversa: WhatsappConversa, motivo: string): Promi
       motivo: `🤖 IA escalou: ${motivo}`,
     });
   }
+}
+
+/**
+ * Lead ficou quente — não pausa a IA (ela continua tentando fechar
+ * sozinha), só avisa o time via follow-up informativo. Diferente de
+ * `pausarEEscalar`: não mexe em `ia_pausada`, e o prazo é mais folgado
+ * (1h, não 15min) — é "fica de olho", não "abandona tudo agora".
+ */
+async function sinalizarLeadQuente(cardId: string): Promise<void> {
+  const supabase = createAdminClient();
+  const dataAgendada = new Date();
+  dataAgendada.setHours(dataAgendada.getHours() + 1);
+  await supabase.from("crm_followups").insert({
+    card_id: cardId,
+    data_agendada: dataAgendada.toISOString(),
+    motivo: "🔥 Lead ficou quente — IA continua atendendo, mas vale acompanhar",
+  });
 }

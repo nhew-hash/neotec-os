@@ -2,6 +2,35 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 39] — Mensagem do celular sincroniza, e IA insiste mais antes de pausar
+
+### Corrigido — mensagem respondida direto pelo celular não aparecia
+O Bridge ignorava de propósito toda mensagem marcada `fromMe` (pra não
+duplicar o que o próprio Neotec OS manda) — mas o WhatsApp marca do
+mesmo jeito uma mensagem mandada pelo sistema e uma respondida direto
+no celular vinculado, não dá pra distinguir só pela mensagem. Agora o
+Bridge encaminha toda mensagem `fromMe` pra uma rota nova
+(`/api/integracoes/whatsapp-web/mensagem-saida`), que decide: se já
+existe uma linha com esse `whatsapp_message_id` (mandada pelo próprio
+Neotec OS), ignora como eco; se não existir depois de checar 3 vezes
+(dá tempo do envio pelo sistema terminar, evita falso positivo por
+corrida), é mensagem nova do celular — grava e pausa a IA (mesma regra
+de "assumir conversa" que já existia pro envio manual dentro do sistema).
+
+### Alterado — IA não pausa mais sozinha quando o lead fica "quente"
+Decisão do dono do produto: a IA agora **continua tentando fechar a
+venda** quando o cliente demonstra interesse forte, em vez de escalar
+pra humano automaticamente. Só pausa nos dois casos que protegem contra
+informação errada: cliente pede atendimento humano explicitamente, ou a
+própria IA não tem confiança pra responder. "Quente" virou um aviso pro
+time (follow-up informativo, prazo de 1h, sem pausar nada) — a IA só
+para de verdade quando alguém aperta o botão manual.
+- Prompt de sistema reforçado: quando o lead está quente, a IA agora é
+  instruída a perguntar ativamente o que falta pra fechar (forma de
+  pagamento, reserva, dúvida final) — não só responder passivamente.
+
+---
+
 ## [Fase 38] — Correção importante: mesmo bug da Fase 37, achado em mais 3 lugares
 
 ### Corrigido
