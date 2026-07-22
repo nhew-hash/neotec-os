@@ -2,6 +2,33 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 45] — Mensagem da IA ficando "aguardando" (relógio) no cliente
+
+### Diagnóstico
+Envio manual pro mesmo contato chegava normal — só a IA ficava travada.
+Causa provável: a IA responde nos mesmos milissegundos em que a
+mensagem do cliente chega, diferente de um humano (que demora
+segundos/minutos digitando). Mandar mensagem "em cima" de acabar de
+receber uma pode desestabilizar a sessão de criptografia do WhatsApp
+Web — mesma categoria do erro "Bad MAC" já visto antes nessa conversa,
+só que dessa vez afetando o envio, não a conexão inteira.
+
+### Corrigido
+- Pausa de 2 segundos antes da IA responder, dando tempo da sessão
+  "assentar" entre receber e enviar. Não afeta o envio manual (que já é
+  naturalmente mais devagar, por depender de alguém digitando).
+
+### Também esclarecido nesta sessão (sem mudança de código)
+- O bug de "mensagem some" era o número do vendedor (Configurações → IA
+  → "WhatsApp do vendedor pra perguntas") sendo o MESMO número usado
+  pra mandar mensagem de teste como cliente — toda mensagem desse
+  número estava sendo interceptada como resposta pendente de pergunta,
+  não como conversa nova. Comportamento correto do sistema, só
+  confusão de teste — resolvido usando números diferentes pra cada
+  papel (vendedor vs cliente de teste).
+
+---
+
 ## [Fase 42-44] — Indicações, catálogo de fotos, IA pergunta pro vendedor
 
 ### Indicações (Fase 42)

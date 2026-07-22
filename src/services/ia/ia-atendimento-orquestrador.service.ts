@@ -44,6 +44,14 @@ export async function processarRespostaIA(conversa: WhatsappConversa, mensagemCl
     return;
   }
 
+  // Pausa curta antes de enviar — a IA responde nos mesmos milissegundos
+  // em que a mensagem chegou, diferente de um humano (que demora
+  // segundos/minutos digitando). Mandar "em cima" de acabar de receber
+  // pode desestabilizar a sessão de criptografia do WhatsApp Web (mesma
+  // categoria do erro "Bad MAC" já visto antes) — esse intervalo dá
+  // tempo da sessão assentar antes do envio.
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
   // "Quente" não pausa mais a IA de propósito (decisão do dono do
   // produto) — ela continua tentando fechar a venda sozinha. Só pausa
   // quando o cliente pede humano explicitamente, ou quando a IA não tem
