@@ -54,6 +54,7 @@ export async function salvarConfiguracaoIA(dados: {
   modelo: string;
   ativo: boolean;
   atendimento_automatico_ativo: boolean;
+  numero_vendedor_perguntas?: string;
   temperatura: number;
   limite_tokens: number;
   prompt_sistema?: string;
@@ -71,6 +72,7 @@ export async function salvarConfiguracaoIA(dados: {
       modelo: dados.modelo,
       ativo: dados.ativo,
       atendimento_automatico_ativo: dados.atendimento_automatico_ativo,
+      numero_vendedor_perguntas: dados.numero_vendedor_perguntas || null,
       temperatura: dados.temperatura,
       limite_tokens: dados.limite_tokens,
       prompt_sistema: dados.prompt_sistema || null,

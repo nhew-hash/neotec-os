@@ -3,8 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { registrarLog } from "./whatsapp.logs";
 import { processarAutomacaoNovaMensagem } from "./whatsapp.automacao";
 import { processarRespostaIA } from "@/services/ia/ia-atendimento-orquestrador.service";
+import { uploadMidiaWhatsapp, extensaoPorMimeType } from "./whatsapp-midia.service";
 import { getActiveProvider } from "./providers/provider-resolver";
-import { paraFormatoInternacionalBR } from "@/utils/telefone";
+import { paraFormatoInternacionalBR, paraFormatoLocalBR } from "@/utils/telefone";
 import type { DisparoWhatsapp, MensagemRecebidaNormalizada } from "./whatsapp.types";
 import type { WhatsappConversa, WhatsappMensagem, Cliente } from "@/types";
 
@@ -183,6 +184,146 @@ export async function enviarMensagemIA(input: {
   return data as unknown as WhatsappMensagem;
 }
 
+/**
+ * Envia mídia (áudio gravado pela equipe) — sessão de usuário, mesmo
+ * padrão de `enviarMensagem`. Gera a URL assinada temporária aqui
+ * (dentro do sistema, que tem acesso ao Storage) e manda ela pro
+ * provider — o Bridge/Meta não têm credencial pra acessar o Storage
+ * direto, só recebem um link temporário já pronto pra baixar.
+ */
+export async function enviarMensagemComMidia(input: {
+  conversaId: string;
+  telefone: string;
+  caminhoMidia: string;
+  mimeType: string;
+  usuarioId: string;
+}): Promise<WhatsappMensagem> {
+  const supabase = await createClient();
+
+  const { data: conversa } = await supabase
+    .from("whatsapp_conversas")
+    .select("jid_envio")
+    .eq("id", input.conversaId)
+    .maybeSingle();
+
+  const admin = createAdminClient();
+  const { data: assinada, error: erroAssinatura } = await admin.storage
+    .from("whatsapp-media")
+    .createSignedUrl(input.caminhoMidia, 300);
+
+  if (erroAssinatura || !assinada) {
+    throw new Error(`Não foi possível gerar link temporário da mídia: ${erroAssinatura?.message}`);
+  }
+
+  const provider = await getActiveProvider();
+  const resultado = await provider.enviarMidia(
+    paraFormatoInternacionalBR(input.telefone),
+    "audio",
+    assinada.signedUrl,
+    input.mimeType,
+    conversa?.jid_envio ?? undefined
+  );
+
+  await registrarLog({
+    direcao: "saida",
+    evento: "enviar_midia",
+    payload: { telefone: input.telefone, provider: provider.nome },
+    sucesso: resultado.enviado,
+    erro: resultado.motivo,
+  });
+
+  const { data, error } = await supabase
+    .from("whatsapp_mensagens")
+    .insert({
+      conversa_id: input.conversaId,
+      direcao: "saida",
+      tipo: "audio",
+      conteudo: null,
+      url_midia: input.caminhoMidia,
+      status_entrega: resultado.enviado ? "enviado" : "erro",
+      whatsapp_message_id: resultado.whatsappMessageId ?? null,
+      enviado_por: input.usuarioId,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(`Não foi possível registrar a mensagem: ${error.message}`);
+
+  await supabase
+    .from("whatsapp_conversas")
+    .update({ ultima_mensagem_em: new Date().toISOString(), ia_pausada: true })
+    .eq("id", input.conversaId);
+
+  return data as unknown as WhatsappMensagem;
+}
+
+/**
+ * Envia uma foto do catálogo (Fase 43) — bucket público, URL já é
+ * estável e final, diferente do áudio gravado (que usa link assinado
+ * temporário porque o bucket de mídia de conversa é privado).
+ *
+ * Service Role Key de propósito: além da equipe (com sessão), a IA de
+ * Atendimento também chama isso de dentro do webhook (sem sessão
+ * nenhuma) — mesma lição das Fases 37-39.
+ */
+export async function enviarFotoCatalogo(input: {
+  conversaId: string;
+  telefone: string;
+  urlFoto: string;
+  legenda?: string;
+  usuarioId?: string;
+}): Promise<WhatsappMensagem> {
+  const supabase = createAdminClient();
+
+  const { data: conversa } = await supabase
+    .from("whatsapp_conversas")
+    .select("jid_envio")
+    .eq("id", input.conversaId)
+    .maybeSingle();
+
+  const provider = await getActiveProvider();
+  const resultado = await provider.enviarMidia(
+    paraFormatoInternacionalBR(input.telefone),
+    "imagem",
+    input.urlFoto,
+    "image/jpeg",
+    conversa?.jid_envio ?? undefined,
+    input.legenda
+  );
+
+  await registrarLog({
+    direcao: "saida",
+    evento: "enviar_midia",
+    payload: { telefone: input.telefone, provider: provider.nome, tipo: "imagem" },
+    sucesso: resultado.enviado,
+    erro: resultado.motivo,
+  });
+
+  const { data, error } = await supabase
+    .from("whatsapp_mensagens")
+    .insert({
+      conversa_id: input.conversaId,
+      direcao: "saida",
+      tipo: "imagem",
+      conteudo: input.legenda ?? null,
+      url_midia: input.urlFoto, // já é URL pública final, não caminho — ver MidiaMensagem no ChatPanel
+      status_entrega: resultado.enviado ? "enviado" : "erro",
+      whatsapp_message_id: resultado.whatsappMessageId ?? null,
+      enviado_por: input.usuarioId ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(`Não foi possível registrar a mensagem: ${error.message}`);
+
+  await supabase
+    .from("whatsapp_conversas")
+    .update({ ultima_mensagem_em: new Date().toISOString(), ia_pausada: true })
+    .eq("id", input.conversaId);
+
+  return data as unknown as WhatsappMensagem;
+}
+
 export async function enviarMensagemTemplate(input: {
   conversaId: string;
   telefone: string;
@@ -244,6 +385,19 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
     sucesso: true,
   });
 
+  // Antes de qualquer outra coisa: essa mensagem é o vendedor
+  // respondendo uma pergunta que a IA fez? Se for, não é um lead novo,
+  // não roda automação nenhuma — vai direto pro fluxo de resposta.
+  const { data: configIA } = await supabase.from("configuracoes_ia").select("numero_vendedor_perguntas").maybeSingle();
+  if (configIA?.numero_vendedor_perguntas) {
+    const telefoneLocalRecebido = paraFormatoLocalBR(msg.telefone);
+    if (telefoneLocalRecebido === configIA.numero_vendedor_perguntas.replace(/\D/g, "")) {
+      const { processarRespostaVendedor } = await import("@/services/ia/ia-pergunta-equipe.service");
+      await processarRespostaVendedor(msg.conteudo);
+      return;
+    }
+  }
+
   let { data: conversa } = await supabase
     .from("whatsapp_conversas")
     .select("*")
@@ -265,6 +419,18 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
     await supabase.from("whatsapp_conversas").update({ jid_envio: msg.jidOriginal }).eq("id", conversa.id);
   }
 
+  let urlMidia: string | null = null;
+  if (msg.midiaBase64 && msg.midiaMimeType) {
+    try {
+      const bytes = Buffer.from(msg.midiaBase64, "base64");
+      urlMidia = await uploadMidiaWhatsapp(conversa.id, bytes, extensaoPorMimeType(msg.midiaMimeType));
+    } catch (err) {
+      // Não trava o recebimento da mensagem por causa disso — só fica
+      // sem a mídia anexada, o texto/legenda continua chegando normal.
+      console.error("Falha ao salvar mídia recebida:", err);
+    }
+  }
+
   await supabase.from("whatsapp_mensagens").insert({
     conversa_id: conversa.id,
     direcao: "entrada",
@@ -272,6 +438,7 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
     conteudo: msg.conteudo,
     whatsapp_message_id: msg.idExterno,
     status_entrega: "entregue",
+    url_midia: urlMidia,
   });
 
   await supabase

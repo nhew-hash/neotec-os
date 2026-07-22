@@ -52,6 +52,35 @@ export class WhatsAppWebProvider implements WhatsappProvider {
     }
   }
 
+  async enviarMidia(
+    telefone: string,
+    tipo: "audio" | "imagem",
+    urlMidia: string,
+    mimeType: string,
+    jidDireto?: string,
+    legenda?: string
+  ): Promise<ResultadoEnvioWhatsapp> {
+    try {
+      const response = await fetch(`${this.bridgeUrl}/enviar-midia`, {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify({ telefone, jid: jidDireto, url: urlMidia, tipo, mimeType, legenda }),
+        signal: AbortSignal.timeout(30_000), // mídia demora mais que texto
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return { enviado: false, motivo: data?.erro ?? "Bridge recusou o envio de mídia" };
+      }
+      return { enviado: true, whatsappMessageId: data?.idMensagem };
+    } catch (err) {
+      return {
+        enviado: false,
+        motivo: err instanceof Error ? `Bridge inacessível: ${err.message}` : "Bridge inacessível",
+      };
+    }
+  }
+
   async enviarTemplate(
     telefone: string,
     _nomeTemplate: string,

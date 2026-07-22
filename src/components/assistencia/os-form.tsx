@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { PatternLockPad } from "@/components/assistencia/pattern-lock-pad";
-import type { Cliente, ChecklistOS } from "@/types";
+import type { Cliente, ChecklistOS, Indicador } from "@/types";
 import type { AparelhoComProduto } from "@/services/estoque/estoque.service";
 
 const ITENS_CHECKLIST: { key: keyof ChecklistOS; label: string }[] = [
@@ -30,7 +30,7 @@ const ITENS_CHECKLIST: { key: keyof ChecklistOS; label: string }[] = [
   { key: "senha_informada", label: "Senha informada" },
 ];
 
-export function OrdemServicoForm({ clientes, aparelhos, clienteIdInicial }: { clientes: Cliente[]; aparelhos: AparelhoComProduto[]; clienteIdInicial?: string }) {
+export function OrdemServicoForm({ clientes, aparelhos, clienteIdInicial, indicadores = [] }: { clientes: Cliente[]; aparelhos: AparelhoComProduto[]; clienteIdInicial?: string; indicadores?: Indicador[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export function OrdemServicoForm({ clientes, aparelhos, clienteIdInicial }: { cl
     resolver: zodResolver(ordemServicoSchema),
     defaultValues: {
       cliente_id: clienteIdInicial ?? "", cliente_novo_nome: "", cliente_novo_whatsapp: "",
-      aparelho_id: "", aparelho_descricao: "", defeito: "", diagnostico_inicial: "", prazo: "", urgente: false,
+      aparelho_id: "", aparelho_descricao: "", defeito: "", diagnostico_inicial: "", prazo: "", urgente: false, indicador_id: "",
     },
   });
 
@@ -182,6 +182,20 @@ export function OrdemServicoForm({ clientes, aparelhos, clienteIdInicial }: { cl
               <FormLabel className="!mt-0">Urgente</FormLabel>
             </FormItem>
           )} />
+          {indicadores.length > 0 && (
+            <FormField control={form.control} name="indicador_id" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Indicado por (opcional)</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Ninguém indicou" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    {indicadores.map((ind) => <SelectItem key={ind.id} value={ind.id}>{ind.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+          )}
         </div>
 
         {/* Checklist de recebimento — na mesma tela, não numa etapa depois */}

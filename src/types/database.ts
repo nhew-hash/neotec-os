@@ -285,6 +285,7 @@ export interface OrdemServico {
   garantia_dias: number | null;
   prazo: string | null;
   urgente: boolean;
+  indicador_id: string | null;
   data_entrada: string;
   data_saida: string | null;
   updated_at: string;
@@ -573,6 +574,7 @@ export interface ConfiguracaoIA {
   modelo: string;
   ativo: boolean;
   atendimento_automatico_ativo: boolean;
+  numero_vendedor_perguntas: string | null;
   temperatura: number;
   limite_tokens: number;
   prompt_sistema: string | null;
@@ -644,4 +646,55 @@ export interface PrioridadeBuscaPreco {
   ordem: string[];
   created_at: string;
   updated_at: string;
+}
+
+// ---- Fase 42: Indicações ----
+
+export interface Indicador {
+  id: string;
+  loja_id: string;
+  nome: string;
+  telefone: string | null;
+  observacoes: string | null;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TipoMovimentoIndicador = "credito" | "retirada";
+
+export interface IndicadorMovimento {
+  id: string;
+  indicador_id: string;
+  tipo: TipoMovimentoIndicador;
+  valor: number;
+  motivo: string | null;
+  usuario_id: string | null;
+  data: string;
+}
+
+// ---- Fase 43: Catálogo de fotos ----
+
+export interface CatalogoFoto {
+  id: string;
+  loja_id: string;
+  descricao: string;
+  caminho_storage: string;
+  usuario_id: string | null;
+  created_at: string;
+}
+
+// ---- Fase 44: IA pergunta pro vendedor ----
+
+export type StatusPerguntaEquipe = "aguardando" | "respondida" | "expirada";
+
+export interface IAPerguntaEquipe {
+  id: string;
+  conversa_cliente_id: string;
+  card_id: string | null;
+  pergunta: string;
+  resposta: string | null;
+  status: StatusPerguntaEquipe;
+  created_at: string;
+  respondida_em: string | null;
 }

@@ -152,6 +152,20 @@ export function IAConfigPanel({ configuracao, chaves, estatisticas }: IAConfigPa
               />
             </div>
 
+            <div className="flex flex-col gap-1.5">
+              <Label>WhatsApp do vendedor pra perguntas (opcional)</Label>
+              <Input
+                name="numero_vendedor_perguntas"
+                placeholder="DDD + número, sem 55 (ex: 34999999999)"
+                defaultValue={configuracao.numero_vendedor_perguntas ?? ""}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Quando a IA não souber responder algo, manda a pergunta pra esse número em vez de só pausar —
+                sua resposta é usada pra continuar o atendimento do cliente automaticamente. Deixe vazio pra
+                voltar ao comportamento antigo (só pausa e cria follow-up).
+              </p>
+            </div>
+
             {erro && <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{erro}</p>}
             {sucesso && <p className="rounded-md bg-success-soft px-3 py-2 text-sm text-success">{sucesso}</p>}
 

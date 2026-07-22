@@ -2,6 +2,111 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 42-44] — Indicações, catálogo de fotos, IA pergunta pro vendedor
+
+### Indicações (Fase 42)
+- Módulo novo: pessoas de fora que indicam cliente recorrentemente,
+  com saldo (crédito/retirada) — mesmo padrão de ledger já usado em
+  Investidores. Campo `indicador_id` na Ordem de Serviço, com Select
+  "Indicado por" no formulário.
+
+### Catálogo de fotos + envio de imagem (Fase 43)
+- Bucket público `catalogo-fotos` (diferente do bucket privado de
+  mídia de conversa — são fotos genéricas de produto, sem dado de
+  cliente, precisam de URL estável pro Bridge buscar a qualquer hora).
+- Tela de gestão (upload + descrição + remoção). Seletor de foto no
+  chat (busca por descrição, ex: "13 preto seminovo", clica e envia).
+- `WhatsappProvider.enviarMidia` estendido pra aceitar `"imagem"` além
+  de `"audio"`, com legenda opcional — Bridge aprendeu a mandar foto
+  também, não só áudio.
+- IA de Atendimento ganhou o campo `foto_solicitada` na resposta
+  estruturada — quando detecta que uma foto ajudaria a conversa, busca
+  no catálogo e manda sozinha (silenciosamente não faz nada se não
+  achar, não avisa o cliente que "não achou foto").
+
+### IA pergunta pro vendedor (Fase 44)
+- Em vez de só pausar quando não sabe responder, a IA manda a pergunta
+  direto pro WhatsApp pessoal do vendedor/dono (configurável em
+  Configurações → IA) — a resposta dele é usada pra continuar
+  atendendo o cliente original automaticamente, sem precisar abrir o
+  sistema. Cliente recebe um aviso curto nesse meio tempo ("só um
+  momento, vou confirmar").
+- Tabela `ia_perguntas_equipe` guarda a fila (pergunta → resposta).
+  Resposta do vendedor é reformulada pela IA numa frase natural antes
+  de ir pro cliente (nunca menciona "perguntei pra equipe").
+- Mensagem do número do vendedor é interceptada **antes** de qualquer
+  automação normal (não vira lead novo por engano).
+- Campo opcional — deixando vazio, comportamento continua o mesmo de
+  antes (só pausa e cria follow-up).
+
+### Corrigido durante a auditoria desta rodada
+- `enviarFotoCatalogoAction` estava sendo importado do arquivo errado
+  no seletor de foto do chat (import apontava pra
+  `catalogo-fotos.actions`, mas a função vive em `whatsapp.actions` —
+  faz mais sentido lá, é envio de mensagem). Corrigido antes de gerar
+  o zip, não chegou a subir quebrado.
+- `numero_vendedor_perguntas` existia no banco e no service, mas não
+  estava exposto na tela de Configurações → IA — sem isso não tinha
+  como configurar sem mexer direto no banco. Adicionado o campo no
+  schema, action e painel.
+
+---
+
+## [Fase 41] — Foto recebida e áudio (gravar e enviar) no WhatsApp Web
+
+### Adicionado
+- Migração `fase41_storage_whatsapp_midia.sql`: bucket privado
+  `whatsapp-media` no Supabase Storage. Privado de propósito — acesso
+  só por link temporário assinado (5 minutos), nunca URL fixa pública.
+- **Recebendo mídia**: o Bridge agora baixa a foto/áudio de verdade
+  (`downloadMediaMessage` do Baileys), manda em base64 pro Neotec OS,
+  que sobe pro Storage e guarda só o **caminho** em
+  `whatsapp_mensagens.url_midia` (nunca a URL final, que expira).
+- **Rota `/api/whatsapp-midia`**: gera o link temporário sob demanda —
+  o `<img>`/`<audio>` do chat aponta pra cá, não direto pro Storage.
+- **Gravando e enviando áudio**: botão de microfone no chat usa
+  `MediaRecorder` do navegador, grava, sobe pro Storage, e manda via
+  nova rota do Bridge (`/enviar-midia`) — chega no WhatsApp como
+  mensagem de voz (ícone de áudio, não anexo de arquivo).
+- `WhatsappProvider` ganhou `enviarMidia()` na interface — implementado
+  de verdade no WhatsApp Web, `MetaCloudProvider` retorna erro claro
+  (Meta tem fluxo de upload próprio, não implementado ainda).
+
+### Ficou de fora, com honestidade
+- **Enviar imagem/documento**: os botões continuam desabilitados —
+  gravar áudio já cobre o pedido mais concreto (voz), imagem/documento
+  de saída fica pra uma próxima rodada se precisar.
+- **Mídia recebida pela Meta Cloud API**: só WhatsApp Web baixa mídia de
+  verdade por enquanto — a Meta usa um fluxo de download em duas etapas
+  diferente (webhook manda só um ID, precisa de chamada extra pra
+  baixar), não implementado nesta entrega.
+
+---
+
+## [Fase 40] — Painel do cliente com toggle, funil avança sozinho
+
+### Adicionado
+- **Painel do cliente na conversa**: agora começa **fechado** por padrão,
+  com botão pra abrir/fechar — não ocupa espaço da conversa até alguém
+  pedir pra ver.
+- **Funil avança automaticamente**: achado real — todo o "CRM
+  inteligente" (score, temperatura, objeção) atualizava o card, mas
+  nada nunca movia ele de etapa. Card ficava preso na etapa inicial pra
+  sempre. Agora, quando a IA detecta engajamento real (qualquer sinal de
+  compra, ou temperatura sair de "frio"), o card avança pra próxima
+  etapa — só uma vez, saindo da etapa mais inicial do funil. Dali pra
+  frente, o resto do funil continua sendo movido manualmente pela
+  equipe (decisão deliberada — não quis a automação decidindo o funil
+  inteiro sozinha, só destravar o primeiro passo).
+
+### Limitação conhecida, documentada
+O avanço automático só roda quando a **IA de Atendimento está
+respondendo de verdade** (dentro do fluxo dela) — se "Atendimento
+automático" estiver desligado em Configurações → IA, os cards
+continuam só avançando manualmente, como sempre foi.
+
+---
+
 ## [Fase 39] — Mensagem do celular sincroniza, e IA insiste mais antes de pausar
 
 ### Corrigido — mensagem respondida direto pelo celular não aparecia

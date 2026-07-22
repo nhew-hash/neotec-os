@@ -21,6 +21,7 @@ export async function criarOSAction(formData: FormData): Promise<ActionResult<{ 
     garantia_dias: String(formData.get("garantia_dias") ?? ""),
     prazo: String(formData.get("prazo") ?? ""),
     urgente: formData.get("urgente") === "on",
+    indicador_id: String(formData.get("indicador_id") ?? ""),
     liga: formData.get("liga") === "on",
     molhado: formData.get("molhado") === "on",
     arranhado: formData.get("arranhado") === "on",
@@ -61,6 +62,7 @@ export async function criarOSAction(formData: FormData): Promise<ActionResult<{ 
       garantia_dias: parsed.data.garantia_dias,
       prazo: parsed.data.prazo,
       urgente: parsed.data.urgente,
+      indicador_id: parsed.data.indicador_id || undefined,
     });
 
     // Checklist de recebimento — mesma tela, mesma submissão.

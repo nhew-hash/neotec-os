@@ -12,6 +12,8 @@ import {
   Landmark,
   HandCoins,
   Tags,
+  UserCheck,
+  Camera,
   Settings,
 } from "lucide-react";
 import type { CargoUsuario } from "@/types";
@@ -54,6 +56,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
     items: [
       { label: "Estoque", href: "/estoque", icon: Package, cargos: ["admin", "gerente", "vendedor", "tecnico"] },
       { label: "Cotações", href: "/cotacoes", icon: Tags, cargos: ["admin", "gerente", "vendedor"] },
+      { label: "Catálogo de fotos", href: "/catalogo-fotos", icon: Camera, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Vendas", href: "/vendas", icon: ShoppingCart, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Assistência", href: "/assistencia", icon: Wrench, cargos: ["admin", "gerente", "tecnico"] },
     ],
@@ -64,6 +67,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
       { label: "Financeiro", href: "/financeiro", icon: Wallet, cargos: ["admin", "gerente"] },
       { label: "Investidores", href: "/investidores", icon: Landmark, cargos: ["admin", "gerente"] },
       { label: "Consignação", href: "/consignacao", icon: HandCoins, cargos: ["admin", "gerente"] },
+      { label: "Indicações", href: "/indicacoes", icon: UserCheck, cargos: ["admin", "gerente"] },
       { label: "Analytics", href: "/analytics", icon: BarChart3, cargos: ["admin", "gerente"] },
     ],
   },

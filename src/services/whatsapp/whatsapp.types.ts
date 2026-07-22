@@ -194,4 +194,7 @@ export interface MensagemRecebidaNormalizada {
    * telefone real não está disponível (contas migradas pra LID).
    */
   jidOriginal?: string;
+  /** Bytes da mídia em base64 — só presente quando tipo é imagem/audio/documento e o provedor conseguiu baixar o arquivo. */
+  midiaBase64?: string;
+  midiaMimeType?: string;
 }

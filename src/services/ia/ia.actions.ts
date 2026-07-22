@@ -15,6 +15,7 @@ export async function salvarConfiguracaoIAAction(formData: FormData): Promise<Ac
     temperatura: String(formData.get("temperatura") ?? "0.2"),
     limite_tokens: String(formData.get("limite_tokens") ?? "4000"),
     prompt_sistema: String(formData.get("prompt_sistema") ?? ""),
+    numero_vendedor_perguntas: String(formData.get("numero_vendedor_perguntas") ?? ""),
   };
 
   const parsed = configuracaoIASchema.safeParse(raw);

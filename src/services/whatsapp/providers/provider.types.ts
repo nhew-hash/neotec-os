@@ -23,6 +23,22 @@ export interface WhatsappProvider {
   enviarTexto(telefone: string, texto: string, jidDireto?: string): Promise<ResultadoEnvioWhatsapp>;
 
   /**
+   * Envia mídia — áudio (gravado na hora) ou imagem (foto do catálogo,
+   * URL pública estável). `urlMidia` já é uma URL utilizável pelo
+   * provider (assinada temporária pro áudio, pública fixa pra foto do
+   * catálogo) — o provider não tem credencial pra acessar o Storage por
+   * conta própria.
+   */
+  enviarMidia(
+    telefone: string,
+    tipo: "audio" | "imagem",
+    urlMidia: string,
+    mimeType: string,
+    jidDireto?: string,
+    legenda?: string
+  ): Promise<ResultadoEnvioWhatsapp>;
+
+  /**
    * Envia um template pré-aprovado. Só a Meta Cloud API tem esse
    * conceito de verdade (janela de 24h) — o WhatsApp Web ignora e envia
    * como texto simples, porque não tem essa restrição.

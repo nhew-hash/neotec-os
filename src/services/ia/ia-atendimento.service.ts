@@ -11,6 +11,8 @@ export interface RespostaIAAtendimento {
   objecao: string | null;
   resumo: string | null;
   proximaAcao: string | null;
+  /** Termo de busca no catálogo de fotos (ex: "13 preto seminovo"), quando a IA decide que mandar uma foto ajudaria — null se não for o caso. */
+  fotoSolicitada: string | null;
 }
 
 const PALAVRAS_IGNORADAS = [
@@ -51,6 +53,8 @@ CLASSIFICAÇÃO DE TEMPERATURA (campo temperatura):
 
 QUANDO O LEAD ESTIVER QUENTE, TENTE FECHAR A VENDA VOCÊ MESMA — não fica só respondendo passivamente. Pergunta ativamente o que falta pra ele decidir (forma de pagamento, se quer reservar, se tem alguma dúvida final), sem ser insistente ou forçar. Só pare de tentar fechar e chame um humano se o cliente pedir explicitamente, ou se aparecer algo que você não sabe responder.
 
+FOTO: se mandar uma foto do aparelho ajudaria a conversa (cliente perguntou "tem foto?", está decidindo entre cores, ou claramente se beneficiaria de ver o aparelho), preencha o campo foto_solicitada com um termo de busca curto pro catálogo (ex: "13 preto seminovo", "15 pro max azul") — o sistema busca e manda automaticamente se achar. Se não tiver certeza ou não fizer sentido nesse momento, deixe null. Nunca descreva uma foto que você não tem certeza que existe.
+
 SINAIS DE COMPRA (campo sinais — pode ter mais de um, ou lista vazia):
 - "perguntou_preco": perguntou quanto custa algum aparelho
 - "perguntou_disponibilidade": perguntou se tem em estoque/disponível
@@ -60,7 +64,7 @@ SINAIS DE COMPRA (campo sinais — pode ter mais de um, ou lista vazia):
 - "comparou_modelos": perguntou a diferença entre dois ou mais modelos, ou pediu comparação
 
 Responda APENAS com um JSON no formato:
-{"resposta": "...", "temperatura": "frio"|"morno"|"quente", "quer_humano": true|false, "confianca_baixa": true|false, "sinais": ["perguntou_preco", ...], "objecao": "preco"|null, "resumo": "resumo curto (1 frase) do que esse cliente quer e em que pé está a conversa", "proxima_acao": "o que fazer a seguir com esse lead, 1 frase curta, ou null se não houver ação clara"}`;
+{"resposta": "...", "temperatura": "frio"|"morno"|"quente", "quer_humano": true|false, "confianca_baixa": true|false, "sinais": ["perguntou_preco", ...], "objecao": "preco"|null, "resumo": "resumo curto (1 frase) do que esse cliente quer e em que pé está a conversa", "proxima_acao": "o que fazer a seguir com esse lead, 1 frase curta, ou null se não houver ação clara", "foto_solicitada": "termo de busca"|null}`;
 }
 
 /**
@@ -110,13 +114,14 @@ ${contextoPreco}`;
       objecao: typeof parsed.objecao === "string" ? parsed.objecao : null,
       resumo: typeof parsed.resumo === "string" ? parsed.resumo : null,
       proximaAcao: typeof parsed.proxima_acao === "string" ? parsed.proxima_acao : null,
+      fotoSolicitada: typeof parsed.foto_solicitada === "string" ? parsed.foto_solicitada : null,
     };
   } catch {
     // Formato inesperado da IA — trata como "não sei responder", nunca
     // manda algo não estruturado direto pro cliente.
     return {
       resposta: "Já te encaminho com alguém da equipe!", temperatura: "frio", querHumano: false, confiancaBaixa: true,
-      sinaisDetectados: [], objecao: null, resumo: null, proximaAcao: null,
+      sinaisDetectados: [], objecao: null, resumo: null, proximaAcao: null, fotoSolicitada: null,
     };
   }
 }

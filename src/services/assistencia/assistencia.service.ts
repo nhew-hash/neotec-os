@@ -60,6 +60,7 @@ export async function criarOrdemServico(input: {
   garantia_dias?: number;
   prazo?: string;
   urgente?: boolean;
+  indicador_id?: string;
 }): Promise<OrdemServico> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -75,6 +76,7 @@ export async function criarOrdemServico(input: {
       garantia_dias: input.garantia_dias ?? null,
       prazo: input.prazo || null,
       urgente: input.urgente ?? false,
+      indicador_id: input.indicador_id || null,
     })
     .select("*, cliente:clientes(id, nome, whatsapp)")
     .single();

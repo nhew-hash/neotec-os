@@ -1,19 +1,44 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { UserPlus, ShoppingBag, Wrench, ShieldCheck, Gift, ExternalLink } from "lucide-react";
+import { UserPlus, ShoppingBag, Wrench, ShieldCheck, Gift, ExternalLink, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatWhatsapp, getInitials } from "@/utils";
 import type { ResumoClienteAtendimento } from "@/services/comunicacao/comunicacao-cliente-resumo.service";
 
+/**
+ * Painel do cliente fica FECHADO por padrão de propósito (pedido
+ * explícito) — só abre quando alguém clica no botão. Evita "roubar"
+ * espaço da conversa toda vez que troca de cliente.
+ */
 export function ClienteInfoPanel({ resumo }: { resumo: ResumoClienteAtendimento }) {
+  const [aberto, setAberto] = useState(false);
+
+  if (!aberto) {
+    return (
+      <div className="hidden w-10 shrink-0 flex-col items-center border-l border-border py-3 lg:flex">
+        <Button variant="ghost" size="icon" onClick={() => setAberto(true)} title="Ver informações do cliente">
+          <PanelRightOpen className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      </div>
+    );
+  }
+
   if (!resumo.cliente) {
     return (
-      <div className="hidden w-72 shrink-0 border-l border-border p-4 lg:flex lg:flex-col lg:items-center lg:justify-center lg:gap-2">
-        <UserPlus className="h-6 w-6 text-muted-foreground" />
-        <p className="text-center text-xs text-muted-foreground">
-          Essa conversa ainda não está vinculada a um cadastro de cliente.
-        </p>
+      <div className="hidden w-72 shrink-0 flex-col border-l border-border p-4 lg:flex">
+        <Button variant="ghost" size="icon" className="self-end" onClick={() => setAberto(false)} title="Fechar">
+          <PanelRightClose className="h-4 w-4 text-muted-foreground" />
+        </Button>
+        <div className="flex flex-1 flex-col items-center justify-center gap-2">
+          <UserPlus className="h-6 w-6 text-muted-foreground" />
+          <p className="text-center text-xs text-muted-foreground">
+            Essa conversa ainda não está vinculada a um cadastro de cliente.
+          </p>
+        </div>
       </div>
     );
   }
@@ -22,6 +47,10 @@ export function ClienteInfoPanel({ resumo }: { resumo: ResumoClienteAtendimento 
 
   return (
     <div className="hidden w-72 shrink-0 flex-col gap-4 overflow-y-auto border-l border-border p-4 lg:flex">
+      <Button variant="ghost" size="icon" className="self-end" onClick={() => setAberto(false)} title="Fechar">
+        <PanelRightClose className="h-4 w-4 text-muted-foreground" />
+      </Button>
+
       <div className="flex flex-col items-center gap-2 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
           {getInitials(cliente.nome)}
