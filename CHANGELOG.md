@@ -2,6 +2,115 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 56-57] — Correção urgente da OS + PDV completo (indicação, cashback, garantia, PDF)
+
+### Corrigido — urgente
+- OS não abria: "Could not find the 'diagnostico_inicial' column ...
+  in the schema cache". Confirmado que não era cache desatualizado
+  (recarregar não resolveu) — a coluna genuinamente não existia no
+  banco, apesar de estar numa migração antiga (Fase 18). Migração
+  `fase56` reaplica a Fase 18 inteira, de forma seguperativos (`if not
+  exists` em tudo).
+
+### PDV — funcionalidades que faltavam
+- **Garantia**: já existia conectada no backend (cria registro de
+  garantia de verdade), só não tinha campo na tela — corrigido, aparece
+  quando o carrinho tem algum aparelho.
+- **Indicação**: select de "quem indicou" no carrinho, salvo em
+  `vendas.indicador_id`.
+- **Cashback de verdade**: antes existia só como rótulo de forma de
+  pagamento, sem efeito nenhum no saldo. Agora: mostra o saldo do
+  cliente selecionado, permite usar (abate do total, valida contra o
+  saldo real antes de finalizar) e conceder (crédito nessa compra) —
+  os dois geram movimento de verdade na tabela `cashback`.
+- **CPF ao vender aparelho**: cadastro rápido de cliente ganhou campo
+  de CPF; aviso aparece quando o carrinho tem aparelho e o cliente
+  selecionado não tem CPF cadastrado (relevante pra nota/garantia).
+
+### PDF de nota de venda
+- Botão "Baixar PDF" na tela de venda — arquivo de verdade, gerado com
+  `@react-pdf/renderer` (roda em Node puro, sem precisar de
+  navegador/Puppeteer — mais leve e confiável em ambiente serverless).
+  Diferente da impressão em HTML que já existia, esse é um download
+  direto, estilo nota fiscal.
+
+### Cuidado tomado — risco de view desatualizada
+`vw_vendas_seguro` (mascara `lucro` pra quem não é admin) foi criada
+fora das migrações que tenho acesso — não sei se ela expõe os campos
+novos (garantia, cashback, indicação). Pra não arriscar quebrar a
+mascaração de lucro recriando a view às cegas, o PDF busca esses 3
+campos numa consulta separada, direto da tabela `vendas` (não são dado
+sensível) — funciona independente do estado da view.
+
+---
+
+## [Fase 55] — PDV reconstruído (mesma lógica, experiência bem melhor)
+
+O backend já suportava cliente, desconto e forma de pagamento
+corretamente — o problema era a experiência: dropdown simples pra
+navegar entre aparelhos/produtos (difícil de escanear numa loja com
+estoque grande), sem busca, sem jeito rápido de cadastrar cliente novo
+sem sair do fluxo, título "PDV rápido" passando sensação de atalho
+limitado.
+
+### Redesenhado
+- **Busca ao vivo** — um campo só filtra aparelho (nome, IMEI, cor) e
+  produto ao mesmo tempo, mostrados como cards clicáveis em vez de
+  dropdown.
+- **Cliente novo sem sair do fluxo** — botão ao lado do seletor de
+  cliente abre um mini-formulário (nome + WhatsApp) inline; salva e já
+  seleciona automaticamente, sem recarregar página.
+- **Carrinho mais claro** — contador +/- pra quantidade de produto (em
+  vez de digitar número), resumo com subtotal/desconto/total separados,
+  carrinho fica fixo na tela ao rolar (`sticky`) em telas grandes.
+- **Forma de pagamento em botões** (Pix, Dinheiro, Crédito, Débito,
+  Boleto, Misto) — mais rápido de bater o olho e clicar do que abrir um
+  dropdown.
+- Título mudou de "PDV rápido" pra "Nova venda" — não é mais tratado
+  como atalho, é o fluxo principal de vender.
+
+### Mantido — nenhuma lógica de negócio mudou
+Mesma Server Action (`finalizarVendaPDVAction`), mesmo schema de
+payload, mesma criação de venda no banco. Só a experiência de montar o
+carrinho antes de finalizar mudou.
+
+---
+
+## [Fase 54] — Visual dos documentos impressos, bem mais cuidado
+
+### Redesenhado
+Os 5 templates padrão (OS A4/cupom, Orçamento, Venda cupom, Recibo
+cupom) — hierarquia mais clara, mais espaço em branco, cor da marca
+(#2643D6) usada com intenção (badge do número do documento, destaque no
+total do orçamento), seções com fundo sutil separando a informação,
+cabeçalho com o "N" da Neotec em vez de só texto.
+
+Mesmos placeholders de antes — nenhum código de renderização mudou, só
+o HTML/CSS guardado no banco. `UPDATE` do conteúdo inteiro (não
+substituição parcial de texto), mais seguro.
+
+### Corrigido — bug real encontrado ao reescrever
+O placeholder `{{itens}}` (Orçamento e Venda) estava com chave dupla
+(escapada) desde a Fase 46/47 — deveria ser `{{{itens}}}` (tripla, HTML
+cru), já que a lista de itens é um bloco de HTML montado por código,
+não texto de formulário. Com chave dupla, a lista apareceria como texto
+cru escapado (`&lt;div&gt;...`) em vez de renderizar as linhas de item
+normalmente. Corrigido nesta mesma migração.
+
+---
+
+## [Fase 53] — Correção de build: qz-tray sem tipos TypeScript
+
+### Corrigido
+- Pacote `qz-tray` não publica tipos TypeScript, e não existe um
+  `@types/qz-tray` real — build falhava com "implicitly has an any
+  type". Criado `src/types/qz-tray.d.ts` com `declare module
+  "qz-tray";` — resolve o build sem mudar nenhum comportamento em
+  runtime (o módulo já era tratado como dado dinâmico, isso só formaliza
+  isso pro TypeScript).
+
+---
+
 ## [Fase 52] — Redesign do Portal do Cliente (consulta pública de OS)
 
 Escopo combinado antes de implementar: só a busca que já existe hoje

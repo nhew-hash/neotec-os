@@ -31,3 +31,14 @@ export async function finalizarVendaPDVAction(input: PdvVendaValues): Promise<Ac
     return { success: false, error: err instanceof Error ? err.message : "Erro ao finalizar venda" };
   }
 }
+
+/** Saldo de cashback do cliente selecionado — usado pra limitar quanto dá pra usar/mostrar na tela do PDV. */
+export async function buscarSaldoCashbackAction(clienteId: string): Promise<ActionResult<{ saldo: number }>> {
+  try {
+    const { obterSaldoCashback } = await import("@/services/cashback/cashback.service");
+    const saldo = await obterSaldoCashback(clienteId);
+    return { success: true, data: { saldo } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao buscar saldo" };
+  }
+}

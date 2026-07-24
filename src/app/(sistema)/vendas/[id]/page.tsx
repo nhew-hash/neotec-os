@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
+import { FileDown } from "lucide-react";
 import { buscarVendaPorId } from "@/services/vendas/vendas.service";
 import { ChecklistEntrega } from "@/components/vendas/checklist-entrega";
 import { BotaoImprimir } from "@/components/impressao/botao-imprimir";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDateTime } from "@/utils";
 
 export default async function VendaDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,6 +25,11 @@ export default async function VendaDetailPage({ params }: { params: Promise<{ id
         <div className="flex items-center gap-2">
           <Badge variant={venda.status === "concluida" ? "success" : "secondary"}>{venda.status}</Badge>
           <BotaoImprimir tipo="venda" id={id} label="Cupom" />
+          <Button variant="outline" size="sm" asChild>
+            <a href={`/api/impressao/venda/${id}/pdf`} target="_blank" rel="noopener noreferrer">
+              <FileDown className="h-4 w-4" />Baixar PDF
+            </a>
+          </Button>
           <BotaoImprimir tipo="recibo" id={id} label="Recibo" />
         </div>
       </div>

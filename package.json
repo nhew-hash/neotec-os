@@ -1,6 +1,6 @@
 {
   "name": "neotec-os",
-  "version": "1.25.0",
+  "version": "1.28.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -29,6 +29,7 @@
     "next": "^16.2.10",
     "qrcode": "^1.5.4",
     "qz-tray": "^2.2.4",
+    "@react-pdf/renderer": "^4.1.6",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.53.0",

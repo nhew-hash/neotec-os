@@ -205,6 +205,10 @@ export interface Venda {
   checklist_acessorios_recebidos: boolean;
   checklist_garantia_entregue: boolean;
   checklist_cliente_confirmou: boolean;
+  indicador_id: string | null;
+  garantia_dias: number | null;
+  cashback_utilizado: number;
+  cashback_concedido: number;
   data_venda: string;
   updated_at: string;
 }
