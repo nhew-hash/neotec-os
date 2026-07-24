@@ -2,6 +2,17 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 63] — Correção de build: tipo implícito na rota de comparação
+
+### Corrigido
+- `/api/loja/comparar` — `produtos.map((p) => ...)` sem tipo, porque o
+  Supabase não gera tipo automático pra função SQL customizada
+  (`comparar_produtos_loja`). Adicionadas interfaces explícitas
+  (`ProdutoComparacaoRow`, `AparelhoBulkRow`) pro retorno das duas
+  funções RPC usadas nessa rota.
+
+---
+
 ## [Fase 62] — Loja: visual mais premium (identidade própria, sem cópia)
 
 Contexto: foi pedido explicitamente pra copiar o visual da iPlace —
