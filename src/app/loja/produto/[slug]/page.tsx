@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Smartphone, ShieldCheck, Wrench, ArrowRight } from "lucide-react";
+import { Smartphone, Wrench, ArrowRight } from "lucide-react";
 import { buscarProdutoLojaPorSlug, listarAparelhosDisponiveisLoja } from "@/services/loja/loja-publica.service";
 import { AdicionarAoCarrinho } from "@/components/loja/adicionar-ao-carrinho";
 import { labelCategoria } from "@/components/loja/categorias";
@@ -35,17 +35,11 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
             </div>
           )}
 
-          <div className="mt-2 flex flex-col gap-3 rounded-2xl bg-[#FAFBFC] p-4">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <p className="text-xs text-foreground">Garantia Neotec — todo aparelho passa por checklist completo antes de sair da loja.</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <p className="text-xs text-foreground">
-                Precisar de assistência depois? <Link href="/consultar-os" className="font-medium text-primary hover:underline inline-flex items-center gap-0.5">Acompanhe sua OS aqui<ArrowRight className="h-3 w-3" /></Link>
-              </p>
-            </div>
+          <div className="mt-2 flex items-start gap-3 rounded-2xl bg-[#FAFBFC] p-4">
+            <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <p className="text-xs text-foreground">
+              Precisar de assistência depois? <Link href="/consultar-os" className="font-medium text-primary hover:underline inline-flex items-center gap-0.5">Acompanhe sua OS aqui<ArrowRight className="h-3 w-3" /></Link>
+            </p>
           </div>
         </div>
       </div>

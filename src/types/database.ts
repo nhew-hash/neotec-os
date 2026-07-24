@@ -839,3 +839,39 @@ export interface SolicitacaoTradeIn {
   created_at: string;
   updated_at: string;
 }
+
+// ---- Fase 64: CMS da Home da loja ----
+
+export interface HeroSlide {
+  id: string;
+  loja_id: string;
+  imagem_desktop_url: string | null;
+  imagem_mobile_url: string | null;
+  titulo: string;
+  subtitulo: string | null;
+  texto_botao: string | null;
+  link_botao: string | null;
+  prioridade: number;
+  ativo: boolean;
+  data_inicio: string | null;
+  data_fim: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TipoSecaoHome =
+  | "banner" | "vitrine_produtos" | "categorias" | "trade_in"
+  | "assistencia" | "avaliacoes" | "video" | "instagram" | "texto";
+
+export interface HomeSecao {
+  id: string;
+  loja_id: string;
+  tipo: TipoSecaoHome;
+  ordem: number;
+  ativo: boolean;
+  data_inicio: string | null;
+  data_fim: string | null;
+  configuracao: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}

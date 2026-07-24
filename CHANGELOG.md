@@ -2,6 +2,47 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 64-65] — CMS da Home da Loja: blocos reordenáveis, Hero Slider
+
+A home da loja deixa de ser conteúdo fixo em código — vira 100%
+administrável em **Configurações → Home da Loja**, sem precisar de
+deploy pra mudar banner, reordenar seção, ou programar campanha sazonal.
+
+### Adicionado
+- **Hero Slider**: múltiplos slides com imagem separada pra desktop e
+  mobile, título, subtítulo, botão+link, prioridade, janela de data
+  (ativa a partir de / até). Navegação por seta e bolinha, troca
+  automática a cada 6s quando tem mais de um slide.
+- **Seções reordenáveis** (`home_secoes`): banner, vitrine de produtos,
+  categorias, trade-in, assistência/diferenciais, avaliações, vídeo,
+  instagram, texto — arrastar-e-soltar pra reordenar
+  (`@dnd-kit`), ativar/desativar, e a mesma janela de data do slider
+  (é o mecanismo de "campanha sazonal sem mexer em código": a seção
+  aparece e some sozinha pela data configurada).
+- **9 componentes de bloco** (`components/loja/blocos/`), um por tipo
+  de seção — a home renderiza dinamicamente na ordem configurada.
+- **Semente** (Fase 65): o conteúdo que já existia fixo na home (hero,
+  diferenciais, categorias, destaques, banner de trade-in) virou dado
+  do CMS — nada some da tela depois da migração, só passa a ser
+  editável.
+
+### Destaques de produto (pedido explícito)
+- Badge "Disponível em loja" na página de produto.
+- **Saúde da bateria** (só pra seminovo/usado) com cor — verde ≥85%,
+  amarelo 70-84%, vermelho abaixo disso.
+- Bloco de garantia, retirada em loja e entrega/frete (informativo —
+  não existe cálculo de frete automático, combinação continua via
+  WhatsApp).
+
+### Pendências que dependem de você
+- **Logo "Neotec Brasil" em preto**: mencionada mas não anexada nessa
+  entrega — continua usando o placeholder "N" até o arquivo ser enviado.
+- Upload de imagem do Hero Slider usa bucket público (`loja-cms`) — URL
+  fixa, sem expiração, adequado pra imagem de marketing (diferente do
+  bucket privado usado pra mídia de conversa de cliente).
+
+---
+
 ## [Fase 63] — Correção de build: tipo implícito na rota de comparação
 
 ### Corrigido

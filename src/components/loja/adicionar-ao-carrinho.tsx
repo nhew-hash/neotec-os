@@ -2,13 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ShoppingBag } from "lucide-react";
+import { Check, ShoppingBag, MapPin, Truck, BatteryFull, ShieldCheck } from "lucide-react";
 import { useCarrinho } from "./carrinho-context";
 import { formatCurrency } from "@/utils";
 import { formatarParcelamento } from "./categorias";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
 
 const LABEL_CONDICAO: Record<string, string> = { novo: "Novo", seminovo: "Seminovo", usado: "Usado" };
+
+function corBateria(bateria: number): string {
+  if (bateria >= 85) return "text-success";
+  if (bateria >= 70) return "text-warning";
+  return "text-danger";
+}
 
 interface AdicionarAoCarrinhoProps {
   produto: ProdutoLoja;
@@ -24,6 +30,7 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis }: Adicionar
   const temVariantes = aparelhosDisponiveis.length > 0;
   const aparelhoSelecionado = aparelhosDisponiveis.find((a) => a.id === aparelhoSelecionadoId);
   const precoExibido = temVariantes ? aparelhoSelecionado?.preco_venda ?? produto.preco_venda : produto.preco_venda;
+  const disponivel = !temVariantes || aparelhosDisponiveis.length > 0;
 
   function handleAdicionar() {
     if (temVariantes && aparelhoSelecionado) {
@@ -41,10 +48,14 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis }: Adicionar
     setTimeout(() => setAdicionado(false), 2000);
   }
 
-  const disponivel = !temVariantes || aparelhosDisponiveis.length > 0;
-
   return (
     <div className="flex flex-col gap-5">
+      {disponivel && (
+        <span className="flex w-fit items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-medium text-success">
+          <span className="h-1.5 w-1.5 rounded-full bg-success" />Disponível em loja
+        </span>
+      )}
+
       {precoExibido != null && (
         <div>
           <span className="font-display text-3xl font-bold text-foreground">{formatCurrency(precoExibido)}</span>
@@ -65,10 +76,14 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis }: Adicionar
                   aparelhoSelecionadoId === a.id ? "border-primary bg-primary/5" : "border-black/[0.08] hover:border-black/20"
                 }`}
               >
-                <span className="text-sm text-foreground">
-                  {[a.memoria, a.cor, LABEL_CONDICAO[a.condicao]].filter(Boolean).join(" · ")}
-                  {a.bateria != null && <span className="text-muted-foreground"> — bateria {a.bateria}%</span>}
-                </span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm text-foreground">{[a.memoria, a.cor, LABEL_CONDICAO[a.condicao]].filter(Boolean).join(" · ")}</span>
+                  {a.condicao !== "novo" && a.bateria != null && (
+                    <span className={`flex items-center gap-1 text-xs font-medium ${corBateria(a.bateria)}`}>
+                      <BatteryFull className="h-3.5 w-3.5" />Saúde da bateria: {a.bateria}%
+                    </span>
+                  )}
+                </div>
                 {a.preco_venda != null && <span className="text-sm font-semibold text-foreground">{formatCurrency(a.preco_venda)}</span>}
               </button>
             ))}
@@ -94,6 +109,21 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis }: Adicionar
           Ver carrinho →
         </button>
       )}
+
+      <div className="flex flex-col gap-2.5 rounded-2xl bg-[#FAFBFC] p-4">
+        <div className="flex items-start gap-3">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p className="text-xs text-foreground">Retire na loja em Araguari, ou combine entrega direto pelo WhatsApp na hora de fechar.</p>
+        </div>
+        <div className="flex items-start gap-3">
+          <Truck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p className="text-xs text-foreground">Entrega combinada com a equipe — valor e prazo variam conforme a região.</p>
+        </div>
+        <div className="flex items-start gap-3">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p className="text-xs text-foreground">Garantia Neotec — todo aparelho passa por checklist completo antes de sair da loja.</p>
+        </div>
+      </div>
     </div>
   );
 }

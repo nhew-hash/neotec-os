@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { MessageCircle, Users, Settings as SettingsIcon, Sparkles, Tags, Bell, Printer } from "lucide-react";
+import { MessageCircle, Users, Settings as SettingsIcon, Sparkles, Tags, Bell, Printer, Store } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 
 const ITENS = [
+  {
+    href: "/configuracoes/loja-cms",
+    titulo: "Home da Loja",
+    descricao: "Editor de banners, seções e vitrine — sem deploy",
+    icon: Store,
+    disponivel: true,
+  },
   {
     href: "/configuracoes/impressao",
     titulo: "Impressão",
