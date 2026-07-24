@@ -16,8 +16,8 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
     <div className="mx-auto max-w-5xl px-4 py-10">
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
         <div className="lg:sticky lg:top-24 lg:h-fit">
-          <div className="flex aspect-square items-center justify-center rounded-3xl bg-[#FAFBFC]">
-            <Smartphone className="h-32 w-32 text-black/10" strokeWidth={0.75} />
+          <div className="flex aspect-square items-center justify-center rounded-3xl bg-gradient-to-br from-[#FAFBFC] to-[#F0F2F6]">
+            <Smartphone className="h-32 w-32 text-black/[0.08]" strokeWidth={0.75} />
           </div>
         </div>
 

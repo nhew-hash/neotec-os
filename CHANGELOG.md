@@ -2,6 +2,31 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 62] — Loja: visual mais premium (identidade própria, sem cópia)
+
+Contexto: foi pedido explicitamente pra copiar o visual da iPlace —
+recusado (propriedade intelectual de outra empresa, mantenho esse
+limite independente de como o pedido é formulado). Em vez disso,
+elevei o visual com um padrão clássico de loja premium (contraste
+claro/escuro alternado, tipografia mais confiante), com identidade
+própria da Neotec.
+
+### Melhorado
+- **Hero**: tipografia bem maior (72px em telas grandes), textura
+  sutil de pontos no fundo, animação de entrada suave.
+- **Seção escura de contraste**: diferenciais (garantia, parcelamento,
+  trade-in, assistência) agora numa seção preta — alternância
+  claro/escuro é um padrão clássico de loja de tecnologia premium,
+  cria ritmo visual em vez de tudo no mesmo tom.
+- **Cards de produto**: imagem com gradiente sutil em vez de cinza
+  chapado, zoom suave no hover.
+- **Banner de trade-in**: gradiente diagonal em vez de cor sólida,
+  cantos mais arredondados.
+- Nova animação `reveal-up` (só aditiva no `tailwind.config.ts`, não
+  muda nada do resto do app) — usada nas categorias da home.
+
+---
+
 ## [Fase 60-61] — Loja Neotec: redesign completo + Trade-in + Busca + Comparador
 
 ### Trade-in

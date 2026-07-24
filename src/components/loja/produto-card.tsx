@@ -30,8 +30,8 @@ export function ProdutoCard({ produto }: { produto: ProdutoLoja }) {
       )}
 
       <Link href={`/loja/produto/${produto.slug}`} className="flex flex-col">
-        <div className="flex aspect-square items-center justify-center bg-[#FAFBFC]">
-          <Smartphone className="h-16 w-16 text-black/10 transition-transform group-hover:scale-105" strokeWidth={1} />
+        <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-[#FAFBFC] to-[#F0F2F6]">
+          <Smartphone className="h-16 w-16 text-black/[0.08] transition-transform duration-500 group-hover:scale-110" strokeWidth={1} />
         </div>
         <div className="flex flex-col gap-1 p-4">
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{labelCategoria(produto.categoria)}</span>
