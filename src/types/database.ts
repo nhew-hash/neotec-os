@@ -698,3 +698,69 @@ export interface IAPerguntaEquipe {
   created_at: string;
   respondida_em: string | null;
 }
+
+// ---- Fase 46: Módulo de Impressão ----
+
+export type TipoDocumentoImpressao = "os" | "orcamento" | "venda" | "recibo" | "etiqueta" | "garantia" | "termo_entrega" | "termo_entrada";
+export type FormatoImpressao = "a4" | "cupom" | "etiqueta";
+export type TipoImpressora = "a4" | "cupom" | "etiqueta";
+
+export interface DocumentoTemplate {
+  id: string;
+  loja_id: string;
+  tipo_documento: TipoDocumentoImpressao;
+  formato: FormatoImpressao;
+  nome: string;
+  conteudo_html: string;
+  padrao: boolean;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Impressora {
+  id: string;
+  loja_id: string;
+  nome: string;
+  tipo: TipoImpressora;
+  driver: string | null;
+  padrao: boolean;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ImpressoraDocumentoPreferencia {
+  id: string;
+  loja_id: string;
+  usuario_id: string | null;
+  tipo_documento: TipoDocumentoImpressao;
+  impressora_id: string;
+  created_at: string;
+}
+
+export interface HistoricoImpressao {
+  id: string;
+  loja_id: string;
+  usuario_id: string | null;
+  tipo_documento: TipoDocumentoImpressao;
+  referencia_id: string;
+  impressora_id: string | null;
+  quantidade: number;
+  criado_em: string;
+}
+
+// ---- Fase 50: Assinatura digital ----
+
+export type TipoAssinanteDocumento = "cliente" | "tecnico";
+
+export interface AssinaturaDigital {
+  id: string;
+  loja_id: string;
+  tipo_documento: TipoDocumentoImpressao;
+  referencia_id: string;
+  tipo_assinante: TipoAssinanteDocumento;
+  caminho_storage: string;
+  usuario_id: string | null;
+  criado_em: string;
+}

@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { MessageCircle, Users, Settings as SettingsIcon, Sparkles, Tags, Bell } from "lucide-react";
+import { MessageCircle, Users, Settings as SettingsIcon, Sparkles, Tags, Bell, Printer } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 
 const ITENS = [
+  {
+    href: "/configuracoes/impressao",
+    titulo: "Impressão",
+    descricao: "Impressoras, associação por documento, histórico",
+    icon: Printer,
+    disponivel: true,
+  },
   {
     href: "/configuracoes/integracoes/whatsapp",
     titulo: "Integração WhatsApp",

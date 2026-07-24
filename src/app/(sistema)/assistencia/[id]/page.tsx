@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Printer, Receipt, Clock, ShieldCheck, Smartphone } from "lucide-react";
+import { Clock, ShieldCheck, Smartphone } from "lucide-react";
+import { BotaoImprimir } from "@/components/impressao/botao-imprimir";
+import { AssinaturaDigitalPanel } from "@/components/impressao/assinatura-digital-panel";
 import { buscarOSPorId, listarPecasPorOS, listarChecklistsPorOS } from "@/services/assistencia/assistencia.service";
 import { listarProdutos } from "@/services/estoque/estoque.service";
+import { assinaturaDigitalHabilitada, buscarAssinaturas } from "@/services/impressao/assinatura.service";
 import { DiagnosticoForm, PecasOSForm } from "@/components/assistencia/diagnostico-form";
 import { ChecklistOSForm } from "@/components/assistencia/checklist-os-form";
 import { StatusOSControl } from "@/components/assistencia/status-os-control";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, formatWhatsapp } from "@/utils";
 
@@ -17,8 +19,9 @@ export default async function OSDetailPage({ params }: { params: Promise<{ id: s
   const os = await buscarOSPorId(id);
   if (!os) notFound();
 
-  const [pecas, produtos, checklists] = await Promise.all([
+  const [pecas, produtos, checklists, assinaturaHabilitada, assinaturas] = await Promise.all([
     listarPecasPorOS(id), listarProdutos(), listarChecklistsPorOS(id),
+    assinaturaDigitalHabilitada(), buscarAssinaturas("os", id),
   ]);
   const checklistRecebimento = checklists.find((c) => c.tipo === "recebimento");
   const checklistEntrega = checklists.find((c) => c.tipo === "entrega");
@@ -43,13 +46,16 @@ export default async function OSDetailPage({ params }: { params: Promise<{ id: s
         <div className="flex flex-col items-start gap-3 sm:items-end">
           <StatusOSControl osId={os.id} statusAtual={os.status} />
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/impressao/os/${id}?formato=a4`} target="_blank"><Printer className="h-4 w-4" />A4</Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/impressao/os/${id}?formato=cupom`} target="_blank"><Receipt className="h-4 w-4" />Cupom</Link>
-            </Button>
+            <BotaoImprimir tipo="os" id={id} formato="a4" label="A4" />
+            <BotaoImprimir tipo="os" id={id} formato="cupom" label="Cupom" />
           </div>
+          {assinaturaHabilitada && (
+            <AssinaturaDigitalPanel
+              tipoDocumento="os"
+              referenciaId={id}
+              jaColetadas={assinaturas.map((a) => a.tipo_assinante)}
+            />
+          )}
         </div>
       </div>
 

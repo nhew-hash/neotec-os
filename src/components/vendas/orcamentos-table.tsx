@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
+import { BotaoImprimir } from "@/components/impressao/botao-imprimir";
 import { aprovarOrcamentoAction } from "@/services/vendas/vendas.actions";
 import { formatCurrency, formatDate } from "@/utils";
 import { STATUS_ORCAMENTO_CONFIG } from "@/utils/status-venda";
@@ -49,7 +50,8 @@ export function OrcamentosTable({ orcamentos }: { orcamentos: OrcamentoComClient
               <StatusBadge label={STATUS_ORCAMENTO_CONFIG[orcamento.status].label} tone={STATUS_ORCAMENTO_CONFIG[orcamento.status].tone} />
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">{formatDate(orcamento.data_criacao)}</TableCell>
-            <TableCell>
+            <TableCell className="flex items-center gap-2">
+              <BotaoImprimir tipo="orcamento" id={orcamento.id} label="Imprimir" />
               {orcamento.status !== "aprovado" && (
                 <Button size="sm" variant="success" disabled={isPending} onClick={() => handleAprovar(orcamento.id)}>
                   Aprovar e gerar venda

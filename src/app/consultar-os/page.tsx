@@ -9,7 +9,9 @@ export const metadata = { title: "Consultar Ordem de Serviço — Neotec OS" };
  * devolve só status/prazo/valor/observações públicas — nunca diagnóstico,
  * dado de cliente ou qualquer campo interno.
  */
-export default function ConsultarOSPage() {
+export default async function ConsultarOSPage({ searchParams }: { searchParams: Promise<{ numero?: string }> }) {
+  const { numero } = await searchParams;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-app p-6">
       <div className="w-full max-w-sm">
@@ -17,7 +19,7 @@ export default function ConsultarOSPage() {
         <p className="mb-6 text-sm text-muted-foreground">
           Informe o número da OS e o telefone usado no cadastro.
         </p>
-        <ConsultaOSForm />
+        <ConsultaOSForm numeroInicial={numero} />
       </div>
     </div>
   );

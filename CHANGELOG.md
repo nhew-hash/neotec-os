@@ -2,6 +2,170 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 50-51] — Módulo de Impressão: Fase 4 (Assinatura Digital) — plano completo
+
+Última fase do plano de 4 aprovado pro módulo de impressão. Construída
+de verdade (não só arquitetura vazia) — captura funcional, desativada
+por padrão.
+
+### Adicionado
+- **Captura via canvas com Pointer Events** — mouse, dedo (touch) e
+  caneta de tablet funcionam com o mesmo código, sem biblioteca externa
+  nem detecção de dispositivo. `<CapturaAssinatura>` abre um modal com
+  a área de assinar, "Limpar" e "Confirmar".
+- Bucket privado `assinaturas` + tabela `assinaturas_digitais` — cada
+  assinatura fica ligada a um documento (tipo + id) e um assinante
+  (cliente ou técnico). Permite recapturar (upsert) se alguém errar o
+  traço.
+- **Toggle em Configurações → Impressão**: "Habilitar assinatura
+  digital" — desativado por padrão, como pedido. Só aparece o botão de
+  coletar assinatura nas telas quando ativado.
+- Botões de "Assinatura do cliente" / "Assinatura do técnico" na tela
+  de OS — mostra ✓ quando já coletada.
+- **A assinatura aparece automaticamente no documento impresso**: o
+  template de OS A4 agora tem os placeholders `{{{assinatura_cliente}}}`
+  e `{{{assinatura_tecnico}}}` — se não tiver assinatura coletada,
+  continua mostrando a linha em branco pra assinar na mão (like sempre
+  foi); se tiver, mostra a imagem da assinatura digital ali.
+
+### Corrigido durante a implementação
+- Template de OS já semeado (Fase 47) tinha a linha de assinatura fixa,
+  sem placeholder — quem já tivesse rodado a Fase 47 antes de esta
+  fase existir não veria a assinatura digital aparecer no documento.
+  Migração `fase51` faz `UPDATE` no texto já salvo, trocando pelo texto
+  com placeholder — segura mesmo se a Fase 47 ainda nem tinha sido
+  aplicada (nesse caso, 0 linhas afetadas, sem erro, porque o
+  `fase47.sql` já foi corrigido pra nascer certo).
+
+---
+
+## Plano de impressão profissional — as 4 fases, concluídas
+1. ✅ Fundação (templates, QR Code, documentos novos, checklist, histórico)
+2. ✅ Configurações → Impressão (cadastro de impressoras, associação por documento)
+3. ✅ Impressão direta via QZ Tray (não testado ao vivo pelo assistente — precisa validação com hardware real)
+4. ✅ Assinatura digital (funcional, desativada por padrão)
+
+---
+
+## [Fase 49] — Módulo de Impressão: Fase 3 (Impressão direta via QZ Tray)
+
+### Adicionado
+- `PrintProvider` (abstração do lado do cliente — impressão roda no
+  navegador, diferente do WhatsappProvider que roda no servidor):
+  `BrowserPrintProvider` (o que já existia — abre aba, `window.print()`)
+  e `QzTrayPrintProvider` (impressão direta de verdade, sem diálogo).
+- **Detecção automática**: `usePrintProvider()` verifica se o QZ Tray
+  está rodando no computador — sem precisar de toggle manual, já que
+  isso é característica de cada máquina, não configuração de loja. Se
+  não detectar, cai pro comportamento de sempre (abre aba nova).
+- `<BotaoImprimir>` — substitui os botões antigos de impressão (OS,
+  Venda, Recibo, Orçamento) por um componente único que tenta impressão
+  direta e cai pro navegador automaticamente se não conseguir.
+- `<BotaoTestarImpressora>` — o "Testar impressão" agora tenta mandar
+  de verdade pra impressora específica via QZ Tray, não só abre uma
+  página genérica.
+- Rota `/api/impressao/[tipo]/[id]` — devolve o HTML pronto do
+  documento (não uma página completa), é o que o QZ Tray consome antes
+  de mandar pra impressora.
+
+### Importante — infraestrutura local necessária
+QZ Tray precisa estar **instalado e rodando em cada computador** que
+for imprimir direto (baixa em qz.io) — isso é fora do alcance de
+configurar remotamente, mesma natureza do Bridge do WhatsApp Web. Sem
+QZ Tray instalado, tudo continua funcionando exatamente como antes
+(abre aba, Ctrl+P) — ninguém perde funcionalidade.
+
+### Limitação conhecida, documentada
+Conexão com o QZ Tray está em modo **não assinado** (sem certificado
+digital) — o QZ Tray mostra um popup de permissão local na primeira
+conexão de cada sessão do navegador. Assinatura por certificado (evita
+esse popup) exigiria um servidor de assinatura próprio — não construído
+nesta entrega, fica documentado como possível melhoria futura.
+
+### Não testado ao vivo
+Diferente do resto do sistema, esta integração específica (QZ Tray) não
+pôde ser testada de ponta a ponta pelo assistente — depende de
+software local instalado numa máquina real. Vale testar com atenção
+extra antes de confiar em produção.
+
+---
+
+## [Fase 48] — Módulo de Impressão: Fase 2 (Configurações → Impressão)
+
+### Adicionado
+- Tela **Configurações → Impressão**: cadastro de impressoras (nome,
+  tipo A4/cupom/etiqueta, driver, padrão, status ativa/inativa, botão
+  "Testar impressão"), associação de impressora por tipo de documento
+  (padrão da loja inteira, ou só pra quem está configurando).
+- Página `/impressao/teste` — abre o diálogo de impressão do navegador
+  automaticamente, pra confirmar visualmente que a impressora física
+  está funcionando. Enquanto a impressão direta (Fase 3, QZ Tray) não
+  existe, é isso que "testar impressão" faz de verdade.
+- Link pro histórico de impressões (Fase 1) direto da tela de
+  Configurações → Impressão.
+
+### Corrigido durante a implementação
+- `impressora_documento_preferencia` usava `unique (loja_id, usuario_id,
+  tipo_documento)` — mas NULL nunca é considerado igual a NULL numa
+  unique constraint comum no Postgres, então duas preferências "da loja
+  inteira" (usuario_id null) pro mesmo documento não seriam bloqueadas.
+  Corrigido com dois índices únicos parciais (um pra usuário específico,
+  um só pra usuario_id null) + o código do service faz busca manual
+  antes de decidir entre criar ou atualizar, em vez de confiar em
+  upsert com ON CONFLICT nessa coluna. Migração `fase48` criada como
+  correção defensiva — funciona tanto se a Fase 46 já tinha sido
+  aplicada com a constraint antiga quanto se ainda nem existia.
+
+---
+
+## [Fase 46-47] — Módulo de Impressão Profissional: Fase 1 (Fundação)
+
+Plano em 4 fases aprovado antes de implementar (inventário do que já
+existia: só OS tinha impressão, sem template, sem QR, sem histórico).
+Esta entrega é a Fase 1 — fundação.
+
+### Adicionado
+- **Sistema de templates**: HTML com placeholders (`{{cliente}}`, etc.)
+  guardado no banco (`documento_templates`), não preso ao React —
+  editável sem deploy. Dois tipos de placeholder: `{{chave}}` (escapado,
+  pra dado de formulário) e `{{{chave}}}` (HTML cru, só pra blocos
+  montados por código nosso como QR e checklist — nunca pra dado de
+  usuário, proteção contra XSS mantida).
+- **5 templates padrão semeados** (OS A4, OS cupom, Orçamento A4, Venda
+  cupom, Recibo cupom) — sistema funciona sem precisar cadastrar nada
+  manualmente antes.
+- **QR Code** — só em documentos do cliente (`?via=cliente`, padrão),
+  nunca na via da loja (`?via=loja`). Aponta pro `/consultar-os`, que já
+  existia e é público (Fase 8) — não precisou de portal novo. Página de
+  consulta agora aceita `?numero=` na URL, pré-preenchendo o campo
+  quando vem de QR escaneado.
+- **Documentos novos**: Orçamento (A4), Venda (cupom), Recibo (cupom) —
+  antes só existia impressão de OS.
+- **Checklist completo na OS impressa**: campos que faltavam
+  (microfone, alto-falante, auricular, flash, wifi, bluetooth,
+  carregamento, sensor, vibração) adicionados em `checklist_os`.
+- **Histórico de impressão**: toda impressão registrada (quem, quando,
+  documento) — tela em Configurações → Impressão — Histórico, com
+  reimprimir.
+- Estrutura de impressoras (`impressoras`,
+  `impressora_documento_preferencia`) e assinatura digital
+  (`configuracoes_ia.assinatura_digital_habilitada`) já criadas no
+  banco, preparadas pras Fases 2 e 4 — sem uso real ainda.
+
+### Arquitetura confirmada
+`PrintProvider` como conceito (Browser agora, QZ Tray na Fase 3) segue
+a mesma lógica já usada pro WhatsApp — impressão direta de verdade
+precisa de um agente rodando localmente em cada computador, o servidor
+sozinho não alcança isso (mesma razão do Bridge do WhatsApp Web).
+
+### Próximas fases (não implementadas ainda)
+- Fase 2: Configurações → Impressão (cadastro de impressoras de
+  verdade, preferência por usuário)
+- Fase 3: impressão direta via QZ Tray
+- Fase 4: assinatura digital
+
+---
+
 ## [Fase 45] — Mensagem da IA ficando "aguardando" (relógio) no cliente
 
 ### Diagnóstico

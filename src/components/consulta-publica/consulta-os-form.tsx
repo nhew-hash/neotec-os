@@ -17,8 +17,8 @@ interface ResultadoConsulta {
   observacoes_publicas: string | null;
 }
 
-export function ConsultaOSForm() {
-  const [numeroOs, setNumeroOs] = useState("");
+export function ConsultaOSForm({ numeroInicial }: { numeroInicial?: string }) {
+  const [numeroOs, setNumeroOs] = useState(numeroInicial ?? "");
   const [telefone, setTelefone] = useState("");
   const [resultado, setResultado] = useState<ResultadoConsulta | null | undefined>(undefined);
   const [carregando, setCarregando] = useState(false);
