@@ -2,6 +2,17 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 59] — Correção de build: tipo do Buffer no download de PDF
+
+### Corrigido
+- `NextResponse(pdfBuffer, ...)` — TypeScript não aceita `Buffer` do
+  Node diretamente como `BodyInit`, mesmo sendo compatível em runtime
+  (Buffer é uma subclasse de Uint8Array). Convertido pra
+  `new Uint8Array(pdfBuffer)` — mesmo conteúdo, tipo compatível.
+
+---
+
+
 ## [Fase 58] — Loja Neotec (Fase 1): catálogo, carrinho, checkout via WhatsApp
 
 Substitui o redirecionamento pro neotecbrasil.com — a loja passa a

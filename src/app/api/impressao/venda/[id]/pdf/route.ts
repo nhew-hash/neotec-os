@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   void registrarImpressao({ tipoDocumento: "venda", referenciaId: id, usuarioId: user.id });
 
-  return new NextResponse(pdfBuffer, {
+  return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="nota-venda-${id.slice(0, 8)}.pdf"`,
