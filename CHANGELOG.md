@@ -2,6 +2,49 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 66-68] — Catálogo Inteligente: Lacrados (catálogo mestre) + Seminovos estendido
+
+Separação total entre as duas operações, como pedido. Lacrados ganhou
+estrutura nova (catálogo mestre + variante + estoque por variante).
+Seminovos reaproveitou a tabela `aparelhos` já existente — só ganhou
+os 2 campos que faltavam.
+
+### Lacrados — catálogo mestre novo
+- `catalogo_lacrados_modelos` (29 modelos, iPhone 11 até 17 Pro Max) +
+  `catalogo_lacrados_variantes` (cor × armazenamento, cada uma com
+  quantidade e preço próprios). Semeado via Fase 67 — todas as
+  variantes nascem com quantidade 0 (estrutura existe, nada é
+  comprável até a equipe atualizar dado real).
+- **Atenção**: cor/armazenamento de cada modelo foi levantado com
+  cuidado (17/Air/Pro/Pro Max conferidos via busca; os demais vêm de
+  conhecimento consolidado) — vale conferir contra o site da Apple
+  antes de divulgar, cobre 6 anos de lançamento.
+- Tela `/estoque/lacrados`: gestão manual (accordion por modelo,
+  edição inline de quantidade/preço por variante) + **atualização via
+  IA** — cola a tabela do fornecedor como chegou no WhatsApp, a IA
+  extrai modelo/cor/armazenamento/preço e casa com o catálogo mestre.
+  Nada é aplicado sem revisão: mostra o que encontrou correspondência
+  (pré-selecionado) e o que não encontrou (aviso, precisa de atenção
+  manual) antes de qualquer preço mudar de verdade.
+- Loja pública: `/loja/lacrados` (lista modelos com estoque) e
+  `/loja/lacrados/[modelo]` (seletor cor→armazenamento em cascata — só
+  mostra combinação com estoque real, nunca deixa escolher uma
+  variante indisponível). Descrição padrão única pra todo lacrado
+  (garantia Apple, nota fiscal, parcelamento, retirada, entrega).
+
+### Seminovos — estendido, não duplicado
+- `aparelhos` ganhou `pecas_substituidas` (tela/bateria/carcaça) e
+  `observacoes` — aparecem no formulário de cadastro (só quando
+  condição é seminovo/usado) e na página de produto da loja, junto da
+  saúde da bateria que já existia.
+
+### Carrinho — terceiro tipo de item
+- `ItemCarrinho`/`pedido_loja_itens` ganharam suporte a "lacrado" (além
+  de produto/aparelho que já existiam) — `lacrado_variante_id` novo,
+  mesma lógica de "cada item referencia exatamente um dos três".
+
+---
+
 ## [Fase 64-65] — CMS da Home da Loja: blocos reordenáveis, Hero Slider
 
 A home da loja deixa de ser conteúdo fixo em código — vira 100%

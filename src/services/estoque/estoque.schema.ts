@@ -29,6 +29,8 @@ export const aparelhoSchema = z.object({
     "fornecedor", "cliente", "troca", "compra", "consignacao", "investidor", "marketplace", "leilao",
   ]),
   investidor_id: z.string().optional().or(z.literal("")),
+  pecas_substituidas: z.array(z.enum(["tela", "bateria", "carcaca"])).default([]),
+  observacoes: z.string().trim().optional().or(z.literal("")),
 });
 export type AparelhoFormValues = z.infer<typeof aparelhoSchema>;
 

@@ -141,6 +141,8 @@ export async function criarAparelho(input: {
   fornecedor?: string;
   origem_entrada: Aparelho["origem_entrada"];
   investidor_id?: string;
+  pecas_substituidas?: string[];
+  observacoes?: string;
 }): Promise<Aparelho> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -160,6 +162,8 @@ export async function criarAparelho(input: {
       fornecedor: input.fornecedor || null,
       origem_entrada: input.origem_entrada,
       investidor_id: input.investidor_id || null,
+      pecas_substituidas: input.pecas_substituidas ?? [],
+      observacoes: input.observacoes || null,
     })
     .select("*")
     .single();

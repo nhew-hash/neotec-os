@@ -38,14 +38,20 @@ export function AparelhoForm({ produtos, investidores }: { produtos: Produto[]; 
     resolver: zodResolver(aparelhoSchema),
     defaultValues: {
       produto_id: "", imei: "", numero_serie: "", cor: "", memoria: "",
-      condicao: "seminovo", origem_entrada: "fornecedor", fornecedor: "",
+      condicao: "seminovo", origem_entrada: "fornecedor", fornecedor: "", pecas_substituidas: [],
     },
   });
 
   function onSubmit(values: AparelhoFormValues) {
     setErro(null);
     const formData = new FormData();
-    Object.entries(values).forEach(([key, value]) => formData.set(key, String(value ?? "")));
+    Object.entries(values).forEach(([key, value]) => {
+      if (key === "pecas_substituidas") {
+        (value as string[]).forEach((peca) => formData.append("pecas_substituidas", peca));
+        return;
+      }
+      formData.set(key, String(value ?? ""));
+    });
 
     startTransition(async () => {
       const result = await criarAparelhoAction(formData);
@@ -54,6 +60,9 @@ export function AparelhoForm({ produtos, investidores }: { produtos: Produto[]; 
       router.refresh();
     });
   }
+
+  const condicaoAtual = form.watch("condicao");
+  const ehUsado = condicaoAtual === "seminovo" || condicaoAtual === "usado";
 
   return (
     <Form {...form}>
@@ -117,6 +126,44 @@ export function AparelhoForm({ produtos, investidores }: { produtos: Produto[]; 
             </FormItem>
           )} />
         </div>
+
+        {ehUsado && (
+          <>
+            <FormField control={form.control} name="pecas_substituidas" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Peças substituídas</FormLabel>
+                <div className="flex gap-4">
+                  {[
+                    { valor: "tela", label: "Tela" },
+                    { valor: "bateria", label: "Bateria" },
+                    { valor: "carcaca", label: "Carcaça" },
+                  ].map((peca) => (
+                    <label key={peca.valor} className="flex items-center gap-1.5 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={field.value?.includes(peca.valor as never) ?? false}
+                        onChange={(e) => {
+                          const atual = field.value ?? [];
+                          field.onChange(e.target.checked ? [...atual, peca.valor] : atual.filter((p) => p !== peca.valor));
+                        }}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      {peca.label}
+                    </label>
+                  ))}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="observacoes" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Observações (opcional)</FormLabel>
+                <FormControl><Input placeholder="Ex: pequeno risco lateral, marcas de uso, excelente estado" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          </>
+        )}
 
         <div className="grid grid-cols-2 gap-5">
           <FormField control={form.control} name="custo" render={({ field }) => (

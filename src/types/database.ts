@@ -189,6 +189,8 @@ export interface Aparelho {
   consignacao_id: string | null;
   status: StatusAparelho;
   cliente_origem_id: string | null;
+  pecas_substituidas: string[];
+  observacoes: string | null;
   data_entrada: string;
   updated_at: string;
 }
@@ -792,6 +794,8 @@ export interface AparelhoDisponivelLoja {
   condicao: "novo" | "seminovo" | "usado";
   bateria: number | null;
   preco_venda: number | null;
+  pecas_substituidas: string[];
+  observacoes: string | null;
 }
 
 export type StatusPedidoLoja = "novo" | "em_atendimento" | "concluido" | "cancelado";
@@ -875,3 +879,29 @@ export interface HomeSecao {
   created_at: string;
   updated_at: string;
 }
+
+// ---- Fase 66: Catálogo Inteligente — Lacrados ----
+
+export interface CatalogoLacradoModelo {
+  id: string;
+  loja_id: string;
+  nome: string;
+  marca: string;
+  ordem: number;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CatalogoLacradoVariante {
+  id: string;
+  modelo_id: string;
+  cor: string;
+  armazenamento: string;
+  quantidade: number;
+  preco_venda: number | null;
+  ativo: boolean;
+  updated_at: string;
+}
+
+export type PecaSubstituida = "tela" | "bateria" | "carcaca";

@@ -9,6 +9,7 @@ import { formatarParcelamento } from "./categorias";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
 
 const LABEL_CONDICAO: Record<string, string> = { novo: "Novo", seminovo: "Seminovo", usado: "Usado" };
+const LABEL_PECA: Record<string, string> = { tela: "Tela", bateria: "Bateria", carcaca: "Carcaça" };
 
 function corBateria(bateria: number): string {
   if (bateria >= 85) return "text-success";
@@ -83,6 +84,12 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis }: Adicionar
                       <BatteryFull className="h-3.5 w-3.5" />Saúde da bateria: {a.bateria}%
                     </span>
                   )}
+                  {a.pecas_substituidas.length > 0 ? (
+                    <span className="text-[11px] text-muted-foreground">Peças trocadas: {a.pecas_substituidas.map((p) => LABEL_PECA[p] ?? p).join(", ")}</span>
+                  ) : (
+                    a.condicao !== "novo" && <span className="text-[11px] text-muted-foreground">Nenhuma peça substituída</span>
+                  )}
+                  {a.observacoes && <span className="text-[11px] italic text-muted-foreground">{a.observacoes}</span>}
                 </div>
                 {a.preco_venda != null && <span className="text-sm font-semibold text-foreground">{formatCurrency(a.preco_venda)}</span>}
               </button>

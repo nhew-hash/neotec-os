@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 export interface ItemCarrinho {
-  tipo: "produto" | "aparelho";
+  tipo: "produto" | "aparelho" | "lacrado";
   id: string;
   nome: string;
   detalhe?: string; // ex: "128GB Azul, seminovo"

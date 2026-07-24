@@ -15,6 +15,7 @@ import {
   UserCheck,
   Camera,
   Store,
+  Sparkles,
   Settings,
 } from "lucide-react";
 import type { CargoUsuario } from "@/types";
@@ -56,6 +57,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
     label: "Operação",
     items: [
       { label: "Estoque", href: "/estoque", icon: Package, cargos: ["admin", "gerente", "vendedor", "tecnico"] },
+      { label: "Lacrados", href: "/estoque/lacrados", icon: Sparkles, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Cotações", href: "/cotacoes", icon: Tags, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Catálogo de fotos", href: "/catalogo-fotos", icon: Camera, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Vendas", href: "/vendas", icon: ShoppingCart, cargos: ["admin", "gerente", "vendedor"] },

@@ -21,6 +21,9 @@ export function LojaHeader() {
           </Link>
 
           <nav className="hidden items-center gap-6 lg:flex">
+            <Link href="/loja/lacrados" className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
+              iPhone Lacrado
+            </Link>
             {CATEGORIAS_LOJA.map((c) => (
               <Link key={c.valor} href={`/loja/categoria/${c.valor}`} className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
                 {c.label}
@@ -50,6 +53,9 @@ export function LojaHeader() {
 
       {menuAberto && (
         <nav className="flex flex-col border-t border-black/[0.06] bg-white px-4 py-2 lg:hidden">
+          <Link href="/loja/lacrados" className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
+            📱 iPhone Lacrado
+          </Link>
           {CATEGORIAS_LOJA.map((c) => (
             <Link key={c.valor} href={`/loja/categoria/${c.valor}`} className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
               {c.emoji} {c.label}

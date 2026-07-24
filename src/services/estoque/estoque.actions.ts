@@ -51,6 +51,8 @@ export async function criarAparelhoAction(formData: FormData): Promise<ActionRes
     fornecedor: String(formData.get("fornecedor") ?? ""),
     origem_entrada: String(formData.get("origem_entrada") ?? "fornecedor"),
     investidor_id: String(formData.get("investidor_id") ?? ""),
+    pecas_substituidas: formData.getAll("pecas_substituidas").map(String),
+    observacoes: String(formData.get("observacoes") ?? ""),
   };
 
   const parsed = aparelhoSchema.safeParse(raw);

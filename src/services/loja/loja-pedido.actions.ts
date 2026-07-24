@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActionResult } from "@/types";
 
 export interface ItemPedidoLojaInput {
-  tipo: "produto" | "aparelho";
+  tipo: "produto" | "aparelho" | "lacrado";
   id: string;
   nome: string;
   quantidade: number;
@@ -51,6 +51,7 @@ export async function criarPedidoLojaAction(input: {
         pedido_id: pedido.id,
         produto_id: item.tipo === "produto" ? item.id : null,
         aparelho_id: item.tipo === "aparelho" ? item.id : null,
+        lacrado_variante_id: item.tipo === "lacrado" ? item.id : null,
         nome_exibido: item.nome,
         quantidade: item.quantidade,
         valor: item.valor,
