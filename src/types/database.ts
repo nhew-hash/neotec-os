@@ -158,6 +158,9 @@ export interface Produto {
   custo: number | null;
   estoque_minimo: number;
   status: "ativo" | "inativo";
+  visivel_loja: boolean;
+  slug: string | null;
+  descricao_loja: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -767,4 +770,54 @@ export interface AssinaturaDigital {
   caminho_storage: string;
   usuario_id: string | null;
   criado_em: string;
+}
+
+// ---- Fase 58: Loja pública ----
+
+export interface ProdutoLoja {
+  id: string;
+  categoria: string;
+  marca: string | null;
+  modelo: string | null;
+  nome: string;
+  descricao_loja: string | null;
+  preco_venda: number | null;
+  slug: string;
+}
+
+export interface AparelhoDisponivelLoja {
+  id: string;
+  cor: string | null;
+  memoria: string | null;
+  condicao: "novo" | "seminovo" | "usado";
+  bateria: number | null;
+  preco_venda: number | null;
+}
+
+export type StatusPedidoLoja = "novo" | "em_atendimento" | "concluido" | "cancelado";
+export type OrigemFechamentoPedido = "whatsapp" | "pagamento_online";
+
+export interface PedidoLoja {
+  id: string;
+  loja_id: string;
+  cliente_id: string | null;
+  nome_contato: string;
+  telefone_contato: string;
+  valor_total: number;
+  status: StatusPedidoLoja;
+  origem_fechamento: OrigemFechamentoPedido;
+  pagamento_id_externo: string | null;
+  observacao: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PedidoLojaItem {
+  id: string;
+  pedido_id: string;
+  produto_id: string | null;
+  aparelho_id: string | null;
+  nome_exibido: string;
+  quantidade: number;
+  valor: number;
 }

@@ -1,5 +1,6 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { PublicarLojaDialog } from "./publicar-loja-dialog";
 import { formatCurrency } from "@/utils";
 import { podeVerCusto } from "@/utils/permissions";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ export function ProdutosTable({ produtos, saldos, cargo }: ProdutosTableProps) {
           <TableHead>Preço de venda</TableHead>
           {podeVerCustoAtual && <TableHead>Custo</TableHead>}
           {podeVerCustoAtual && <TableHead>Lucro</TableHead>}
+          <TableHead>Loja</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -75,6 +77,9 @@ export function ProdutosTable({ produtos, saldos, cargo }: ProdutosTableProps) {
                   {lucro != null ? formatCurrency(lucro) : "—"}
                 </TableCell>
               )}
+              <TableCell>
+                <PublicarLojaDialog produto={produto} />
+              </TableCell>
             </TableRow>
           );
         })}

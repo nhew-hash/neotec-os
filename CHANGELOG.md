@@ -2,6 +2,58 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 58] — Loja Neotec (Fase 1): catálogo, carrinho, checkout via WhatsApp
+
+Substitui o redirecionamento pro neotecbrasil.com — a loja passa a
+viver dentro do Neotec OS, em `/loja`. Inspirada na organização/
+usabilidade da iPlace (categorias no topo, grade de produto, página de
+produto com variação, carrinho), mas com identidade visual própria —
+nada copiado (texto, imagem, ícone).
+
+### Adicionado
+- **Catálogo público**: reaproveita `produtos`/`aparelhos` já
+  existentes — não duplica cadastro. Produto só aparece na loja depois
+  de publicado explicitamente (`visivel_loja`), via nova ação
+  "Publicar na loja" direto na tabela de produtos do Estoque.
+- **Páginas**: home (categorias + destaques), categoria (grade
+  filtrada), produto (com seletor de unidade específica em estoque —
+  ex: escolher entre os iPhones 13 seminovos disponíveis, sem expor
+  IMEI nem dado interno).
+- **Carrinho**: client-side (localStorage, sem precisar de login pro
+  cliente), quantidade ajustável, persiste entre visitas.
+- **Checkout via WhatsApp** (Fase 1, funciona agora): cria um registro
+  em `pedidos_loja` e abre o WhatsApp da loja com a mensagem já
+  montada (itens, valores, nome do cliente).
+- **Pedidos da Loja** (tela nova pra equipe): fila de pedidos
+  recebidos, com status (novo/em atendimento/concluído/cancelado) e
+  link direto pro WhatsApp do cliente.
+- SEO: catálogo renderizado no servidor (Server Components), não
+  buscado só no navegador — crawler recebe o HTML já pronto.
+
+### Preparado, não ativo ainda — Fase 2 (Mercado Pago)
+- `pedidos_loja.origem_fechamento` já distingue "whatsapp" de
+  "pagamento_online", e `pagamento_id_externo` já existe pra guardar a
+  referência da transação. Botão "Pagar com Pix ou cartão" já aparece
+  na tela (desabilitado, "em breve") — falta só a integração de
+  verdade com o Mercado Pago, que depende de você ter a conta criada.
+
+### Segurança — verificado antes de entregar
+Toda leitura pública passa por função SECURITY DEFINER (nunca a tabela
+direto) — cliente da loja não autenticado nunca visualiza IMEI, custo,
+nem dado de outro cliente. Criação de pedido é Server Action isolada
+(`loja-pedido.actions.ts`) — Service Role Key nunca é importado em
+nenhum arquivo que roda no navegador (conferido na auditoria final).
+
+### Pendências que precisam da sua atenção
+- **Número de WhatsApp da loja está com placeholder** (`5534999999999`)
+  em `loja-footer.tsx` e `carrinho/page.tsx` — troca pelo número real
+  antes de divulgar a loja.
+- **Sem fotos de produto ainda** — os cards mostram um ícone genérico
+  no lugar da foto. Fica pra uma próxima rodada se quiser conectar com
+  o catálogo de fotos (Fase 43) ou um upload dedicado.
+
+---
+
 ## [Fase 56-57] — Correção urgente da OS + PDV completo (indicação, cashback, garantia, PDF)
 
 ### Corrigido — urgente
