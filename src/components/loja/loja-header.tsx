@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, Menu, X } from "lucide-react";
+import { ShoppingBag, Menu, X, Repeat } from "lucide-react";
 import { useState } from "react";
 import { CATEGORIAS_LOJA } from "./categorias";
 import { useCarrinho } from "./carrinho-context";
+import { BuscaLoja } from "./busca-loja";
 
 export function LojaHeader() {
   const { totalItens } = useCarrinho();
@@ -25,10 +26,14 @@ export function LojaHeader() {
                 {c.label}
               </Link>
             ))}
+            <Link href="/loja/trade-in" className="flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
+              <Repeat className="h-3.5 w-3.5" />Troque seu usado
+            </Link>
           </nav>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <BuscaLoja />
           <Link href="/loja/carrinho" className="relative flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-secondary">
             <ShoppingBag className="h-5 w-5 text-foreground" />
             {totalItens > 0 && (
@@ -50,6 +55,9 @@ export function LojaHeader() {
               {c.emoji} {c.label}
             </Link>
           ))}
+          <Link href="/loja/trade-in" className="flex items-center gap-1.5 py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
+            <Repeat className="h-4 w-4" />Troque seu usado
+          </Link>
         </nav>
       )}
     </header>

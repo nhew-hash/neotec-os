@@ -821,3 +821,21 @@ export interface PedidoLojaItem {
   quantidade: number;
   valor: number;
 }
+
+// ---- Fase 60: Trade-in ----
+
+export type StatusTradeIn = "novo" | "em_avaliacao" | "respondido" | "concluido" | "descartado";
+
+export interface SolicitacaoTradeIn {
+  id: string;
+  loja_id: string;
+  nome_contato: string;
+  telefone_contato: string;
+  modelo_aparelho: string;
+  armazenamento: string | null;
+  condicao_relatada: string | null;
+  observacoes: string | null;
+  status: StatusTradeIn;
+  created_at: string;
+  updated_at: string;
+}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ShoppingBag } from "lucide-react";
 import { useCarrinho } from "./carrinho-context";
 import { formatCurrency } from "@/utils";
+import { formatarParcelamento } from "./categorias";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
 
 const LABEL_CONDICAO: Record<string, string> = { novo: "Novo", seminovo: "Seminovo", usado: "Usado" };
@@ -45,7 +46,10 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis }: Adicionar
   return (
     <div className="flex flex-col gap-5">
       {precoExibido != null && (
-        <span className="font-display text-3xl font-bold text-foreground">{formatCurrency(precoExibido)}</span>
+        <div>
+          <span className="font-display text-3xl font-bold text-foreground">{formatCurrency(precoExibido)}</span>
+          <p className="mt-1 text-sm text-muted-foreground">{formatarParcelamento(precoExibido)}</p>
+        </div>
       )}
 
       {temVariantes && (

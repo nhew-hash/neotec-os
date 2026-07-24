@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { CarrinhoProvider } from "@/components/loja/carrinho-context";
+import { ComparadorProvider } from "@/components/loja/comparador-context";
 import { LojaHeader } from "@/components/loja/loja-header";
 import { LojaFooter } from "@/components/loja/loja-footer";
+import { BarraComparacao } from "@/components/loja/barra-comparacao";
 
 export const metadata = {
   title: "Neotec — iPhone, Mac, iPad e acessórios em Araguari",
@@ -18,11 +20,14 @@ export const metadata = {
 export default function LojaLayout({ children }: { children: ReactNode }) {
   return (
     <CarrinhoProvider>
-      <div className="flex min-h-screen flex-col bg-white">
-        <LojaHeader />
-        <main className="flex-1">{children}</main>
-        <LojaFooter />
-      </div>
+      <ComparadorProvider>
+        <div className="flex min-h-screen flex-col bg-white">
+          <LojaHeader />
+          <main className="flex-1">{children}</main>
+          <LojaFooter />
+          <BarraComparacao />
+        </div>
+      </ComparadorProvider>
     </CarrinhoProvider>
   );
 }

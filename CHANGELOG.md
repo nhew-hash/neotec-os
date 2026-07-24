@@ -2,6 +2,50 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 60-61] — Loja Neotec: redesign completo + Trade-in + Busca + Comparador
+
+### Trade-in
+- Página `/loja/trade-in`: formulário coleta modelo, armazenamento,
+  condição e observações do aparelho do cliente — vira uma solicitação
+  (`solicitacoes_trade_in`), sem estimativa automática de valor (decisão
+  combinada — equipe avalia e responde por WhatsApp).
+- Nova aba "Trade-in" na tela **Pedidos da Loja**, com status e link
+  direto pro WhatsApp do cliente.
+
+### Busca inteligente
+- Ícone de busca no cabeçalho abre um overlay de tela cheia — resultado
+  ao vivo enquanto digita (debounce de 250ms, não busca a cada tecla).
+
+### Comparador de iPhones
+- Botão de comparar nos cards de iPhone/Android — barra flutuante
+  aparece quando há 2+ selecionados, leva pra `/loja/comparar` (até 3
+  aparelhos lado a lado: categoria, marca/modelo, armazenamento
+  disponível, condição, preço a partir de).
+
+### Redesign — Apple-inspirado, identidade própria
+- **Home**: hero maior, seção de diferenciais (garantia, parcelamento,
+  trade-in, assistência), banner de trade-in no rodapé.
+- **Cards de produto**: parcelamento calculado ("ou 12x de RX sem
+  juros") junto do preço, botão de comparar.
+- **Página de produto**: imagem fica fixa ao rolar (`sticky`) em telas
+  grandes, seção de garantia/assistência integrada com link direto pra
+  `/consultar-os`.
+- **Cabeçalho**: busca integrada, link "Troque seu usado" na navegação.
+
+### Segurança — mesma disciplina da entrega anterior
+Duas funções SECURITY DEFINER novas (Fase 61) — `comparar_produtos_loja`
+e `aparelhos_disponiveis_loja_bulk`. A rota de comparação inicialmente
+ia consultar a tabela direto (seria bloqueada por RLS sem sessão,
+página pública) — corrigido antes de fechar a entrega, seguindo o
+mesmo padrão das outras funções públicas da loja.
+
+### Nota sobre migrações
+`fase60` e `fase61` são independentes uma da outra e da Fase 58 — não
+foi necessário editar nenhuma migração já entregue antes (evita risco
+de você já ter aplicado e a alteração não pegar).
+
+---
+
 ## [Fase 59] — Correção de build: tipo do Buffer no download de PDF
 
 ### Corrigido
