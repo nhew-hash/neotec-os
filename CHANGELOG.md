@@ -2,6 +2,43 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 52] — Redesign do Portal do Cliente (consulta pública de OS)
+
+Escopo combinado antes de implementar: só a busca que já existe hoje
+(número da OS + telefone, resultado único) — consulta por CPF, página
+de detalhe com timeline/fotos/downloads ficam pra uma entrega futura,
+por não existirem ainda (achado durante a análise, não é regressão).
+
+### Redesenhado
+- Visual completo da página `/consultar-os` e do card de resultado —
+  deliberadamente diferente do sistema interno (que é "ferramenta de
+  precisão" pra quem trabalha na loja): aqui é cliente comum, no
+  celular, querendo resposta em segundos. Muito espaço em branco,
+  cantos macios, tipografia grande.
+- Status mostrado com emoji + texto simples (📥 Recebido, 🔵 Em
+  diagnóstico, 📋 Orçamento em análise, 🟡 Aguardando sua aprovação, 🟢
+  Em reparo, 🧪 Em testes finais, ✅ Pronto para retirada, 📦 Entregue)
+  — sem jargão técnico.
+- Estado de carregamento (skeleton), estado vazio ("Não encontramos
+  nenhuma Ordem de Serviço com esses dados" — nunca erro técnico) e
+  botão "Nova pesquisa" bem cuidados.
+
+### Adicionado — normalização do número da OS
+- `consultar_os_publico` (função no banco) agora aceita `154`, `0154`,
+  `OS154`, `os154`, `OS-154` como a mesma busca — extrai só os dígitos
+  dos dois lados (o que a pessoa digitou e o número guardado) antes de
+  comparar. O cliente nunca precisa saber que o número interno é
+  "OS000154".
+
+### Mantido — nenhuma lógica quebrada
+Mesma consulta (RPC `consultar_os_publico`), mesma URL
+(`/consultar-os`), mesmos campos obrigatórios (número + telefone),
+mesma proteção de dados (a função SECURITY DEFINER continua expondo só
+status/prazo/valor/observações públicas — nunca diagnóstico ou dado
+interno).
+
+---
+
 ## [Fase 50-51] — Módulo de Impressão: Fase 4 (Assinatura Digital) — plano completo
 
 Última fase do plano de 4 aprovado pro módulo de impressão. Construída
