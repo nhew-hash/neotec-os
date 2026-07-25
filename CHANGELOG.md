@@ -2,6 +2,24 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 70] — Correção de migração: "cannot change return type of existing function"
+
+### Corrigido
+- `create or replace function` não deixa mudar as colunas de retorno
+  de uma função `returns table(...)` já existente — Postgres exige
+  `drop function` antes. As Fases 68 e 69 tentaram adicionar coluna de
+  retorno em 3 funções já existentes desde a Fase 58
+  (`listar_aparelhos_disponiveis_loja`, `listar_produtos_loja`,
+  `buscar_produto_loja`) sem fazer esse drop primeiro.
+- Migração `fase70` corrige isso pra quem já começou a aplicar as
+  migrações e travou no meio — segura rodar em qualquer ordem,
+  independente de até onde a Fase 68/69 chegou antes de falhar.
+- Arquivos originais (`fase68`, `fase69`) também corrigidos com o
+  `drop function if exists` antes de cada `create function` — quem for
+  aplicar tudo do zero no futuro não bate nesse mesmo erro.
+
+---
+
 ## [Fase 69] — Módulo de Conversão e Engajamento: Fase 1 (dado real)
 
 Primeira de 3 fases combinadas. Regra seguida à risca em tudo: nenhum

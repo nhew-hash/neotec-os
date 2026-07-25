@@ -12,7 +12,12 @@ alter table pedido_loja_itens
 -- Atualiza a função pública de aparelhos disponíveis (Fase 58) pra
 -- incluir peças substituídas e observações — "essa informação deve
 -- aparecer claramente na página do produto" (seminovos).
-create or replace function listar_aparelhos_disponiveis_loja(p_produto_id uuid)
+-- "drop" antes é obrigatório aqui — Postgres não deixa "create or
+-- replace function" mudar as colunas de retorno de uma função
+-- "returns table(...)" já existente (essa mudou desde a Fase 58).
+drop function if exists listar_aparelhos_disponiveis_loja(uuid);
+
+create function listar_aparelhos_disponiveis_loja(p_produto_id uuid)
 returns table (
   id uuid, cor text, memoria text, condicao text, bateria integer, preco_venda numeric,
   pecas_substituidas text[], observacoes text

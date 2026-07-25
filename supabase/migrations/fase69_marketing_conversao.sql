@@ -140,7 +140,10 @@ alter publication supabase_realtime add table selos_confianca;
 
 -- Atualiza as funções públicas de catálogo (Fase 58) pra incluir os
 -- campos novos — preço antigo (economia real) e selos manuais.
-create or replace function listar_produtos_loja()
+-- "drop" antes é obrigatório — mesma razão da Fase 68.
+drop function if exists listar_produtos_loja();
+
+create function listar_produtos_loja()
 returns table (
   id uuid, categoria text, marca text, modelo text, nome text,
   descricao_loja text, preco_venda numeric, preco_antigo numeric, selos_manuais text[], slug text
@@ -153,7 +156,9 @@ as $$
 $$;
 grant execute on function listar_produtos_loja() to anon, authenticated;
 
-create or replace function buscar_produto_loja(p_slug text)
+drop function if exists buscar_produto_loja(text);
+
+create function buscar_produto_loja(p_slug text)
 returns table (
   id uuid, categoria text, marca text, modelo text, nome text,
   descricao_loja text, preco_venda numeric, preco_antigo numeric, selos_manuais text[], slug text
