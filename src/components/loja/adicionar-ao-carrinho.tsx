@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ShoppingBag, MapPin, Truck, BatteryFull, ShieldCheck } from "lucide-react";
 import { useCarrinho } from "./carrinho-context";
-import { formatCurrency } from "@/utils";
 import { formatarParcelamento } from "./categorias";
+import { PrecoComEconomia, AvisoDescontoPix } from "./badges-e-economia";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
 
 const LABEL_CONDICAO: Record<string, string> = { novo: "Novo", seminovo: "Seminovo", usado: "Usado" };
@@ -20,9 +20,10 @@ function corBateria(bateria: number): string {
 interface AdicionarAoCarrinhoProps {
   produto: ProdutoLoja;
   aparelhosDisponiveis: AparelhoDisponivelLoja[];
+  pixDescontoPercentual?: number;
 }
 
-export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis }: AdicionarAoCarrinhoProps) {
+export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDescontoPercentual = 0 }: AdicionarAoCarrinhoProps) {
   const router = useRouter();
   const { adicionar } = useCarrinho();
   const [aparelhoSelecionadoId, setAparelhoSelecionadoId] = useState<string | null>(aparelhosDisponiveis[0]?.id ?? null);
@@ -51,16 +52,11 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis }: Adicionar
 
   return (
     <div className="flex flex-col gap-5">
-      {disponivel && (
-        <span className="flex w-fit items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-medium text-success">
-          <span className="h-1.5 w-1.5 rounded-full bg-success" />Disponível em loja
-        </span>
-      )}
-
       {precoExibido != null && (
-        <div>
-          <span className="font-display text-3xl font-bold text-foreground">{formatCurrency(precoExibido)}</span>
-          <p className="mt-1 text-sm text-muted-foreground">{formatarParcelamento(precoExibido)}</p>
+        <div className="flex flex-col gap-1.5">
+          <PrecoComEconomia precoAtual={precoExibido} precoAntigo={produto.preco_antigo} />
+          <p className="text-sm text-muted-foreground">{formatarParcelamento(precoExibido)}</p>
+          <AvisoDescontoPix percentual={pixDescontoPercentual} valor={precoExibido} />
         </div>
       )}
 

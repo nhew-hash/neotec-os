@@ -161,6 +161,8 @@ export interface Produto {
   visivel_loja: boolean;
   slug: string | null;
   descricao_loja: string | null;
+  preco_antigo: number | null;
+  selos_manuais: string[];
   created_at: string;
   updated_at: string;
 }
@@ -191,6 +193,7 @@ export interface Aparelho {
   cliente_origem_id: string | null;
   pecas_substituidas: string[];
   observacoes: string | null;
+  preco_antigo: number | null;
   data_entrada: string;
   updated_at: string;
 }
@@ -784,6 +787,8 @@ export interface ProdutoLoja {
   nome: string;
   descricao_loja: string | null;
   preco_venda: number | null;
+  preco_antigo: number | null;
+  selos_manuais: string[];
   slug: string;
 }
 
@@ -900,8 +905,52 @@ export interface CatalogoLacradoVariante {
   armazenamento: string;
   quantidade: number;
   preco_venda: number | null;
+  preco_antigo: number | null;
   ativo: boolean;
   updated_at: string;
 }
 
 export type PecaSubstituida = "tela" | "bateria" | "carcaca";
+
+// ---- Fase 69: Marketing & Conversão ----
+
+export interface ConfigMarketingLoja {
+  id: string;
+  loja_id: string;
+  pix_desconto_percentual: number;
+  estoque_baixo_limite: number;
+  contador_vendas_ativo: boolean;
+  updated_at: string;
+}
+
+export interface BarraTopoItem {
+  id: string;
+  loja_id: string;
+  texto: string;
+  icone: string | null;
+  ordem: number;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TipoSeloConfianca =
+  | "produto_original" | "garantia" | "nota_fiscal" | "loja_fisica" | "assistencia_tecnica" | "pagamento_seguro";
+
+export interface SeloConfianca {
+  id: string;
+  loja_id: string;
+  tipo: TipoSeloConfianca;
+  label: string;
+  ativo: boolean;
+  ordem: number;
+}
+
+export type SeloManualProduto = "novidade" | "promocao" | "oferta" | "escolha_equipe";
+
+export interface ProdutoComplementar {
+  id: string;
+  produto_id: string;
+  complementar_produto_id: string;
+  ordem: number;
+}

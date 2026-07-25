@@ -5,6 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const ITENS = [
   {
+    href: "/configuracoes/marketing",
+    titulo: "Marketing & Conversão",
+    descricao: "Barra superior, selos de confiança, desconto Pix",
+    icon: Sparkles,
+    disponivel: true,
+  },
+  {
     href: "/configuracoes/loja-cms",
     titulo: "Home da Loja",
     descricao: "Editor de banners, seções e vitrine — sem deploy",

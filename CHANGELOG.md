@@ -2,6 +2,51 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 69] — Módulo de Conversão e Engajamento: Fase 1 (dado real)
+
+Primeira de 3 fases combinadas. Regra seguida à risca em tudo: nenhum
+número de urgência/prova social é inventado — vendas, estoque e
+economia vêm sempre de dado real ou de configuração explícita do
+admin. Onde não existe dado suficiente, o elemento simplesmente não
+aparece, em vez de mostrar algo fictício.
+
+### Novo módulo — Configurações → Marketing & Conversão
+- Config geral: desconto Pix (%), limite de "estoque baixo", toggle do
+  contador de vendas.
+- Barra superior rotativa: itens com texto/ícone/ordem, arrastar-e-
+  soltar pra reordenar (reaproveita o mesmo componente do CMS da Home).
+- Selos de confiança (biblioteca fixa: produto original, garantia,
+  nota fiscal, loja física, assistência, pagamento seguro) — admin liga
+  e desliga quais aparecem na faixa abaixo do botão comprar.
+
+### Na loja pública
+- Barra superior rotativa, visível em toda página da loja.
+- Faixa de selos de confiança na página de produto.
+- **Preço com economia real**: "De/Por/Economize" só aparece quando
+  existe preço antigo configurado — nunca desconto inventado. Campo
+  novo em produtos, aparelhos e variantes de lacrado.
+- **Aviso de desconto Pix**, calculado de verdade a partir do
+  percentual configurado.
+- **Estoque real**: "Restam X unidades" só quando o estoque bate o
+  limite configurado de verdade; senão, só "Disponível" — nunca
+  urgência falsa.
+- **Contador de vendas real**: soma de `venda_itens` de verdade
+  vinculada ao produto (direto ou via aparelho) — nunca número
+  aleatório. "Mais vendido" só aparece com 10+ vendas reais.
+- **Badges de produto**: automáticos (mais vendido, últimas unidades —
+  calculados) + manuais (novidade, promoção, oferta, escolha da
+  equipe — admin escolhe por produto).
+- **Favoritos**: mesmo padrão de carrinho/comparador (localStorage),
+  preparado pra migrar pra conta de cliente quando existir login na loja.
+
+### Adiado — Fases 2 e 3 (combinadas, não construídas ainda)
+Avaliações, cupons, lista de espera, banners com agendamento, vídeo
+por produto (Fase 2) — e "pessoas vendo agora", dashboard de
+conversão, pop-ups, landing pages, IA flutuante (Fase 3, depende de
+infraestrutura de analytics que ainda não existe).
+
+---
+
 ## [Fase 66-68] — Catálogo Inteligente: Lacrados (catálogo mestre) + Seminovos estendido
 
 Separação total entre as duas operações, como pedido. Lacrados ganhou

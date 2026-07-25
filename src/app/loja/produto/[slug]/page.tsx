@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Smartphone, Wrench, ArrowRight } from "lucide-react";
 import { buscarProdutoLojaPorSlug, listarAparelhosDisponiveisLoja } from "@/services/loja/loja-publica.service";
+import { obterConfigMarketingPublico, contarVendasRealDoProduto, contarEstoqueRealDoProduto } from "@/services/marketing/marketing-publico.service";
 import { AdicionarAoCarrinho } from "@/components/loja/adicionar-ao-carrinho";
+import { BadgesProduto, AvisoEstoque } from "@/components/loja/badges-e-economia";
+import { FaixaSelosConfianca } from "@/components/loja/faixa-selos-confianca";
 import { labelCategoria } from "@/components/loja/categorias";
 
 export default async function LojaProdutoPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -10,7 +13,16 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
   const produto = await buscarProdutoLojaPorSlug(slug);
   if (!produto) notFound();
 
-  const aparelhosDisponiveis = await listarAparelhosDisponiveisLoja(produto.id);
+  const [aparelhosDisponiveis, config, totalVendas, estoqueReal] = await Promise.all([
+    listarAparelhosDisponiveisLoja(produto.id),
+    obterConfigMarketingPublico(),
+    contarVendasRealDoProduto(produto.id),
+    contarEstoqueRealDoProduto(produto.id),
+  ]);
+
+  const limiteEstoqueBaixo = config?.estoque_baixo_limite ?? 3;
+  const ultimasUnidades = estoqueReal > 0 && estoqueReal <= limiteEstoqueBaixo;
+  const maisVendido = totalVendas >= 10; // limiar simples — "mais vendido" só quando tem venda de verdade o suficiente pra dizer isso com honestidade
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -27,13 +39,26 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
             <h1 className="mt-1 font-display text-2xl font-semibold text-foreground sm:text-3xl">{produto.nome}</h1>
           </div>
 
-          <AdicionarAoCarrinho produto={produto} aparelhosDisponiveis={aparelhosDisponiveis} />
+          <BadgesProduto selosManuais={produto.selos_manuais} maisVendido={maisVendido} ultimasUnidades={ultimasUnidades} />
+          <AvisoEstoque quantidade={estoqueReal} limiteEstoqueBaixo={limiteEstoqueBaixo} />
+
+          {config?.contador_vendas_ativo && totalVendas > 0 && (
+            <p className="text-xs text-muted-foreground">{totalVendas} vendido{totalVendas > 1 ? "s" : ""}</p>
+          )}
+
+          <AdicionarAoCarrinho
+            produto={produto}
+            aparelhosDisponiveis={aparelhosDisponiveis}
+            pixDescontoPercentual={config?.pix_desconto_percentual ?? 0}
+          />
 
           {produto.descricao_loja && (
             <div className="mt-4 border-t border-black/[0.06] pt-4">
               <p className="text-sm leading-relaxed text-muted-foreground">{produto.descricao_loja}</p>
             </div>
           )}
+
+          <FaixaSelosConfianca />
 
           <div className="mt-2 flex items-start gap-3 rounded-2xl bg-[#FAFBFC] p-4">
             <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
