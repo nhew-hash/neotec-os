@@ -2,6 +2,19 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 74] — Correção de build: formatCurrency sem import
+
+### Corrigido
+- `src/components/loja/adicionar-ao-carrinho.tsx` — ao trocar o preço
+  principal por `PrecoComEconomia` (Fase 69), removi o import de
+  `formatCurrency` sem notar que o seletor de variação (unidade
+  seminovo) ainda usava a função direto pra mostrar o preço de cada
+  opção. Import devolvido. Varredura geral feita em todo o módulo da
+  loja pra confirmar que não tinha mais nenhum caso parecido — não tinha.
+
+---
+
+
 ## [Fase 73] — Checkout Transparente Mercado Pago (substitui o Checkout Pro)
 
 Substituição completa do fluxo anterior (redirecionamento pro checkout

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ShoppingBag, MapPin, Truck, BatteryFull, ShieldCheck } from "lucide-react";
 import { useCarrinho } from "./carrinho-context";
+import { formatCurrency } from "@/utils";
 import { formatarParcelamento } from "./categorias";
 import { PrecoComEconomia, AvisoDescontoPix } from "./badges-e-economia";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
