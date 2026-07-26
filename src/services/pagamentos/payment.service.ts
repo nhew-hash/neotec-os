@@ -25,6 +25,19 @@ function mapearStatusMP(statusMP: string): StatusPagamento {
  * classe (o resto do app só conhece PaymentService).
  */
 export class PaymentService {
+  /**
+   * Tabela de parcelamento real — cache de 1h via Next.js `fetch`
+   * (o próprio provider usa fetch nativo, que o Next intercepta e
+   * cacheia automaticamente pela `next.revalidate`). Não é "ao vivo"
+   * no sentido de bater na API a cada clique, mas nunca fica
+   * desatualizado por mais de 1h — taxa de juros não muda de minuto a
+   * minuto, então esse intervalo é seguro sem sobrecarregar a API.
+   */
+  async consultarTabelaParcelas(valor: number) {
+    const { provider } = await this.obterProvider();
+    return provider.buscarTabelaParcelas(valor);
+  }
+
   private async obterProvider(): Promise<{ provider: MercadoPagoProvider; publicKey: string | null }> {
     const config = await paymentRepository.buscarConfiguracao("mercadopago", false);
     if (!config?.access_token) throw new Error("Mercado Pago não está configurado — defina o Access Token em Configurações → Pagamentos.");

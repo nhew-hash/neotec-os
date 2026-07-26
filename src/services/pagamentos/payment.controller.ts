@@ -96,3 +96,22 @@ export async function buscarPublicKeyMercadoPagoAction(): Promise<ActionResult<{
     return { success: false, error: extrairMensagemErro(err, "Erro ao carregar configuração") };
   }
 }
+
+export interface OpcaoParcela {
+  parcelas: number;
+  valorParcela: number;
+  valorTotal: number;
+  temJuros: boolean;
+  taxaJuros: number;
+}
+
+/** Tabela de parcelamento real (juros incluído quando existir) — cache de 1h dentro do PaymentService/Provider. */
+export async function buscarTabelaParcelasAction(valor: number): Promise<ActionResult<{ opcoes: OpcaoParcela[] }>> {
+  if (valor <= 0) return { success: false, error: "Valor inválido" };
+  try {
+    const opcoes = await paymentService.consultarTabelaParcelas(valor);
+    return { success: true, data: { opcoes } };
+  } catch (err) {
+    return { success: false, error: extrairMensagemErro(err, "Não foi possível consultar as parcelas agora") };
+  }
+}

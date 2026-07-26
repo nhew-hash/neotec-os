@@ -15,12 +15,14 @@ export function labelCategoria(valor: string): string {
 }
 
 /**
- * Parcelamento exibido na loja — informativo (não existe gateway de
- * pagamento real ligado ainda, Fase 2/Mercado Pago). 12x sem juros é o
- * padrão mais comum pra loja desse porte; ajuste aqui se decidir outro
- * número de parcelas.
+ * Parcelamento exibido nos cards da grade de produtos — só uma
+ * estimativa de "quantas parcelas cabem", sem afirmar juros ou não
+ * (não dá pra consultar a taxa real do Mercado Pago por item numa
+ * lista inteira, seria uma chamada de API por card). A página do
+ * produto mostra a tabela de parcelamento REAL, com juros de verdade
+ * quando existir — essa aqui é só um indicativo pra grade.
  */
 export function formatarParcelamento(valor: number, parcelas = 12): string {
   const valorParcela = valor / parcelas;
-  return `ou ${parcelas}x de ${valorParcela.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} sem juros`;
+  return `em até ${parcelas}x de ${valorParcela.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`;
 }

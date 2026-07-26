@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ShoppingBag } from "lucide-react";
 import { useCarrinho } from "./carrinho-context";
 import { formatCurrency } from "@/utils";
-import { formatarParcelamento } from "./categorias";
+import { TabelaParcelamento } from "./tabela-parcelamento";
 import type { CatalogoLacradoVariante, CatalogoLacradoModelo } from "@/types";
 
 type Variante = Pick<CatalogoLacradoVariante, "id" | "cor" | "armazenamento" | "quantidade" | "preco_venda">;
@@ -66,7 +66,7 @@ export function AdicionarLacradoAoCarrinho({ modelo, variantes }: AdicionarLacra
       {varianteSelecionada?.preco_venda != null && (
         <div>
           <span className="font-display text-3xl font-bold text-foreground">{formatCurrency(varianteSelecionada.preco_venda)}</span>
-          <p className="mt-1 text-sm text-muted-foreground">{formatarParcelamento(varianteSelecionada.preco_venda)}</p>
+          <TabelaParcelamento valor={varianteSelecionada.preco_venda} />
         </div>
       )}
 

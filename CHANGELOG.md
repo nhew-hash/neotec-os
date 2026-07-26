@@ -2,6 +2,34 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 79] — Tabela de parcelamento real, puxada ao vivo do Mercado Pago
+
+### Corrigido
+A loja afirmava "sem juros" sem checar nada de verdade — texto fixo,
+inventado. Corrigido: página de produto (seminovo e lacrado) agora
+mostra uma tabela real de parcelas, com juros de verdade quando
+existir, puxada direto da API do Mercado Pago.
+
+### Adicionado
+- `MercadoPagoProvider.buscarTabelaParcelas()` — consulta o endpoint
+  de parcelas do Mercado Pago (REST direto, o SDK Node não tem classe
+  pronta pra esse endpoint), usando Mastercard como bandeira de
+  referência (sem cartão digitado ainda, é a estimativa mais honesta
+  possível — o valor exato pro cartão real só aparece no checkout, no
+  Brick).
+- Cache de 1h (`next: { revalidate: 3600 }`) — taxa de juros não muda
+  a cada minuto, evita bater na API do Mercado Pago em toda visita.
+- `<TabelaParcelamento>` — sob demanda (só busca quando o cliente
+  clica em "Ver opções de parcelamento"), integrado nas páginas de
+  produto seminovo e lacrado.
+- Card de produto na grade (listagem) continua com um texto simples
+  de "em até Nx de R$X" — sem afirmar juros ou não, já que consultar a
+  API real por item de uma lista inteira não é viável. A afirmação
+  real (com juros de verdade) só existe na página do produto, onde
+  cabe uma consulta por vez.
+
+---
+
 ## [Fase 78] — Parcelamento explícito até 18x no Brick de cartão
 
 ### Esclarecido (não era bug)

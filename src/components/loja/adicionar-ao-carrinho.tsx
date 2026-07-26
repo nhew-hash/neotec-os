@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Check, ShoppingBag, MapPin, Truck, BatteryFull, ShieldCheck } from "lucide-react";
 import { useCarrinho } from "./carrinho-context";
 import { formatCurrency } from "@/utils";
-import { formatarParcelamento } from "./categorias";
 import { PrecoComEconomia, AvisoDescontoPix } from "./badges-e-economia";
+import { TabelaParcelamento } from "./tabela-parcelamento";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
 
 const LABEL_CONDICAO: Record<string, string> = { novo: "Novo", seminovo: "Seminovo", usado: "Usado" };
@@ -56,7 +56,7 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
       {precoExibido != null && (
         <div className="flex flex-col gap-1.5">
           <PrecoComEconomia precoAtual={precoExibido} precoAntigo={produto.preco_antigo} />
-          <p className="text-sm text-muted-foreground">{formatarParcelamento(precoExibido)}</p>
+          <TabelaParcelamento valor={precoExibido} />
           <AvisoDescontoPix percentual={pixDescontoPercentual} valor={precoExibido} />
         </div>
       )}
