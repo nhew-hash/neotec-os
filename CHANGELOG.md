@@ -2,6 +2,18 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 82] — Correção de build: TipoRegraLucro importado do lugar errado
+
+### Corrigido
+`regras-lucro-panel.tsx` importava `TipoRegraLucro` de dentro do
+service (`regras-lucro.service.ts`), mas esse arquivo só usa o tipo
+internamente — não o re-exporta. Corrigido pra importar direto de
+`@/types`, onde o tipo é de fato exportado. Verificado que não tinha
+mais nenhum caso parecido no resto do projeto.
+
+---
+
+
 ## [Fase 81] — Central da Loja completa: as 21 seções
 
 Sidebar única em `/loja-admin`, organizando tudo — nada duplicado, nada

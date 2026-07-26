@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { criarRegraLucroAction, removerRegraLucroAction, definirRegraPadraoAction } from "@/services/seminovos/seminovos.actions";
 import { formatCurrency } from "@/utils";
-import type { RegraLucroComFaixas, TipoRegraLucro } from "@/services/seminovos/regras-lucro.service";
+import type { RegraLucroComFaixas } from "@/services/seminovos/regras-lucro.service";
+import type { TipoRegraLucro } from "@/types";
 
 const LABEL_TIPO: Record<TipoRegraLucro, string> = { fixo: "Valor fixo", percentual: "Percentual", faixa: "Por faixa de valor" };
 
