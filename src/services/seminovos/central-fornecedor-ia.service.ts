@@ -36,7 +36,7 @@ REGRA DE EMOJI DE COR (comum em fornecedor):
 ⚫️/🖤 = Preto, ⚪️ = Branco, 🔵 = Azul, 🟣/💜 = Roxo, 🟡/💛 = Amarelo,
 🟢/💚 = Verde, 🩶 = Titânio/Cinza, 🧡 = Laranja.
 
-Responda APENAS com {"itens": [...]} no formato:
+Responda APENAS com um objeto JSON no formato {"itens": [...]}, assim:
 {"itens": [{"destino": "seminovo", "modelo": "iPhone 17", "categoria": "iphone", "marca": null, "memoria": "256GB", "cor": "Roxo", "bateria": 100, "observacoes": null, "preco": 4499, "linhaOriginal": "17 256G 100%💜4499"}]}
 
 Regras gerais:

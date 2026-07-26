@@ -2,6 +2,28 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 85] — Correção: "messages must contain the word json" + proteção sistêmica
+
+### Causa raiz
+`central-fornecedor-ia.service.ts` (Fase 83) usa `formatoJson: true`
+mas o prompt de sistema descrevia o formato como `{"itens": [...]}`
+sem nunca escrever literalmente a palavra "json" no texto — a OpenAI
+exige isso quando `response_format: json_object` está ligado.
+
+### Corrigido
+- `central-fornecedor-ia.service.ts` — prompt reescrito pra mencionar
+  "JSON" explicitamente.
+- **Proteção sistêmica** em `openai.provider.ts` (o único lugar que liga
+  `response_format: json_object`): se nenhuma mensagem mencionar "json",
+  adiciona automaticamente `"Responda sempre em formato JSON."` antes de
+  chamar a API. Isso cobre não só esse caso, mas qualquer chamada
+  futura que esqueça — inclusive prompt configurável pelo admin
+  (Configurações → IA), que também poderia cair nesse mesmo erro se
+  editado sem essa palavra.
+
+---
+
+
 ## [Fase 84] — Correção de build: categoria "mac" faltando em 4 lugares
 
 ### Causa raiz

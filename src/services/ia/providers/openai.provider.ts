@@ -19,6 +19,18 @@ export class OpenAIProvider implements AIProvider {
       { role: "user", content: input.prompt },
     ];
 
+    // A OpenAI exige que a palavra "json" apareça em alguma mensagem
+    // quando response_format é json_object — sem isso, a API rejeita a
+    // chamada inteira. Em vez de confiar que todo prompt novo (ou
+    // prompt configurável pelo admin) vai lembrar de mencionar "json",
+    // garante isso aqui, no único lugar que liga esse modo.
+    if (input.formatoJson) {
+      const textoCompleto = mensagens.map((m) => m.content).join(" ").toLowerCase();
+      if (!textoCompleto.includes("json")) {
+        mensagens.push({ role: "system", content: "Responda sempre em formato JSON." });
+      }
+    }
+
     const corpo: Record<string, unknown> = {
       model: this.modelo,
       messages: mensagens,
