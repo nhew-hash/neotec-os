@@ -5,6 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const ITENS = [
   {
+    href: "/configuracoes/financeiro/parcelamento",
+    titulo: "Financeiro — Parcelamento",
+    descricao: "Preço líquido desejado, tabela de taxas, modo de juros",
+    icon: Wallet,
+    disponivel: true,
+  },
+  {
     href: "/configuracoes/pagamentos",
     titulo: "Pagamentos",
     descricao: "Mercado Pago — chaves, status, teste de conexão",

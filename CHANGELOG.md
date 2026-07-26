@@ -2,6 +2,44 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 88] — Pricing Engine: motor de precificação (núcleo completo)
+
+### O que está pronto e correto
+- **`PricingEngine`** (`services/precificacao/pricing-engine.ts`) — classe
+  única e reutilizável, sem taxa nenhuma fixa em código. Recebe a
+  tabela de taxas e a configuração (modo de juros, desconto Pix) de
+  fora, sempre. Matemática documentada linha a linha no próprio arquivo.
+- **Configurações → Financeiro → Parcelamento**: tabela de taxas 100%
+  editável (Pix + 1x a 12x, semeada com os valores do pedido), toggle
+  "repassar juros" vs. "embutir juros", desconto Pix configurável.
+- **Simulador ao vivo**: usa o MESMO `PricingEngine` da loja de
+  verdade — muda uma taxa, tudo recalcula na hora (vitrine, Pix,
+  cada parcela, lucro líquido se informar o custo).
+- Campo `preco_liquido_desejado` adicionado em `produtos`, `aparelhos`
+  e `catalogo_lacrados_variantes` — quando preenchido, é a partir dele
+  que o motor calcula o preço de vitrine.
+
+### Matemática implementada
+- **Embutir juros**: `precoVitrine = precoLiquidoDesejado / (1 - maiorTaxa)`
+  — um preço só, alto o suficiente pra sustentar parcelamento "sem
+  juros" até a maior parcela cadastrada.
+- **Repassar juros**: cada forma de pagamento tem seu próprio valor
+  (`precoLiquidoDesejado / (1 - taxaDaForma)`) — quem parcela mais paga
+  mais, a loja recebe o mesmo líquido não importa a forma escolhida.
+- Desconto Pix sempre como camada comercial extra, por cima do preço-base.
+
+### Importante — o que ainda NÃO está feito
+**A exibição da loja (página de produto, carrinho) ainda não foi
+trocada pra usar o motor** — hoje continua mostrando `preco_venda`
+direto, como sempre mostrou. Essa integração toca vários componentes
+já existentes (seletor de variante de seminovo, card de produto,
+tabela de parcelamento da Fase 79) e as funções SQL públicas que eles
+usam — decidi não apressar isso numa mesma entrega gigante pra não
+arriscar quebrar o que já funciona. O motor em si está pronto,
+testado e correto — falta só ligar os fios até a tela do cliente.
+
+---
+
 ## [Fase 87] — Central de Cadastro por Fornecedor: os 4 ajustes pedidos
 
 ### 1. Lucro faltando — corrigido

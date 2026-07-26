@@ -1047,3 +1047,22 @@ export interface AvaliacaoLoja {
 }
 
 export interface ConfigSeoLoja { id: string; loja_id: string; titulo_padrao: string | null; descricao_padrao: string | null; updated_at: string }
+
+// ---- Fase 88: Pricing Engine ----
+
+export interface ConfiguracaoPrecificacao {
+  id: string;
+  loja_id: string;
+  modo_juros: "repassar_juros" | "embutir_juros";
+  desconto_pix_percentual: number;
+  gateway_referencia: string;
+  updated_at: string;
+}
+
+export interface TaxaParcelamentoDb {
+  id: string;
+  loja_id: string;
+  parcela: number;
+  taxa_percentual: number;
+  ativo: boolean;
+}
