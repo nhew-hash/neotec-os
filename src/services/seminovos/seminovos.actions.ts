@@ -80,7 +80,7 @@ export async function salvarSeminovoRevisadoAction(item: {
     if (!produto) {
       const { data: novoProduto, error: erroProduto } = await supabase
         .from("produtos")
-        .insert({ nome: item.modelo, categoria: item.modelo.toLowerCase().includes("iphone") ? "iphone" : "android", marca: item.modelo.toLowerCase().includes("iphone") ? "Apple" : null })
+        .insert({ nome: item.modelo, categoria: item.modelo.toLowerCase().includes("iphone") ? "iphone" : "android", marca: item.modelo.toLowerCase().includes("iphone") ? "Apple" : null, visivel_loja: false })
         .select("id")
         .single();
       if (erroProduto) throw new Error(erroProduto.message);
@@ -105,6 +105,7 @@ export async function salvarSeminovoRevisadoAction(item: {
         observacoes: item.observacoes,
         origem_entrada: "fornecedor",
         status: "disponivel",
+        disponivel_loja_virtual: false,
       })
       .select("id")
       .single();

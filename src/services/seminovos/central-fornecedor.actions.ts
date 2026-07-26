@@ -53,7 +53,7 @@ export async function aplicarSeminovoFornecedorAction(item: {
     if (!produto) {
       const { data: novoProduto, error: erroProduto } = await supabase
         .from("produtos")
-        .insert({ nome: item.modelo, categoria: item.modelo.toLowerCase().includes("iphone") ? "iphone" : "android", marca: item.modelo.toLowerCase().includes("iphone") ? "Apple" : null })
+        .insert({ nome: item.modelo, categoria: item.modelo.toLowerCase().includes("iphone") ? "iphone" : "android", marca: item.modelo.toLowerCase().includes("iphone") ? "Apple" : null, visivel_loja: false })
         .select("id").single();
       if (erroProduto) throw new Error(erroProduto.message);
       produto = novoProduto;
@@ -64,7 +64,7 @@ export async function aplicarSeminovoFornecedorAction(item: {
       .insert({
         produto_id: produto.id, imei: item.imei.trim() || null, memoria: item.memoria, cor: item.cor, bateria: item.bateria,
         condicao: "seminovo", custo: item.precoPago, preco_venda: item.precoVenda, observacoes: item.observacoes,
-        origem_entrada: "fornecedor", status: "disponivel",
+        origem_entrada: "fornecedor", status: "disponivel", disponivel_loja_virtual: false,
       })
       .select("id").single();
 
@@ -120,7 +120,7 @@ export async function aplicarGenericoFornecedorAction(item: {
 
     const { data: novo, error } = await supabase
       .from("produtos")
-      .insert({ nome: item.modelo, categoria: item.categoria, marca: item.marca, preco_venda: item.preco, descricao: item.observacoes })
+      .insert({ nome: item.modelo, categoria: item.categoria, marca: item.marca, preco_venda: item.preco, descricao: item.observacoes, visivel_loja: false })
       .select("id").single();
     if (error) throw new Error(error.message);
 
@@ -221,7 +221,7 @@ export async function substituirListaFornecedorAction(itens: ItemParaSubstituica
 
     revalidatePath("/estoque");
     revalidatePath("/estoque/lacrados");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: { seminovosApagados: idsParaApagar.length, lacradosZerados: variantesParaZerar.length } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao substituir lista" };

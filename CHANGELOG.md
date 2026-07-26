@@ -2,6 +2,41 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 92] — 3 correções: produto não publica, delete perigoso demais, publicação explícita
+
+### 1. "Publico e não aparece no site" — corrigido
+Causa raiz: `revalidatePath("/loja")` só invalida a página inicial da
+loja, não `/loja/categoria/[x]`, `/loja/produto/[slug]`, etc. Um
+produto recém-publicado podia ficar "invisível" nessas páginas até o
+cache expirar sozinho. Trocado por `revalidatePath("/loja", "layout")`
+em TODOS os 7 arquivos que publicam algo na loja (marketing, CMS da
+home, produtos, aparelhos, lacrados, precificação) — invalida a árvore
+inteira, não só a página exata.
+
+### 2. "Substituir lista" apagou quase tudo — ficou bem mais seguro
+Depois do relato de que a substituição apagou a maioria dos aparelhos
+inesperadamente durante teste: agora exige **digitar "APAGAR"**
+explicitamente antes do botão de confirmar ficar habilitado — a prévia
+sozinha (só mostrar o número) não era fricção suficiente pra evitar
+confirmação sem pensar direito no tamanho do impacto.
+
+### 3. Publicação nunca mais acidental — reforçado
+Toda vez que a Central de Cadastro ou a tela de Seminovo (IA)
+auto-cria um produto ou aparelho, `visivel_loja`/`disponivel_loja_virtual`
+agora são fixados como `false` EXPLICITAMENTE no insert — nunca mais
+dependendo do valor padrão do banco (que era o suspeito mais provável
+do relato de aparelho aparecendo em "loja virtual" sem ter sido
+publicado). Todo item novo exige clique manual em "Publicar" antes de
+aparecer na loja, sem exceção.
+
+### Recomendação
+Como o ambiente ainda está em fase de teste (sem Point-in-Time
+Recovery no Supabase), recomendo confirmar que os dados atuais são
+mesmo descartáveis antes de continuar testando o "Substituir lista" —
+mesmo com a fricção nova, é uma operação genuinamente destrutiva.
+
+---
+
 ## [Fase 91] — Central de Cadastro: lista do fornecedor substitui a anterior
 
 ### Regra nova (destrutiva de propósito — como pedido)

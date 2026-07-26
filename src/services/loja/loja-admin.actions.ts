@@ -40,7 +40,7 @@ export async function publicarProdutoLojaAction(input: {
     if (error) throw new Error(error.message);
 
     revalidatePath("/estoque");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao publicar" };

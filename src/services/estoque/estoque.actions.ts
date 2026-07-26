@@ -127,7 +127,7 @@ export async function alternarPublicacaoLojaAparelhoAction(id: string, publicado
     const { error } = await supabase.from("aparelhos").update({ disponivel_loja_virtual: publicado }).eq("id", id);
     if (error) throw new Error(error.message);
     revalidatePath("/estoque");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar" };

@@ -12,7 +12,7 @@ export async function atualizarVarianteLacradoAction(
   try {
     await atualizarVarianteLacrado(id, input);
     revalidatePath("/estoque/lacrados");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar" };
@@ -32,7 +32,7 @@ export async function aplicarAtualizacaoLacradosAction(itens: { varianteId: stri
   try {
     await aplicarAtualizacaoLacrados(itens);
     revalidatePath("/estoque/lacrados");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao aplicar atualização" };

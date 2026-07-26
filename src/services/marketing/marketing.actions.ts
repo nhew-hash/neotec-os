@@ -9,7 +9,7 @@ import type { ActionResult, ConfigMarketingLoja, BarraTopoItem } from "@/types";
 
 function revalidarTudo() {
   revalidatePath("/configuracoes/marketing");
-  revalidatePath("/loja");
+  revalidatePath("/loja", "layout");
 }
 
 export async function atualizarConfigMarketingAction(

@@ -106,6 +106,7 @@ export function CentralFornecedorPanel() {
   const [previaSubstituicao, setPreviaSubstituicao] = useState<{ seminovosParaApagar: number; lacradosParaZerar: number } | null>(null);
   const [substituindo, setSubstituindo] = useState(false);
   const [resultadoSubstituicao, setResultadoSubstituicao] = useState<{ seminovosApagados: number; lacradosZerados: number } | null>(null);
+  const [textoConfirmacao, setTextoConfirmacao] = useState("");
 
   async function handleClassificar() {
     setErro(null);
@@ -158,6 +159,7 @@ export function CentralFornecedorPanel() {
     if (!itens) return;
     setSubstituindo(true);
     setPreviaSubstituicao(null);
+    setTextoConfirmacao("");
 
     // Aplica todos os itens pendentes primeiro (mesma lógica do "Aplicar tudo").
     await Promise.all(itens.filter((it) => it.status === "pendente").map((it) => aplicarItem(it)));
@@ -210,9 +212,11 @@ export function CentralFornecedorPanel() {
                 <p className="text-xs text-foreground">
                   Isso vai <strong>apagar {previaSubstituicao.seminovosParaApagar} seminovo(s)</strong> e <strong>zerar {previaSubstituicao.lacradosParaZerar} variante(s) de lacrado</strong> que não estão nessa lista nova — presume que o fornecedor não tem mais esses. Reservado/vendido nunca é apagado.
                 </p>
+                <p className="text-xs text-muted-foreground">Digite <strong>APAGAR</strong> pra confirmar:</p>
+                <Input value={textoConfirmacao} onChange={(e) => setTextoConfirmacao(e.target.value)} placeholder="APAGAR" className="w-40" />
                 <div className="flex gap-2">
-                  <Button size="sm" variant="destructive" onClick={handleConfirmarSubstituicao} disabled={substituindo}>{substituindo ? "Substituindo..." : "Confirmar e apagar"}</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setPreviaSubstituicao(null)}>Cancelar</Button>
+                  <Button size="sm" variant="destructive" onClick={handleConfirmarSubstituicao} disabled={substituindo || textoConfirmacao !== "APAGAR"}>{substituindo ? "Substituindo..." : "Confirmar e apagar"}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setPreviaSubstituicao(null); setTextoConfirmacao(""); }}>Cancelar</Button>
                 </div>
               </CardContent>
             </Card>

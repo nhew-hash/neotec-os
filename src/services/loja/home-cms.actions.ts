@@ -18,7 +18,7 @@ export async function criarHeroSlideAction(): Promise<ActionResult<{ id: string 
   try {
     const slide = await criarHeroSlide({});
     revalidatePath("/configuracoes/loja-cms");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: { id: slide.id } };
   } catch (err) {
     return handleErro(err, "Erro ao criar slide") as ActionResult<{ id: string }>;
@@ -29,7 +29,7 @@ export async function atualizarHeroSlideAction(id: string, input: Partial<HeroSl
   try {
     await atualizarHeroSlide(id, input);
     revalidatePath("/configuracoes/loja-cms");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     return handleErro(err, "Erro ao salvar slide");
@@ -40,7 +40,7 @@ export async function removerHeroSlideAction(id: string): Promise<ActionResult> 
   try {
     await removerHeroSlide(id);
     revalidatePath("/configuracoes/loja-cms");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     return handleErro(err, "Erro ao remover slide");
@@ -51,7 +51,7 @@ export async function reordenarHeroSlidesAction(ordemIds: string[]): Promise<Act
   try {
     await reordenarHeroSlides(ordemIds);
     revalidatePath("/configuracoes/loja-cms");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     return handleErro(err, "Erro ao reordenar");
@@ -85,7 +85,7 @@ export async function criarHomeSecaoAction(tipo: TipoSecaoHome): Promise<ActionR
   try {
     const secao = await criarHomeSecao(tipo);
     revalidatePath("/configuracoes/loja-cms");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: { id: secao.id } };
   } catch (err) {
     return handleErro(err, "Erro ao criar seção") as ActionResult<{ id: string }>;
@@ -96,7 +96,7 @@ export async function atualizarHomeSecaoAction(id: string, input: Partial<Pick<H
   try {
     await atualizarHomeSecao(id, input);
     revalidatePath("/configuracoes/loja-cms");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     return handleErro(err, "Erro ao salvar seção");
@@ -107,7 +107,7 @@ export async function removerHomeSecaoAction(id: string): Promise<ActionResult> 
   try {
     await removerHomeSecao(id);
     revalidatePath("/configuracoes/loja-cms");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     return handleErro(err, "Erro ao remover seção");
@@ -118,7 +118,7 @@ export async function reordenarHomeSecoesAction(ordemIds: string[]): Promise<Act
   try {
     await reordenarHomeSecoes(ordemIds);
     revalidatePath("/configuracoes/loja-cms");
-    revalidatePath("/loja");
+    revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
   } catch (err) {
     return handleErro(err, "Erro ao reordenar");

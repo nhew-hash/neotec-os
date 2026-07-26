@@ -6,7 +6,7 @@ import type { ActionResult, ConfiguracaoPrecificacao } from "@/types";
 
 function revalidar() {
   revalidatePath("/configuracoes/financeiro/parcelamento");
-  revalidatePath("/loja");
+  revalidatePath("/loja", "layout");
 }
 
 export async function atualizarConfigPrecificacaoAction(
