@@ -16,6 +16,7 @@ const CATEGORIAS = [
   { value: "android", label: "Android" },
   { value: "apple_watch", label: "Apple Watch" },
   { value: "ipad", label: "iPad" },
+  { value: "mac", label: "Mac" },
   { value: "acessorio", label: "Acessório" },
   { value: "peca", label: "Peça" },
 ] as const;

@@ -11,6 +11,7 @@ const CATEGORIA_LABEL: Record<Produto["categoria"], string> = {
   android: "Android",
   apple_watch: "Apple Watch",
   ipad: "iPad",
+  mac: "Mac",
   acessorio: "Acessório",
   peca: "Peça",
 };

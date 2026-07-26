@@ -2,6 +2,28 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 84] — Correção de build: categoria "mac" faltando em 4 lugares
+
+### Causa raiz
+Adicionar "mac" ao tipo `Produto["categoria"]` (Fase 83) quebra todo
+`Record<Produto["categoria"], string>` que lista as categorias sem essa
+chave nova — TypeScript exige todas as chaves da união presentes.
+
+### Corrigido
+- `produtos-table.tsx` — `CATEGORIA_LABEL` (causa do erro de build)
+- `estoque.schema.ts` — enum Zod de validação (sem isso, formulário
+  rejeitaria "mac" mesmo que o build passasse)
+- `produto-form.tsx` — dropdown de categoria (sem isso, "mac" seria
+  aceito mas nunca selecionável na tela)
+- `categorias.ts` (loja pública) — não quebrava o build (tem
+  fallback), mas Mac apareceria sem rótulo bonito na loja
+
+Confirmado que não sobrou nenhum outro `Record<Produto["categoria"]>`
+incompleto no projeto.
+
+---
+
+
 ## [Fase 83] — Central de Cadastro por Fornecedor: uma tela, classificação automática
 
 Antes: seminovo e lacrado tinham telas separadas, cada uma exigindo que
