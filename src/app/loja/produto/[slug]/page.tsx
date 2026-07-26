@@ -6,6 +6,7 @@ import { obterConfigMarketingPublico, contarVendasRealDoProduto, contarEstoqueRe
 import { AdicionarAoCarrinho } from "@/components/loja/adicionar-ao-carrinho";
 import { BadgesProduto, AvisoEstoque } from "@/components/loja/badges-e-economia";
 import { FaixaSelosConfianca } from "@/components/loja/faixa-selos-confianca";
+import { RegistrarVisto, VistosRecentesLista } from "@/components/loja/vistos-recentes";
 import { labelCategoria } from "@/components/loja/categorias";
 
 export default async function LojaProdutoPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -68,6 +69,9 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
           </div>
         </div>
       </div>
+
+      <RegistrarVisto id={produto.id} nome={produto.nome} slug={produto.slug} preco={produto.preco_venda} />
+      <VistosRecentesLista excluirId={produto.id} />
     </div>
   );
 }

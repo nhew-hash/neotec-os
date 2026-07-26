@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { CarrinhoProvider } from "@/components/loja/carrinho-context";
 import { ComparadorProvider } from "@/components/loja/comparador-context";
 import { FavoritosProvider } from "@/components/loja/favoritos-context";
+import { VistosRecentesProvider } from "@/components/loja/vistos-recentes-context";
 import { LojaHeader } from "@/components/loja/loja-header";
 import { LojaFooter } from "@/components/loja/loja-footer";
 import { BarraComparacao } from "@/components/loja/barra-comparacao";
@@ -27,13 +28,15 @@ export default async function LojaLayout({ children }: { children: ReactNode }) 
     <CarrinhoProvider>
       <ComparadorProvider>
         <FavoritosProvider>
-          <div className="flex min-h-screen flex-col bg-white">
-            <BarraTopoRotativa itens={barraTopoItens} />
-            <LojaHeader />
-            <main className="flex-1">{children}</main>
-            <LojaFooter />
-            <BarraComparacao />
-          </div>
+          <VistosRecentesProvider>
+            <div className="flex min-h-screen flex-col bg-white">
+              <BarraTopoRotativa itens={barraTopoItens} />
+              <LojaHeader />
+              <main className="flex-1">{children}</main>
+              <LojaFooter />
+              <BarraComparacao />
+            </div>
+          </VistosRecentesProvider>
         </FavoritosProvider>
       </ComparadorProvider>
     </CarrinhoProvider>

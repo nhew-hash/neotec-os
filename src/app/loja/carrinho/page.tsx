@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Trash2, Minus, Plus, MessageCircle, CreditCard } from "lucide-react";
 import { useCarrinho } from "@/components/loja/carrinho-context";
 import { criarPedidoLojaAction } from "@/services/loja/loja-pedido.actions";
 import { formatCurrency } from "@/utils";
 
 export default function CarrinhoPage() {
+  const router = useRouter();
   const { itens, remover, atualizarQuantidade, total, limpar } = useCarrinho();
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -94,11 +96,10 @@ export default function CarrinhoPage() {
 
           <button
             type="button"
-            disabled
-            title="Em breve"
-            className="flex items-center justify-center gap-2 rounded-full border border-black/[0.08] py-3.5 text-sm font-semibold text-muted-foreground opacity-60"
+            onClick={() => router.push("/loja/checkout")}
+            className="flex items-center justify-center gap-2 rounded-full border border-primary py-3.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/5"
           >
-            <CreditCard className="h-4 w-4" />Pagar com Pix ou cartão (em breve)
+            <CreditCard className="h-4 w-4" />Pagar com Pix ou cartão
           </button>
         </div>
       </div>

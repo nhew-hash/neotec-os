@@ -12,6 +12,16 @@
 -- existir ou já estiver no formato certo.
 -- ============================================================================
 
+-- Garante que as colunas usadas pelas funções abaixo existem, mesmo
+-- que a Fase 69 não tenha rodado ainda (ou tenha parado antes de
+-- chegar nesse ponto) — sem isso, "create function" falha na hora,
+-- porque funções "language sql" são validadas contra o schema já na
+-- criação, não só na hora de rodar.
+alter table produtos add column if not exists preco_antigo numeric(12,2);
+alter table produtos add column if not exists selos_manuais text[] not null default '{}';
+alter table aparelhos add column if not exists pecas_substituidas text[] not null default '{}';
+alter table aparelhos add column if not exists observacoes text;
+
 drop function if exists listar_aparelhos_disponiveis_loja(uuid);
 
 create function listar_aparelhos_disponiveis_loja(p_produto_id uuid)

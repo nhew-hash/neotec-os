@@ -954,3 +954,44 @@ export interface ProdutoComplementar {
   complementar_produto_id: string;
   ordem: number;
 }
+
+// ---- Fase 73: Checkout Transparente / Pagamentos ----
+
+export type StatusPagamento = "pendente" | "aprovado" | "recusado" | "cancelado" | "estornado" | "chargeback" | "expirado";
+export type TipoPagamentoGateway = "pix" | "cartao_credito" | "cartao_debito" | "boleto";
+
+export interface Pagamento {
+  id: string;
+  loja_id: string;
+  pedido_id: string;
+  gateway: string;
+  payment_id: string | null;
+  status: StatusPagamento;
+  tipo_pagamento: TipoPagamentoGateway | null;
+  parcelas: number | null;
+  valor: number;
+  valor_liquido: number | null;
+  taxa_gateway: number | null;
+  pix_qrcode: string | null;
+  pix_copia_cola: string | null;
+  pix_expira_em: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConfiguracaoGatewayPagamento {
+  id: string;
+  loja_id: string;
+  gateway: string;
+  public_key: string | null;
+  access_token: string | null;
+  webhook_secret: string | null;
+  modo: "sandbox" | "producao";
+  ativo: boolean;
+  ultimo_teste_conexao_em: string | null;
+  ultimo_teste_conexao_sucesso: boolean | null;
+  ultimo_webhook_recebido_em: string | null;
+  ultimo_pagamento_aprovado_em: string | null;
+  updated_at: string;
+}

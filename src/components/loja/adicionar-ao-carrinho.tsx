@@ -87,14 +87,8 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
                   )}
                   {a.observacoes && <span className="text-[11px] italic text-muted-foreground">{a.observacoes}</span>}
                 </div>
-               {a.preco_venda != null && (
-  <span className="text-sm font-semibold text-foreground">
-    {new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(a.preco_venda)}
-  </span>
-)}</button>
+                {a.preco_venda != null && <span className="text-sm font-semibold text-foreground">{formatCurrency(a.preco_venda)}</span>}
+              </button>
             ))}
           </div>
         </div>

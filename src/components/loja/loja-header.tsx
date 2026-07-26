@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, Menu, X, Repeat } from "lucide-react";
+import { ShoppingBag, Menu, X, Repeat, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { CATEGORIAS_LOJA } from "./categorias";
 import { useCarrinho } from "./carrinho-context";
@@ -21,6 +21,9 @@ export function LojaHeader() {
           </Link>
 
           <nav className="hidden items-center gap-6 lg:flex">
+            <Link href="/loja/encontre-seu-iphone" className="flex items-center gap-1 text-sm font-semibold text-primary">
+              <Sparkles className="h-3.5 w-3.5" />Encontre seu iPhone ideal
+            </Link>
             <Link href="/loja/lacrados" className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
               iPhone Lacrado
             </Link>
@@ -53,6 +56,9 @@ export function LojaHeader() {
 
       {menuAberto && (
         <nav className="flex flex-col border-t border-black/[0.06] bg-white px-4 py-2 lg:hidden">
+          <Link href="/loja/encontre-seu-iphone" className="flex items-center gap-1.5 py-2.5 text-sm font-semibold text-primary" onClick={() => setMenuAberto(false)}>
+            <Sparkles className="h-4 w-4" />Encontre seu iPhone ideal
+          </Link>
           <Link href="/loja/lacrados" className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
             📱 iPhone Lacrado
           </Link>

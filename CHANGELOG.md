@@ -2,6 +2,132 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 73] — Checkout Transparente Mercado Pago (substitui o Checkout Pro)
+
+Substituição completa do fluxo anterior (redirecionamento pro checkout
+hospedado) por Checkout Transparente — o cliente nunca sai da loja.
+Arquitetura modular, exatamente como pedido: MercadoPagoProvider,
+PaymentService, WebhookService, PaymentRepository, PaymentController,
+PaymentHooks — cada camada com uma responsabilidade só, nenhuma lógica
+de pagamento dentro de componente React.
+
+### Removido (substituído por esta entrega)
+- `src/lib/pagamento/mercadopago.provider.ts` (Checkout Pro)
+- `src/services/loja/mercadopago-checkout.actions.ts`
+- Webhook antigo em `/api/pagamentos/mercadopago/webhook` — novo
+  webhook agora em `/api/mercadopago/webhook`, como pedido.
+
+### Adicionado
+- **Tabela `pagamentos`** — histórico detalhado por tentativa
+  (status, tipo, parcelas, valor líquido, taxa, QR Code/copia-cola do
+  Pix, metadata cru do gateway pra depuração).
+- **`configuracoes_gateway_pagamento`** — uma linha por gateway
+  (estrutura já aberta pra Stripe/Asaas/PagSeguro no futuro).
+- **Configurações → Pagamentos**: Public Key, Access Token (nunca
+  exposto pro navegador do cliente), Webhook Secret, modo sandbox/
+  produção, ativar/desativar, botão "Testar conexão", status (último
+  teste, último webhook, último pagamento aprovado).
+- **`/loja/checkout`**: dados do cliente → Pix (QR Code + copia-e-cola
+  + cronômetro + status em tempo real via Realtime, nunca recarrega a
+  página) ou Cartão (Card Payment Brick **oficial** do Mercado Pago —
+  número/CVV/validade nunca chegam no nosso servidor, só o token final).
+- **Webhook** (`/api/mercadopago/webhook`) — nunca confia no corpo da
+  notificação, sempre confirma o status de verdade direto na API antes
+  de mudar qualquer coisa.
+- **Automação completa na aprovação**: baixa estoque real (aparelho
+  vira "vendido", variante de lacrado desconta quantidade), cria venda
+  de verdade (mesma tabela da loja física — aparece em relatórios
+  normalmente), lançamento financeiro automático, confirmação por
+  WhatsApp (melhor esforço — não derruba o pagamento se falhar).
+
+### Limitação conhecida, documentada
+Lançamento financeiro/venda de itens do tipo "lacrado" não tem custo
+registrado ainda (`catalogo_lacrados_variantes` não guarda custo por
+variante) — o item entra na venda com custo zero, então o lucro desse
+item específico fica incompleto no relatório até essa lacuna do
+catálogo mestre ser resolvida.
+
+### Não testado ao vivo
+Como sempre nesse tipo de integração — especialmente o Card Payment
+Brick (tokenização de cartão no navegador) — não pôde ser validado de
+ponta a ponta sem um ambiente real do Mercado Pago. Testa com cuidado
+extra, de preferência em modo sandbox primeiro.
+
+---
+
+## [Fase 72] — Mercado Pago (Fase 2 combinada) + "Encontre seu iPhone ideal" + 3 itens da lista de conversão
+
+### Mercado Pago — pagamento online de verdade
+- Checkout Pro (redireciona pro checkout hospedado do Mercado Pago) —
+  nunca lidamos com dado de cartão no nosso servidor, cobre Pix/cartão/
+  boleto no mesmo fluxo.
+- Botão "Pagar com Pix ou cartão" no carrinho, antes desabilitado,
+  agora ativo — cria o pedido, gera a preferência de pagamento, redireciona.
+- Webhook (`/api/pagamentos/mercadopago/webhook`) — nunca confia no
+  corpo da notificação (poderia ser forjado); sempre busca o status de
+  verdade direto na API do Mercado Pago antes de atualizar o pedido.
+- Páginas de retorno: `/loja/pedido/sucesso` e `/loja/pedido/erro`.
+- **Pendente de você**: definir `MERCADO_PAGO_ACCESS_TOKEN` como
+  variável de ambiente na Vercel — nunca colado em chat.
+
+### "Encontre seu iPhone ideal" — a funcionalidade destacada como mais valiosa
+- Quiz de 3 perguntas (orçamento, prioridade, novo/seminovo) — cruza
+  com o estoque REAL (lacrados com quantidade > 0, seminovos
+  disponíveis), pontua por prioridade usando sinal real do nome do
+  modelo (Pro Max pontua mais em câmera/desempenho, Plus/Max em
+  bateria — não é especificação inventada, é padrão real da própria
+  nomenclatura Apple).
+- A IA só escreve a frase de explicação sobre os 3 candidatos JÁ
+  selecionados por regra — nunca sugere nada fora da lista, nunca
+  inventa especificação. Se a IA falhar, ainda mostra os candidatos
+  reais, só sem a frase personalizada.
+- Link em destaque no cabeçalho da loja (desktop e mobile).
+
+### 3 itens fáceis da lista
+- **Produtos vistos recentemente** — localStorage, mesmo padrão de
+  carrinho/favoritos/comparador; só aparece se tiver histórico real.
+- **Mapa** — endereço + link direto pro Google Maps.
+- **Página "Por que comprar na Neotec?"** — comparativo honesto, sem
+  exagero.
+
+### Adiado — resto da lista de 25 itens
+Histórico de preço, reserva com Pix, simulador de troca por IA,
+certificado PDF de seminovo, fidelidade, frete com Correios,
+calculadora de parcelas com slider, avaliações com foto, e o resto —
+ficam pra próximas entregas.
+
+---
+
+## [Fase 71] — Correção: "b.map is not a function" na importação de tabela do fornecedor
+
+### Causa raiz
+`formatoJson: true` liga `response_format: {type: "json_object"}` na
+OpenAI — esse modo EXIGE um objeto na raiz do JSON, array solto não é
+aceito. O prompt pedia array solto (`[...]`), então a IA era forçada a
+embrulhar de algum jeito (provavelmente `{"itens": [...]}`), e o código
+só sabia lidar com array puro — chamava `.map()` direto em cima do
+resultado do `JSON.parse`, sem checar o formato antes.
+
+### Corrigido — arquivo alterado: `src/services/lacrados/lacrados-ia.service.ts`
+- **Prompt**: agora pede explicitamente `{"itens": [...]}` — o único
+  formato válido pro modo JSON forçado da OpenAI.
+- **Schema Zod novo**: `itemBrutoSchema` (item individual) e
+  `respostaIaSchema` (objeto com chave "itens") — valida a resposta da
+  IA de verdade, não só confia no `JSON.parse`.
+- **`normalizarRespostaIA()`** (nova função): aceita os dois formatos —
+  array solto `[...]` OU objeto `{itens: [...]}` — sempre confirma
+  `Array.isArray()` antes de qualquer `.map()`. Se nenhum dos dois
+  formatos bater, lança erro claro em vez de quebrar com "map is not a
+  function".
+- Componente React (`atualizar-fornecedor-panel.tsx`) e a Server Action
+  não precisaram mudar — já consumiam `result.data.itens`
+  corretamente; o problema estava só na fronteira onde o JSON cru da
+  IA vira dado estruturado, e é ali que a proteção foi colocada (mais
+  robusto que espalhar `Array.isArray()` em cada `.map()` downstream).
+
+---
+
+
 ## [Fase 70] — Correção de migração: "cannot change return type of existing function"
 
 ### Corrigido
