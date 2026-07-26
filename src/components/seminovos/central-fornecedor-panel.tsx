@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Loader2, Check, Smartphone, Sparkles as SparklesIcon, Package, Zap } from "lucide-react";
+import { Sparkles, Loader2, Check, Smartphone, Sparkles as SparklesIcon, Package, Zap, Trash2, AlertTriangle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   classificarFornecedorAction, aplicarSeminovoFornecedorAction, aplicarLacradoFornecedorAction, aplicarGenericoFornecedorAction,
+  preverSubstituicaoAction, substituirListaFornecedorAction,
   type ItemFornecedorClassificado,
 } from "@/services/seminovos/central-fornecedor.actions";
 import { formatCurrency } from "@/utils";
@@ -102,6 +103,9 @@ export function CentralFornecedorPanel() {
   const [classificando, setClassificando] = useState(false);
   const [aplicandoTudo, setAplicandoTudo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [previaSubstituicao, setPreviaSubstituicao] = useState<{ seminovosParaApagar: number; lacradosParaZerar: number } | null>(null);
+  const [substituindo, setSubstituindo] = useState(false);
+  const [resultadoSubstituicao, setResultadoSubstituicao] = useState<{ seminovosApagados: number; lacradosZerados: number } | null>(null);
 
   async function handleClassificar() {
     setErro(null);
@@ -139,6 +143,34 @@ export function CentralFornecedorPanel() {
     setAplicandoTudo(false);
   }
 
+  /** Passo 1: calcula quantos registros seriam apagados — nunca apaga nada ainda, só mostra o número pra confirmar. */
+  async function handlePedirConfirmacaoSubstituicao() {
+    if (!itens) return;
+    setErro(null);
+    const itensParaChave = itens.map((i) => ({ destino: i.destino, modelo: i.modelo, memoria: i.memoria, cor: i.cor }));
+    const result = await preverSubstituicaoAction(itensParaChave);
+    if (!result.success) return setErro(result.error);
+    setPreviaSubstituicao(result.data);
+  }
+
+  /** Passo 2: só roda depois da equipe confirmar o número da prévia — aplica tudo, depois apaga/zera o que não veio na lista nova. */
+  async function handleConfirmarSubstituicao() {
+    if (!itens) return;
+    setSubstituindo(true);
+    setPreviaSubstituicao(null);
+
+    // Aplica todos os itens pendentes primeiro (mesma lógica do "Aplicar tudo").
+    await Promise.all(itens.filter((it) => it.status === "pendente").map((it) => aplicarItem(it)));
+    setItens((prev) => prev!.map((it) => (it.status === "pendente" ? { ...it, status: "salvo" } : it)));
+
+    const itensParaChave = itens.map((i) => ({ destino: i.destino, modelo: i.modelo, memoria: i.memoria, cor: i.cor }));
+    const result = await substituirListaFornecedorAction(itensParaChave);
+    setSubstituindo(false);
+
+    if (!result.success) return setErro(result.error);
+    setResultadoSubstituicao(result.data);
+  }
+
   const pendentesCount = itens?.filter((i) => i.status === "pendente").length ?? 0;
 
   return (
@@ -157,14 +189,41 @@ export function CentralFornecedorPanel() {
 
       {itens && (
         <>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">{itens.length} item(ns) reconhecido(s) — confere cada um (principalmente o preço de venda dos seminovos) antes de aplicar.</p>
-            {pendentesCount > 0 && (
-              <Button size="sm" variant="outline" onClick={handleAplicarTudo} disabled={aplicandoTudo}>
-                <Zap className="h-3.5 w-3.5" />{aplicandoTudo ? "Aplicando tudo..." : `Aplicar tudo (${pendentesCount})`}
+            <div className="flex items-center gap-2">
+              {pendentesCount > 0 && (
+                <Button size="sm" variant="outline" onClick={handleAplicarTudo} disabled={aplicandoTudo}>
+                  <Zap className="h-3.5 w-3.5" />{aplicandoTudo ? "Aplicando tudo..." : `Aplicar tudo (${pendentesCount})`}
+                </Button>
+              )}
+              <Button size="sm" variant="outline" className="border-danger/40 text-danger hover:bg-danger/5" onClick={handlePedirConfirmacaoSubstituicao} disabled={substituindo}>
+                <Trash2 className="h-3.5 w-3.5" />Essa lista substitui a do fornecedor
               </Button>
-            )}
+            </div>
           </div>
+
+          {previaSubstituicao && (
+            <Card className="border-danger/40">
+              <CardContent className="flex flex-col gap-3 p-4">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-danger"><AlertTriangle className="h-4 w-4" />Confirma a substituição?</p>
+                <p className="text-xs text-foreground">
+                  Isso vai <strong>apagar {previaSubstituicao.seminovosParaApagar} seminovo(s)</strong> e <strong>zerar {previaSubstituicao.lacradosParaZerar} variante(s) de lacrado</strong> que não estão nessa lista nova — presume que o fornecedor não tem mais esses. Reservado/vendido nunca é apagado.
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="destructive" onClick={handleConfirmarSubstituicao} disabled={substituindo}>{substituindo ? "Substituindo..." : "Confirmar e apagar"}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPreviaSubstituicao(null)}>Cancelar</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {resultadoSubstituicao && (
+            <p className="flex items-center gap-1.5 text-sm text-success">
+              <Check className="h-4 w-4" />Lista substituída — {resultadoSubstituicao.seminovosApagados} seminovo(s) apagado(s), {resultadoSubstituicao.lacradosZerados} lacrado(s) zerado(s).
+            </p>
+          )}
+
           {itens.map((item, i) => <ItemCard key={i} item={item} index={i} onAtualizar={atualizarItem} />)}
         </>
       )}

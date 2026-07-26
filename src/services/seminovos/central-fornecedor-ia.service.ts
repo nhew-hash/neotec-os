@@ -59,6 +59,15 @@ function normalizarResposta(bruto: unknown): unknown[] {
   throw new Error("A IA devolveu um formato que não reconheço — tenta de novo ou reformula o texto.");
 }
 
+function memoriaEmGB(memoria: string | null): number | null {
+  if (!memoria) return null;
+  const match = memoria.match(/([\d.,]+)\s*(GB|TB|G|T)/i);
+  if (!match) return null;
+  const valor = parseFloat(match[1].replace(",", "."));
+  const unidade = match[2].toUpperCase();
+  return unidade.startsWith("T") ? valor * 1024 : valor;
+}
+
 /** Nunca aplica nada sozinho — só classifica e extrai, pra revisão humana antes de qualquer cadastro/atualização real. */
 export async function classificarItensFornecedor(texto: string): Promise<ItemFornecedorExtraido[]> {
   const resultado = await executarPromptIA({
@@ -81,5 +90,11 @@ export async function classificarItensFornecedor(texto: string): Promise<ItemFor
   const parsed = z.array(itemSchema).safeParse(itensBrutos);
   if (!parsed.success) throw new Error("A IA devolveu dados em formato inesperado — confere o texto colado e tenta de novo.");
 
-  return parsed.data;
+  // Item com memória abaixo de 1GB quase certamente é erro de leitura
+  // (emoji/número confundido com capacidade) — nunca aplica, nem
+  // mostra pra revisão, já descarta aqui.
+  return parsed.data.filter((item) => {
+    const gb = memoriaEmGB(item.memoria);
+    return gb === null || gb >= 1;
+  });
 }

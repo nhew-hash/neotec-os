@@ -130,3 +130,100 @@ export async function aplicarGenericoFornecedorAction(item: {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar produto" };
   }
 }
+
+interface ItemParaSubstituicao {
+  destino: "seminovo" | "lacrado" | "generico";
+  modelo: string;
+  memoria: string | null;
+  cor: string | null;
+}
+
+function chaveIdentidade(modelo: string, memoria: string | null, cor: string | null): string {
+  return [normalizarTexto(modelo), normalizarTexto(memoria ?? ""), normalizarTexto(cor ?? "")].join("|");
+}
+
+/**
+ * Prévia — só CONTA quantos registros seriam apagados, não apaga nada
+ * ainda. Sempre chamada antes de `substituirListaFornecedorAction`,
+ * pra equipe confirmar o número antes de uma operação destrutiva.
+ *
+ * Escopo do que pode ser apagado (nunca mexe fora disso):
+ * - Seminovo: só `aparelhos` com `origem_entrada = 'fornecedor'` e
+ *   `status = 'disponivel'` — nunca toca em reservado/vendido, nunca
+ *   toca em aparelho cadastrado manualmente (outra origem).
+ * - Lacrado: toda variante do catálogo mestre é por natureza
+ *   dependente de fornecedor (não existe "lacrado cadastrado à mão"
+ *   separado) — segura resetar quantidade de qualquer uma não
+ *   presente na lista nova.
+ */
+export async function preverSubstituicaoAction(itens: ItemParaSubstituicao[]): Promise<ActionResult<{ seminovosParaApagar: number; lacradosParaZerar: number }>> {
+  try {
+    const supabase = await createClient();
+    const chavesNovaLista = new Set(itens.map((i) => chaveIdentidade(i.modelo, i.memoria, i.cor)));
+
+    const { data: aparelhosAtuais } = await supabase
+      .from("aparelhos")
+      .select("id, cor, memoria, produto:produtos!inner(nome)")
+      .eq("origem_entrada", "fornecedor")
+      .eq("status", "disponivel");
+
+    const seminovosParaApagar = (aparelhosAtuais ?? []).filter((a) => {
+      const nomeModelo = (a.produto as unknown as { nome: string })?.nome ?? "";
+      return !chavesNovaLista.has(chaveIdentidade(nomeModelo, a.memoria, a.cor));
+    }).length;
+
+    const catalogo = await listarLacradosComVariantes();
+    const lacradosParaZerar = catalogo
+      .flatMap((m) => m.variantes.map((v) => ({ modelo: m.nome, memoria: v.armazenamento, cor: v.cor, quantidade: v.quantidade })))
+      .filter((v) => v.quantidade > 0 && !chavesNovaLista.has(chaveIdentidade(v.modelo, v.memoria, v.cor))).length;
+
+    return { success: true, data: { seminovosParaApagar, lacradosParaZerar } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao calcular prévia" };
+  }
+}
+
+/**
+ * Substitui de verdade — aplica todos os itens da lista nova (mesmo
+ * comportamento de sempre), DEPOIS apaga/zera o que não apareceu
+ * nela. Só chamada depois da equipe confirmar a prévia na tela.
+ */
+export async function substituirListaFornecedorAction(itens: ItemParaSubstituicao[]): Promise<ActionResult<{ seminovosApagados: number; lacradosZerados: number }>> {
+  try {
+    const supabase = await createClient();
+    const chavesNovaLista = new Set(itens.map((i) => chaveIdentidade(i.modelo, i.memoria, i.cor)));
+
+    const { data: aparelhosAtuais } = await supabase
+      .from("aparelhos")
+      .select("id, cor, memoria, produto:produtos!inner(nome)")
+      .eq("origem_entrada", "fornecedor")
+      .eq("status", "disponivel");
+
+    const idsParaApagar = (aparelhosAtuais ?? [])
+      .filter((a) => {
+        const nomeModelo = (a.produto as unknown as { nome: string })?.nome ?? "";
+        return !chavesNovaLista.has(chaveIdentidade(nomeModelo, a.memoria, a.cor));
+      })
+      .map((a) => a.id);
+
+    if (idsParaApagar.length > 0) {
+      await supabase.from("aparelhos").delete().in("id", idsParaApagar);
+    }
+
+    const catalogo = await listarLacradosComVariantes();
+    const variantesParaZerar = catalogo
+      .flatMap((m) => m.variantes.map((v) => ({ id: v.id, modelo: m.nome, memoria: v.armazenamento, cor: v.cor, quantidade: v.quantidade })))
+      .filter((v) => v.quantidade > 0 && !chavesNovaLista.has(chaveIdentidade(v.modelo, v.memoria, v.cor)));
+
+    for (const v of variantesParaZerar) {
+      await supabase.from("catalogo_lacrados_variantes").update({ quantidade: 0 }).eq("id", v.id);
+    }
+
+    revalidatePath("/estoque");
+    revalidatePath("/estoque/lacrados");
+    revalidatePath("/loja");
+    return { success: true, data: { seminovosApagados: idsParaApagar.length, lacradosZerados: variantesParaZerar.length } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao substituir lista" };
+  }
+}

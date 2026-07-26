@@ -2,6 +2,34 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 91] — Central de Cadastro: lista do fornecedor substitui a anterior
+
+### Regra nova (destrutiva de propósito — como pedido)
+Quando uma lista nova de fornecedor é colada e confirmada como
+substituição, tudo que **não está** nela é apagado de verdade — o
+raciocínio é que o fornecedor pode ter vendido esses aparelhos, então
+não fazem mais sentido continuar oferecidos.
+
+### Segurança tomada, dado que é uma operação destrutiva
+- **Prévia obrigatória antes de apagar** — mostra "vai apagar X
+  seminovo(s) e zerar Y variante(s) de lacrado" e exige confirmação
+  explícita antes de executar qualquer DELETE.
+- **Escopo restrito**: só apaga `aparelhos` com `origem_entrada = 'fornecedor'`
+  E `status = 'disponivel'` — nunca toca em aparelho reservado, vendido,
+  ou cadastrado manualmente fora da Central. Lacrado é diferente por
+  natureza (não é unidade física possuída, é sempre dependente de
+  fornecedor) — pode zerar quantidade de qualquer variante não
+  presente na lista nova, com segurança.
+- Botão de substituir é visualmente distinto (vermelho) do "Aplicar
+  tudo" normal (que continua só adicionando/atualizando, nunca apaga).
+
+### Outro ajuste pedido — filtro de memória inválida
+Item com memória abaixo de 1GB é descartado automaticamente antes até
+de aparecer na tela de revisão — geralmente é erro de leitura (emoji/
+número confundido com capacidade), nunca é um dado real de produto.
+
+---
+
 ## [Fase 90] — Correção de build: tipo genérico em salvarConfig do painel de precificação
 
 ### Corrigido
