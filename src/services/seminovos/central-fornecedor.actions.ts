@@ -3,12 +3,28 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { classificarItensFornecedor, type ItemFornecedorExtraido } from "./central-fornecedor-ia.service";
+import { listarRegrasLucro, calcularPrecoComRegra } from "./regras-lucro.service";
 import { listarLacradosComVariantes } from "@/services/lacrados/lacrados.service";
 import type { ActionResult } from "@/types";
 
-export async function classificarFornecedorAction(texto: string): Promise<ActionResult<{ itens: ItemFornecedorExtraido[] }>> {
+export interface ItemFornecedorClassificado extends ItemFornecedorExtraido {
+  /** Só preenchido pra itens "seminovo" — preço de venda já calculado com a regra de lucro padrão aplicada sobre o preço pago (item.preco). */
+  precoVendaSugerido: number | null;
+  lucroSugerido: number | null;
+}
+
+/** Classifica com IA e já aplica a regra de lucro padrão nos itens de seminovo — antes esse cálculo só existia na tela separada de cadastro de seminovo, faltava aqui. */
+export async function classificarFornecedorAction(texto: string): Promise<ActionResult<{ itens: ItemFornecedorClassificado[] }>> {
   try {
-    const itens = await classificarItensFornecedor(texto);
+    const [itensExtraidos, regras] = await Promise.all([classificarItensFornecedor(texto), listarRegrasLucro()]);
+    const regraPadrao = regras.find((r) => r.padrao) ?? regras[0];
+
+    const itens: ItemFornecedorClassificado[] = itensExtraidos.map((item) => {
+      if (item.destino !== "seminovo" || !regraPadrao) return { ...item, precoVendaSugerido: null, lucroSugerido: null };
+      const { precoVenda, lucro } = calcularPrecoComRegra(item.preco, regraPadrao);
+      return { ...item, precoVendaSugerido: precoVenda, lucroSugerido: lucro };
+    });
+
     return { success: true, data: { itens } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao classificar" };
@@ -19,13 +35,17 @@ function normalizarTexto(texto: string): string {
   return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
-/** Item classificado como "seminovo" — precisa de IMEI (a IA nunca inventa isso), salva como aparelho de verdade. */
+/**
+ * Item classificado como "seminovo" — salva como aparelho de verdade.
+ * IMEI é OPCIONAL (Fase 87): em cadastro em lote via lista de
+ * fornecedor, o IMEI muitas vezes só é conhecido quando o aparelho
+ * chega fisicamente na loja — dá pra completar depois, editando o
+ * aparelho no Estoque.
+ */
 export async function aplicarSeminovoFornecedorAction(item: {
   modelo: string; memoria: string | null; cor: string | null; bateria: number | null;
-  observacoes: string | null; preco: number; imei: string;
+  observacoes: string | null; precoPago: number; precoVenda: number; imei: string;
 }): Promise<ActionResult<{ aparelhoId: string }>> {
-  if (!item.imei.trim()) return { success: false, error: "IMEI é obrigatório" };
-
   try {
     const supabase = await createClient();
 
@@ -42,8 +62,8 @@ export async function aplicarSeminovoFornecedorAction(item: {
     const { data: aparelho, error } = await supabase
       .from("aparelhos")
       .insert({
-        produto_id: produto.id, imei: item.imei.trim(), memoria: item.memoria, cor: item.cor, bateria: item.bateria,
-        condicao: "seminovo", custo: item.preco, preco_venda: item.preco, observacoes: item.observacoes,
+        produto_id: produto.id, imei: item.imei.trim() || null, memoria: item.memoria, cor: item.cor, bateria: item.bateria,
+        condicao: "seminovo", custo: item.precoPago, preco_venda: item.precoVenda, observacoes: item.observacoes,
         origem_entrada: "fornecedor", status: "disponivel",
       })
       .select("id").single();

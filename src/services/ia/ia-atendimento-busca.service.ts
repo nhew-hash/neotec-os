@@ -43,6 +43,72 @@ async function buscarNoEstoque(termo: string): Promise<ResultadoBuscaPreco[]> {
     }));
 }
 
+/**
+ * Catálogo mestre de lacrados (Fase 66-67) — essa fonte não existia
+ * quando a busca de preço da IA foi escrita originalmente, e nunca
+ * tinha sido conectada aqui até agora. Sem isso, toda pergunta sobre
+ * preço de lacrado batia em "não encontrei preço" e escalava pro
+ * vendedor sem necessidade — o dado já existia, só não estava sendo
+ * consultado.
+ */
+async function buscarEmLacrados(termo: string): Promise<ResultadoBuscaPreco[]> {
+  const supabase = createAdminClient();
+  const { data: modelos } = await supabase
+    .from("catalogo_lacrados_modelos")
+    .select("id, nome")
+    .ilike("nome", `%${termo}%`)
+    .limit(3);
+
+  if (!modelos || modelos.length === 0) return [];
+
+  const { data: variantes } = await supabase
+    .from("catalogo_lacrados_variantes")
+    .select("cor, armazenamento, preco_venda, quantidade, modelo_id")
+    .in("modelo_id", modelos.map((m) => m.id))
+    .gt("quantidade", 0)
+    .not("preco_venda", "is", null)
+    .order("preco_venda", { ascending: true })
+    .limit(5);
+
+  return (variantes ?? []).map((v) => {
+    const modelo = modelos.find((m) => m.id === v.modelo_id);
+    return {
+      fonte: "lacrados" as const,
+      modelo: modelo?.nome ?? termo,
+      detalhes: [v.armazenamento, v.cor, "lacrado"].filter(Boolean).join(" · "),
+      preco: Number(v.preco_venda),
+      fornecedorOuOrigem: "Catálogo de lacrados",
+      dataReferencia: "hoje",
+    };
+  });
+}
+
+/**
+ * Produtos genéricos (iPad, Mac, Apple Watch, acessórios) — mesma
+ * lacuna do catálogo de lacrados: existe desde a Fase 83 (Central de
+ * Cadastro por Fornecedor), nunca tinha sido conectado à busca da IA.
+ */
+async function buscarEmProdutosGenericos(termo: string): Promise<ResultadoBuscaPreco[]> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("produtos")
+    .select("nome, categoria, preco_venda")
+    .in("categoria", ["ipad", "mac", "apple_watch", "acessorio"])
+    .ilike("nome", `%${termo}%`)
+    .not("preco_venda", "is", null)
+    .eq("status", "ativo")
+    .limit(5);
+
+  return (data ?? []).map((p) => ({
+    fonte: "estoque" as const,
+    modelo: p.nome,
+    detalhes: p.categoria,
+    preco: Number(p.preco_venda),
+    fornecedorOuOrigem: "Estoque da loja",
+    dataReferencia: "hoje",
+  }));
+}
+
 async function buscarEmCotacoes(termo: string, filtroCategoria: (categoria: string) => boolean, fonte: "seminovos" | "lacrados" | "fornecedores"): Promise<ResultadoBuscaPreco[]> {
   const supabase = createAdminClient();
   const { data } = await supabase
@@ -71,9 +137,18 @@ async function buscarEmCotacoes(termo: string, filtroCategoria: (categoria: stri
 }
 
 const BUSCADORES: Record<string, (termo: string) => Promise<ResultadoBuscaPreco[]>> = {
-  estoque: buscarNoEstoque,
+  estoque: async (termo) => {
+    const [aparelhos, genericos] = await Promise.all([buscarNoEstoque(termo), buscarEmProdutosGenericos(termo)]);
+    return [...aparelhos, ...genericos];
+  },
+  lacrados: async (termo) => {
+    const [catalogoMestre, cotacoesAntigas] = await Promise.all([
+      buscarEmLacrados(termo),
+      buscarEmCotacoes(termo, (c) => c.toLowerCase().includes("lacrado"), "lacrados"),
+    ]);
+    return [...catalogoMestre, ...cotacoesAntigas];
+  },
   seminovos: (termo) => buscarEmCotacoes(termo, (c) => c.toLowerCase().includes("seminovo"), "seminovos"),
-  lacrados: (termo) => buscarEmCotacoes(termo, (c) => c.toLowerCase().includes("lacrado"), "lacrados"),
   fornecedores: (termo) => buscarEmCotacoes(termo, (c) => !c.toLowerCase().includes("seminovo") && !c.toLowerCase().includes("lacrado"), "fornecedores"),
 };
 

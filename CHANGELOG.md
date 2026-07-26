@@ -2,6 +2,68 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 87] — Central de Cadastro por Fornecedor: os 4 ajustes pedidos
+
+### 1. Lucro faltando — corrigido
+A regra de lucro padrão (Fase 80) nunca era aplicada nos itens
+classificados como seminovo — o preço da lista do fornecedor virava
+direto o preço de venda, sem margem nenhuma. Agora: preço pago (da
+lista) e preço de venda (calculado pela regra padrão, editável antes
+de aplicar) aparecem separados, com o lucro mostrado ao lado.
+
+### 2. IMEI obrigatório — corrigido
+Migração `fase87_imei_opcional.sql`: `aparelhos.imei` deixa de exigir
+preenchimento. Faz sentido pra cadastro em lote — o IMEI real muitas
+vezes só é conhecido quando o aparelho chega fisicamente, não na hora
+de registrar a lista de preço do fornecedor. Dá pra completar depois
+editando o aparelho no Estoque. A constraint de unicidade continua
+funcionando normal (Postgres nunca considera dois NULLs iguais entre
+si numa unique constraint).
+
+### 3. Confirmar um por um — corrigido
+Botão **"Aplicar tudo"** — aplica todos os itens pendentes de uma vez
+(em paralelo), cada card atualiza seu próprio status conforme termina.
+Continua possível aplicar item por item também, se preferir revisar
+com mais calma.
+
+### 4. Item múltiplo mal identificado — corrigido
+O exemplo "15 PRO MAX 256G🩶92% 85%⚫️ 4099" (cor ANTES do primeiro %,
+diferente do padrão anterior) foi adicionado como exemplo explícito no
+prompt, junto de um terceiro caso (preços diferentes por cor na mesma
+linha) — a IA agora tem mais variação de formato pra reconhecer.
+
+---
+
+## [Fase 86] — Achada a causa real de "a IA fica me chamando toda hora"
+
+### Causa raiz
+A busca de preço da IA de Atendimento (`ia-atendimento-busca.service.ts`)
+nunca foi atualizada depois que construímos o catálogo mestre de
+Lacrados (Fase 66-67) e os produtos genéricos — iPad/Mac/Watch/
+acessórios — via Central de Cadastro por Fornecedor (Fase 83). Ela só
+enxergava `aparelhos` (seminovo) e o sistema antigo de cotações
+manuais. A regra "nunca invente preço" da IA manda escalar pro
+vendedor sempre que não acha preço nenhum — então toda pergunta sobre
+lacrado, iPad, Mac, Watch ou acessório vinha vazia e disparava a
+pergunta pro seu WhatsApp, mesmo com o dado já existindo no sistema.
+
+### Corrigido
+- Nova busca em `catalogo_lacrados_variantes` (só variante com
+  quantidade > 0 e preço definido) — conectada na fonte "lacrados".
+- Nova busca em `produtos` genéricos (iPad, Mac, Apple Watch,
+  acessório) — conectada na fonte "estoque", junto do que já buscava
+  em `aparelhos`.
+- Fonte antiga de cotações (sistema manual, antes do catálogo mestre
+  existir) mantida em paralelo, não removida — combina os dois em vez
+  de substituir, pra não perder nenhum dado que já estivesse lá.
+
+### Efeito esperado
+Perguntas sobre preço de lacrado, iPad, Mac, Apple Watch e acessório
+devem parar de escalar desnecessariamente — a IA agora encontra esses
+preços de verdade, como já encontrava pra seminovo.
+
+---
+
 ## [Fase 85] — Correção: "messages must contain the word json" + proteção sistêmica
 
 ### Causa raiz

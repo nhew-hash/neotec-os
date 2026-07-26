@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Loader2, Check, Smartphone, Sparkles as SparklesIcon, Package } from "lucide-react";
+import { Sparkles, Loader2, Check, Smartphone, Sparkles as SparklesIcon, Package, Zap } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   classificarFornecedorAction, aplicarSeminovoFornecedorAction, aplicarLacradoFornecedorAction, aplicarGenericoFornecedorAction,
+  type ItemFornecedorClassificado,
 } from "@/services/seminovos/central-fornecedor.actions";
 import { formatCurrency } from "@/utils";
-import type { ItemFornecedorExtraido } from "@/services/seminovos/central-fornecedor-ia.service";
 
-interface ItemComEstado extends ItemFornecedorExtraido {
+interface ItemComEstado extends ItemFornecedorClassificado {
   imei: string;
+  precoVendaEditavel: number;
   status: "pendente" | "salvando" | "salvo" | "erro";
   erro: string | null;
 }
@@ -25,23 +26,24 @@ const LABEL_DESTINO: Record<string, { label: string; icon: typeof Smartphone; co
   generico: { label: "Outro produto", icon: Package, cor: "bg-warning/10 text-warning" },
 };
 
+async function aplicarItem(item: ItemComEstado): Promise<{ success: boolean; error?: string }> {
+  if (item.destino === "seminovo") {
+    return aplicarSeminovoFornecedorAction({
+      modelo: item.modelo, memoria: item.memoria, cor: item.cor, bateria: item.bateria,
+      observacoes: item.observacoes, precoPago: item.preco, precoVenda: item.precoVendaEditavel, imei: item.imei,
+    });
+  }
+  if (item.destino === "lacrado") {
+    return aplicarLacradoFornecedorAction({ modelo: item.modelo, memoria: item.memoria, cor: item.cor, preco: item.preco });
+  }
+  return aplicarGenericoFornecedorAction({ modelo: item.modelo, categoria: item.categoria, marca: item.marca, observacoes: item.observacoes, preco: item.preco });
+}
+
 function ItemCard({ item, index, onAtualizar }: { item: ItemComEstado; index: number; onAtualizar: (i: number, item: ItemComEstado) => void }) {
   async function handleSalvar() {
     onAtualizar(index, { ...item, status: "salvando", erro: null });
-
-    let result;
-    if (item.destino === "seminovo") {
-      result = await aplicarSeminovoFornecedorAction({
-        modelo: item.modelo, memoria: item.memoria, cor: item.cor, bateria: item.bateria,
-        observacoes: item.observacoes, preco: item.preco, imei: item.imei,
-      });
-    } else if (item.destino === "lacrado") {
-      result = await aplicarLacradoFornecedorAction({ modelo: item.modelo, memoria: item.memoria, cor: item.cor, preco: item.preco });
-    } else {
-      result = await aplicarGenericoFornecedorAction({ modelo: item.modelo, categoria: item.categoria, marca: item.marca, observacoes: item.observacoes, preco: item.preco });
-    }
-
-    if (!result.success) return onAtualizar(index, { ...item, status: "erro", erro: result.error });
+    const result = await aplicarItem(item);
+    if (!result.success) return onAtualizar(index, { ...item, status: "erro", erro: result.error ?? "Erro" });
     onAtualizar(index, { ...item, status: "salvo", erro: null });
   }
 
@@ -54,20 +56,34 @@ function ItemCard({ item, index, onAtualizar }: { item: ItemComEstado; index: nu
   return (
     <Card>
       <CardContent className="flex flex-col gap-2 p-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Badge className={destino.cor}><destino.icon className="h-3 w-3" />{destino.label}</Badge>
             <span className="text-sm font-medium text-foreground">{item.modelo}</span>
             <span className="text-xs text-muted-foreground">{[item.memoria, item.cor, item.bateria != null && `${item.bateria}%`].filter(Boolean).join(" · ")}</span>
           </div>
-          <span className="text-sm font-semibold text-foreground">{formatCurrency(item.preco)}</span>
+
+          {item.destino === "seminovo" ? (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Pago: {formatCurrency(item.preco)}</span>
+              <span className="text-foreground">→</span>
+              <Input
+                type="number" value={item.precoVendaEditavel}
+                onChange={(e) => onAtualizar(index, { ...item, precoVendaEditavel: Number(e.target.value) || 0 })}
+                className="h-7 w-24 text-xs font-semibold"
+              />
+              {item.lucroSugerido != null && <span className="text-success">lucro {formatCurrency(item.precoVendaEditavel - item.preco)}</span>}
+            </div>
+          ) : (
+            <span className="text-sm font-semibold text-foreground">{formatCurrency(item.preco)}</span>
+          )}
         </div>
 
         {item.observacoes && <p className="text-xs text-muted-foreground">{item.observacoes}</p>}
         <p className="text-[10px] text-muted-foreground/70">"{item.linhaOriginal}"</p>
 
         {item.destino === "seminovo" && (
-          <Input placeholder="IMEI (obrigatório)" value={item.imei} onChange={(e) => onAtualizar(index, { ...item, imei: e.target.value })} className="h-8 text-xs" />
+          <Input placeholder="IMEI (opcional — dá pra completar depois no Estoque)" value={item.imei} onChange={(e) => onAtualizar(index, { ...item, imei: e.target.value })} className="h-8 text-xs" />
         )}
 
         {item.erro && <p className="text-xs text-danger">{item.erro}</p>}
@@ -84,6 +100,7 @@ export function CentralFornecedorPanel() {
   const [texto, setTexto] = useState("");
   const [itens, setItens] = useState<ItemComEstado[] | null>(null);
   const [classificando, setClassificando] = useState(false);
+  const [aplicandoTudo, setAplicandoTudo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   async function handleClassificar() {
@@ -93,12 +110,36 @@ export function CentralFornecedorPanel() {
     setClassificando(false);
 
     if (!result.success) return setErro(result.error);
-    setItens(result.data.itens.map((item) => ({ ...item, imei: "", status: "pendente", erro: null })));
+    setItens(result.data.itens.map((item) => ({
+      ...item, imei: "", precoVendaEditavel: item.precoVendaSugerido ?? item.preco, status: "pendente", erro: null,
+    })));
   }
 
   function atualizarItem(index: number, novoItem: ItemComEstado) {
     setItens((prev) => prev!.map((it, i) => (i === index ? novoItem : it)));
   }
+
+  /** Aplica todos os itens pendentes de uma vez — em paralelo, cada um atualiza seu próprio status quando termina. */
+  async function handleAplicarTudo() {
+    if (!itens) return;
+    setAplicandoTudo(true);
+
+    const pendentes = itens.map((it, i) => ({ it, i })).filter(({ it }) => it.status === "pendente");
+    setItens((prev) => prev!.map((it) => (it.status === "pendente" ? { ...it, status: "salvando" } : it)));
+
+    await Promise.all(
+      pendentes.map(async ({ it, i }) => {
+        const result = await aplicarItem(it);
+        setItens((prev) => prev!.map((item, idx) =>
+          idx === i ? { ...item, status: result.success ? "salvo" : "erro", erro: result.success ? null : (result.error ?? "Erro") } : item
+        ));
+      })
+    );
+
+    setAplicandoTudo(false);
+  }
+
+  const pendentesCount = itens?.filter((i) => i.status === "pendente").length ?? 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -116,7 +157,14 @@ export function CentralFornecedorPanel() {
 
       {itens && (
         <>
-          <p className="text-xs text-muted-foreground">{itens.length} item(ns) reconhecido(s) — confere e clica em "Confirmar e aplicar" um por um.</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">{itens.length} item(ns) reconhecido(s) — confere cada um (principalmente o preço de venda dos seminovos) antes de aplicar.</p>
+            {pendentesCount > 0 && (
+              <Button size="sm" variant="outline" onClick={handleAplicarTudo} disabled={aplicandoTudo}>
+                <Zap className="h-3.5 w-3.5" />{aplicandoTudo ? "Aplicando tudo..." : `Aplicar tudo (${pendentesCount})`}
+              </Button>
+            )}
+          </div>
           {itens.map((item, i) => <ItemCard key={i} item={item} index={i} onAtualizar={atualizarItem} />)}
         </>
       )}

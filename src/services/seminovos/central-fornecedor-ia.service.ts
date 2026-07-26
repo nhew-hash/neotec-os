@@ -26,11 +26,15 @@ REGRA DE CLASSIFICAÇÃO (a mais importante):
 - "generico": qualquer coisa que não é iPhone/Android (iPad, MacBook, Apple Watch, acessório, JBL, qualquer outra marca/produto). Nunca tenta forçar isso em seminovo ou lacrado.
 
 REGRA DE ITENS MÚLTIPLOS NA MESMA LINHA:
-Quando uma linha de seminovo tiver VÁRIOS pares de bateria+cor antes do preço
-(ex: "16 PRO MAX 256G 90%⚫️90%🩶92%💛5149"), isso significa VÁRIAS UNIDADES
-diferentes desse mesmo modelo/memória, cada uma com sua bateria/cor — todas
-ao mesmo preço mostrado no final da linha. Devolva um item separado pra
-cada par bateria+cor, repetindo o mesmo preço.
+Quando uma linha de seminovo tiver VÁRIOS pares de bateria+cor antes do preço,
+isso significa VÁRIAS UNIDADES diferentes desse mesmo modelo/memória, cada
+uma com sua bateria/cor — todas ao mesmo preço mostrado no final da linha.
+Devolva um item separado pra cada par bateria+cor, repetindo o mesmo preço.
+O padrão de bateria+cor varia — a cor pode vir ANTES ou DEPOIS de cada %,
+e nem sempre segue exatamente a mesma ordem dentro da mesma linha. Exemplos:
+- "16 PRO MAX 256G 90%⚫️90%🩶92%💛5149" → 3 itens (256G, 90% preto / 90% titânio / 92% amarelo, todos 5149)
+- "15 PRO MAX 256G🩶92% 85%⚫️ 4099" → 2 itens (256G, 92% titânio / 85% preto, todos 4099) — repare que aqui a cor do primeiro item vem ANTES do %, e o segundo vem DEPOIS
+- "13 128G 💚 83% 88% 84% 90%⚫️1699 ⚪️ 86% 1749" → aqui os preços SÃO diferentes por cor (1699 pro grupo preto/verde, 1749 pro branco) — quando isso acontecer, associe cada bateria ao preço mais próximo dela no texto, não assuma sempre o mesmo preço pra tudo.
 
 REGRA DE EMOJI DE COR (comum em fornecedor):
 ⚫️/🖤 = Preto, ⚪️ = Branco, 🔵 = Azul, 🟣/💜 = Roxo, 🟡/💛 = Amarelo,
