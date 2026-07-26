@@ -53,7 +53,7 @@ export default function CheckoutPage() {
   async function handlePagarPix() {
     setErro(null);
     setProcessando(true);
-    const result = await iniciarCheckoutPixAction({ nomeContato: nome, telefoneContato: telefone, itens });
+    const result = await iniciarCheckoutPixAction({ nomeContato: nome, telefoneContato: telefone, itens, cpf: cpf.trim() || undefined });
     setProcessando(false);
 
     if (!result.success) return setErro(result.error);
@@ -65,7 +65,7 @@ export default function CheckoutPage() {
     setProcessando(true);
     const result = await pagarComCartaoAction({
       nomeContato: nome, telefoneContato: telefone, itens,
-      token: dados.token, parcelas: dados.installments, metodoPagamentoId: dados.paymentMethodId,
+      token: dados.token, parcelas: dados.installments, metodoPagamentoId: dados.paymentMethodId, cpf: cpf.trim() || undefined,
     });
     setProcessando(false);
 
@@ -131,7 +131,7 @@ export default function CheckoutPage() {
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Seus dados</p>
             <input placeholder="Nome completo" value={nome} onChange={(e) => setNome(e.target.value)} className="rounded-xl border border-black/[0.08] px-3.5 py-2.5 text-sm outline-none focus:border-primary" />
             <input placeholder="WhatsApp (DDD + número)" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="rounded-xl border border-black/[0.08] px-3.5 py-2.5 text-sm outline-none focus:border-primary" />
-            <input placeholder="CPF (opcional)" value={cpf} onChange={(e) => setCpf(e.target.value)} className="rounded-xl border border-black/[0.08] px-3.5 py-2.5 text-sm outline-none focus:border-primary" />
+            <input placeholder="CPF (recomendado — ajuda a aprovar o pagamento mais rápido)" value={cpf} onChange={(e) => setCpf(e.target.value)} className="rounded-xl border border-black/[0.08] px-3.5 py-2.5 text-sm outline-none focus:border-primary" />
 
             {erro && <p className="text-xs text-danger">{erro}</p>}
 

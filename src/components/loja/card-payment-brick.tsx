@@ -63,7 +63,10 @@ export function CardPaymentBrick({ publicKey, valor, onSubmit, onErro }: CardPay
 
       await bricksBuilder.create("cardPayment", CONTAINER_ID, {
         initialization: { amount: valor },
-        customization: { visual: { style: { theme: "default" } } },
+        customization: {
+          visual: { style: { theme: "default" } },
+          paymentMethods: { maxInstallments: 18 },
+        },
         callbacks: {
           onReady: () => setCarregando(false),
           onSubmit: (cardFormData: { token: string; installments: number; payment_method_id: string }) => {

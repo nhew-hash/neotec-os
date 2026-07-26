@@ -2,6 +2,41 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 78] — Parcelamento explícito até 18x no Brick de cartão
+
+### Esclarecido (não era bug)
+Teste com cartão de débito não mostrou parcelamento — comportamento
+correto, débito nunca parcela, em nenhum lugar do Brasil.
+
+### Melhorado
+`CardPaymentBrick` não fixava limite de parcelas — dependia do padrão
+configurado na conta do Mercado Pago, que pode variar. Adicionado
+`customization.paymentMethods.maxInstallments: 18`, batendo com o "1x
+até 18x" pedido originalmente, independente da configuração da conta.
+
+**Testa de novo com um cartão de crédito** pra confirmar que o
+parcelamento aparece — com débito, é esperado só ver à vista.
+
+---
+
+
+## [Fase 77] — CPF do pagador conectado até o Mercado Pago de verdade
+
+### Corrigido
+O checkout já coletava CPF na tela, mas ele nunca era enviado pro
+Mercado Pago — ficava só guardado no estado do formulário, sem uso
+nenhum. Corrigido em toda a cadeia:
+`MercadoPagoProvider` (inclui `payer.identification` quando tem CPF) →
+`PaymentService` → `PaymentController` → página de checkout, nos
+fluxos de Pix e cartão.
+
+Campo continua opcional (o Mercado Pago aceita pagamento sem CPF), mas
+o texto do campo agora deixa claro que informar ajuda a aprovar mais
+rápido — é um dado real que o próprio gateway usa pra avaliar risco.
+
+---
+
+
 ## [Fase 76] — Correção: mensagem de erro genérica escondia o motivo real
 
 ### Causa raiz

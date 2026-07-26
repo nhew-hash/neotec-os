@@ -31,14 +31,17 @@ export class MercadoPagoProvider {
   }
 
   /** Pix — pagamento nasce com QR Code e copia-e-cola prontos na resposta, sem etapa separada. */
-  async criarPagamentoPix(input: { valor: number; descricao: string; email: string; externalReference: string }): Promise<ResultadoPagamentoPix> {
+  async criarPagamentoPix(input: { valor: number; descricao: string; email: string; cpf?: string; externalReference: string }): Promise<ResultadoPagamentoPix> {
     const payment = new Payment(this.cliente);
     const resultado = await payment.create({
       body: {
         transaction_amount: input.valor,
         description: input.descricao,
         payment_method_id: "pix",
-        payer: { email: input.email },
+        payer: {
+          email: input.email,
+          ...(input.cpf ? { identification: { type: "CPF", number: input.cpf.replace(/\D/g, "") } } : {}),
+        },
         external_reference: input.externalReference,
       },
     });
@@ -65,6 +68,7 @@ export class MercadoPagoProvider {
     valor: number;
     descricao: string;
     email: string;
+    cpf?: string;
     parcelas: number;
     metodoPagamentoId: string; // ex: "visa", "master" — devolvido pelo SDK junto com o token
     externalReference: string;
@@ -77,7 +81,10 @@ export class MercadoPagoProvider {
         description: input.descricao,
         installments: input.parcelas,
         payment_method_id: input.metodoPagamentoId,
-        payer: { email: input.email },
+        payer: {
+          email: input.email,
+          ...(input.cpf ? { identification: { type: "CPF", number: input.cpf.replace(/\D/g, "") } } : {}),
+        },
         external_reference: input.externalReference,
       },
     });

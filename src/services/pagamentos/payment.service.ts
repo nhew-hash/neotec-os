@@ -32,7 +32,7 @@ export class PaymentService {
     return { provider: new MercadoPagoProvider(config.access_token), publicKey: config.public_key };
   }
 
-  async iniciarPagamentoPix(input: { pedidoId: string; valor: number; descricao: string }) {
+  async iniciarPagamentoPix(input: { pedidoId: string; valor: number; descricao: string; cpf?: string }) {
     const { provider } = await this.obterProvider();
     const pagamento = await paymentRepository.criarPagamento({ pedidoId: input.pedidoId, gateway: "mercadopago", valor: input.valor, tipoPagamento: "pix" });
 
@@ -40,6 +40,7 @@ export class PaymentService {
       valor: input.valor,
       descricao: input.descricao,
       email: EMAIL_PADRAO,
+      cpf: input.cpf,
       externalReference: pagamento.id, // referencia o ID interno do pagamento, não o pedido — permite reprocessar pagamento sem ambiguidade se o cliente tentar de novo
     });
 
@@ -54,7 +55,7 @@ export class PaymentService {
     return { pagamentoId: pagamento.id, qrCodeBase64: resultado.qrCodeBase64, copiaCola: resultado.copiaCola, expiraEm: resultado.expiraEm };
   }
 
-  async pagarComCartao(input: { pedidoId: string; valor: number; descricao: string; token: string; parcelas: number; metodoPagamentoId: string }) {
+  async pagarComCartao(input: { pedidoId: string; valor: number; descricao: string; token: string; parcelas: number; metodoPagamentoId: string; cpf?: string }) {
     const { provider } = await this.obterProvider();
     const pagamento = await paymentRepository.criarPagamento({
       pedidoId: input.pedidoId, gateway: "mercadopago", valor: input.valor, tipoPagamento: "cartao_credito", parcelas: input.parcelas,
@@ -65,6 +66,7 @@ export class PaymentService {
       valor: input.valor,
       descricao: input.descricao,
       email: EMAIL_PADRAO,
+      cpf: input.cpf,
       parcelas: input.parcelas,
       metodoPagamentoId: input.metodoPagamentoId,
       externalReference: pagamento.id,

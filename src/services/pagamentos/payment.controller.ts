@@ -44,14 +44,14 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
 }
 
 export async function iniciarCheckoutPixAction(input: {
-  nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[];
+  nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cpf?: string;
 }): Promise<ActionResult<{ pedidoId: string; pagamentoId: string; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
 
   try {
     const { pedidoId, valorTotal } = await criarPedidoParaCheckout(input);
-    const resultado = await paymentService.iniciarPagamentoPix({ pedidoId, valor: valorTotal, descricao: `Pedido Neotec #${pedidoId.slice(0, 8)}` });
+    const resultado = await paymentService.iniciarPagamentoPix({ pedidoId, valor: valorTotal, descricao: `Pedido Neotec #${pedidoId.slice(0, 8)}`, cpf: input.cpf });
     return { success: true, data: { pedidoId, pagamentoId: resultado.pagamentoId, qrCodeBase64: resultado.qrCodeBase64, copiaCola: resultado.copiaCola, expiraEm: resultado.expiraEm } };
   } catch (err) {
     return { success: false, error: extrairMensagemErro(err, "Erro ao gerar Pix") };
@@ -60,7 +60,7 @@ export async function iniciarCheckoutPixAction(input: {
 
 export async function pagarComCartaoAction(input: {
   nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[];
-  token: string; parcelas: number; metodoPagamentoId: string;
+  token: string; parcelas: number; metodoPagamentoId: string; cpf?: string;
 }): Promise<ActionResult<{ pedidoId: string; status: string; statusDetail: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
@@ -69,7 +69,7 @@ export async function pagarComCartaoAction(input: {
     const { pedidoId, valorTotal } = await criarPedidoParaCheckout(input);
     const resultado = await paymentService.pagarComCartao({
       pedidoId, valor: valorTotal, descricao: `Pedido Neotec #${pedidoId.slice(0, 8)}`,
-      token: input.token, parcelas: input.parcelas, metodoPagamentoId: input.metodoPagamentoId,
+      token: input.token, parcelas: input.parcelas, metodoPagamentoId: input.metodoPagamentoId, cpf: input.cpf,
     });
     return { success: true, data: { pedidoId, status: resultado.status, statusDetail: resultado.statusDetail } };
   } catch (err) {
