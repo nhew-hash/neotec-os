@@ -166,9 +166,10 @@ export default function CheckoutPage() {
               <PixPagamento pagamentoId={dadosPix.pagamentoId} qrCodeBase64={dadosPix.qrCodeBase64} copiaCola={dadosPix.copiaCola} expiraEm={dadosPix.expiraEm} onAprovado={handlePixAprovado} />
             )}
 
-            {metodo === "cartao" && publicKey && (
+            {metodo === "cartao" && publicKey && total > 0 && (
               <CardPaymentBrick publicKey={publicKey} valor={total} onSubmit={handlePagarCartao} onErro={setErro} />
             )}
+            {metodo === "cartao" && publicKey && total <= 0 && <p className="text-sm text-muted-foreground">Carregando valor do pedido...</p>}
             {metodo === "cartao" && !publicKey && <p className="text-sm text-muted-foreground">Carregando...</p>}
           </div>
         )}

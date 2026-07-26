@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { paymentService } from "./payment.service";
 import { paymentRepository } from "./payment.repository";
+import { extrairMensagemErro } from "./erro.utils";
 import type { ActionResult } from "@/types";
 import type { ItemPedidoLojaInput } from "@/services/loja/loja-pedido.actions";
 
@@ -14,8 +15,10 @@ import type { ItemPedidoLojaInput } from "@/services/loja/loja-pedido.actions";
  */
 
 async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[] }): Promise<{ pedidoId: string; valorTotal: number }> {
-  const supabase = createAdminClient();
   const valorTotal = input.itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
+  if (valorTotal <= 0) throw new Error("O valor do pedido está zerado — atualiza a página e tenta de novo.");
+
+  const supabase = createAdminClient();
 
   const { data: pedido, error } = await supabase
     .from("pedidos_loja")
@@ -51,7 +54,7 @@ export async function iniciarCheckoutPixAction(input: {
     const resultado = await paymentService.iniciarPagamentoPix({ pedidoId, valor: valorTotal, descricao: `Pedido Neotec #${pedidoId.slice(0, 8)}` });
     return { success: true, data: { pedidoId, pagamentoId: resultado.pagamentoId, qrCodeBase64: resultado.qrCodeBase64, copiaCola: resultado.copiaCola, expiraEm: resultado.expiraEm } };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erro ao gerar Pix" };
+    return { success: false, error: extrairMensagemErro(err, "Erro ao gerar Pix") };
   }
 }
 
@@ -70,7 +73,7 @@ export async function pagarComCartaoAction(input: {
     });
     return { success: true, data: { pedidoId, status: resultado.status, statusDetail: resultado.statusDetail } };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erro ao processar cartão" };
+    return { success: false, error: extrairMensagemErro(err, "Erro ao processar cartão") };
   }
 }
 
@@ -80,7 +83,7 @@ export async function consultarStatusPagamentoAction(pagamentoId: string): Promi
     if (!pagamento) return { success: false, error: "Pagamento não encontrado" };
     return { success: true, data: { status: pagamento.status } };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erro ao consultar status" };
+    return { success: false, error: extrairMensagemErro(err, "Erro ao consultar status") };
   }
 }
 
@@ -90,6 +93,6 @@ export async function buscarPublicKeyMercadoPagoAction(): Promise<ActionResult<{
     const config = await paymentRepository.buscarConfiguracao("mercadopago", false);
     return { success: true, data: { publicKey: config?.public_key ?? null, ativo: config?.ativo ?? false } };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erro ao carregar configuração" };
+    return { success: false, error: extrairMensagemErro(err, "Erro ao carregar configuração") };
   }
 }

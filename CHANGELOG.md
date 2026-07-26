@@ -2,6 +2,50 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 76] — Correção: mensagem de erro genérica escondia o motivo real
+
+### Causa raiz
+O SDK do Mercado Pago às vezes lança um objeto cru (`{message, status,
+cause: [...]}`), não uma instância de `Error` de verdade. Todo `catch`
+do módulo de pagamentos checava só `err instanceof Error`, então
+qualquer erro nesse formato caía num fallback genérico ("Erro ao
+processar cartão", "Erro ao gerar Pix", etc.) — escondendo o motivo
+real (token inválido, cartão recusado por que exatamente, etc.).
+
+### Corrigido
+- `src/services/pagamentos/erro.utils.ts` (novo) — `extrairMensagemErro()`
+  tenta extrair a mensagem real de qualquer formato: `Error` padrão,
+  objeto do SDK do Mercado Pago (usa o array `cause` quando existe), ou
+  string cru.
+- Aplicado nos 6 pontos de catch do módulo (`payment.controller.ts`,
+  `gateway-config.actions.ts`) — próxima vez que der erro, a mensagem
+  exibida deve mostrar o motivo de verdade, não mais o fallback genérico.
+
+---
+
+
+## [Fase 75] — Correção: "Amount property is required" no checkout
+
+### Causa raiz
+Race condition entre o carrinho carregando do localStorage (async) e o
+Card Payment Brick inicializando — se o Brick montasse antes do
+carrinho terminar de carregar, `total` ainda era 0, e o Brick nasce
+com `amount: 0`, travado nesse valor mesmo depois do carrinho carregar
+de verdade (o Brick só inicializa uma vez).
+
+### Corrigido
+- `src/app/loja/checkout/page.tsx` — o Card Payment Brick só é
+  renderizado quando `total > 0` de verdade (mostra "Carregando valor
+  do pedido..." enquanto isso) — evita o Brick nascer com valor zerado.
+- `src/services/pagamentos/payment.controller.ts` — validação no
+  servidor: se o valor total calculado for zero ou negativo, erro
+  claro em português antes de qualquer chamada ao Mercado Pago (nunca
+  manda `amount` zerado pra API) — cobre Pix e cartão, os dois passam
+  pela mesma função.
+
+---
+
+
 ## [Fase 74] — Correção de build: formatCurrency sem import
 
 ### Corrigido

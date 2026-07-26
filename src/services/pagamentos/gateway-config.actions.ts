@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { paymentRepository } from "./payment.repository";
 import { MercadoPagoProvider } from "./providers/mercadopago.provider";
+import { extrairMensagemErro } from "./erro.utils";
 import type { ActionResult, ConfiguracaoGatewayPagamento } from "@/types";
 
 export async function atualizarConfiguracaoGatewayAction(
@@ -14,7 +15,7 @@ export async function atualizarConfiguracaoGatewayAction(
     revalidatePath("/configuracoes/pagamentos");
     return { success: true, data: undefined };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar" };
+    return { success: false, error: extrairMensagemErro(err, "Erro ao salvar") };
   }
 }
 
@@ -34,6 +35,6 @@ export async function testarConexaoGatewayAction(gateway: string): Promise<Actio
     revalidatePath("/configuracoes/pagamentos");
     return { success: true, data: { conectado } };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erro ao testar conexão" };
+    return { success: false, error: extrairMensagemErro(err, "Erro ao testar conexão") };
   }
 }
