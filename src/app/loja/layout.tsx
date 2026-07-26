@@ -9,10 +9,15 @@ import { BarraComparacao } from "@/components/loja/barra-comparacao";
 import { BarraTopoRotativa } from "@/components/loja/barra-topo-rotativa";
 import { listarBarraTopoPublico } from "@/services/marketing/marketing-publico.service";
 
-export const metadata = {
-  title: "Neotec — iPhone, Mac, iPad e acessórios em Araguari",
-  description: "Loja Neotec: iPhone, iPad, Apple Watch e acessórios, novos e seminovos, com garantia. Assistência técnica especializada.",
-};
+import { buscarConfigSeo } from "@/services/loja-admin/central-loja.service";
+
+export async function generateMetadata() {
+  const config = await buscarConfigSeo().catch(() => null);
+  return {
+    title: config?.titulo_padrao || "Neotec — iPhone, Mac, iPad e acessórios em Araguari",
+    description: config?.descricao_padrao || "Loja Neotec: iPhone, iPad, Apple Watch e acessórios, novos e seminovos, com garantia. Assistência técnica especializada.",
+  };
+}
 
 /**
  * Rota pública, fora do grupo (sistema) — não passa pelo middleware de

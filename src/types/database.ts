@@ -194,6 +194,10 @@ export interface Aparelho {
   pecas_substituidas: string[];
   observacoes: string | null;
   preco_antigo: number | null;
+  tela_original: boolean | null;
+  face_id_ok: boolean | null;
+  true_tone_ok: boolean | null;
+  video_url: string | null;
   data_entrada: string;
   updated_at: string;
 }
@@ -995,3 +999,51 @@ export interface ConfiguracaoGatewayPagamento {
   ultimo_pagamento_aprovado_em: string | null;
   updated_at: string;
 }
+
+// ---- Fase 80: Regras de lucro + campos extras de seminovo ----
+
+export type TipoRegraLucro = "fixo" | "percentual" | "faixa";
+
+export interface RegraLucro {
+  id: string;
+  loja_id: string;
+  nome: string;
+  tipo: TipoRegraLucro;
+  valor_fixo: number | null;
+  percentual: number | null;
+  ativa: boolean;
+  padrao: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegraLucroFaixa {
+  id: string;
+  regra_id: string;
+  valor_ate: number | null;
+  lucro: number;
+  ordem: number;
+}
+
+// ---- Fase 81: Central da Loja — Marcas, Coleções, Cupons, Fretes, Avaliações, SEO ----
+
+export interface Marca { id: string; loja_id: string; nome: string; ativo: boolean }
+
+export interface Colecao { id: string; loja_id: string; nome: string; descricao: string | null; ativo: boolean; ordem: number }
+
+export type TipoDescontoCupom = "percentual" | "valor_fixo";
+
+export interface Cupom {
+  id: string; loja_id: string; codigo: string; tipo_desconto: TipoDescontoCupom; valor: number;
+  valor_minimo_pedido: number | null; limite_uso: number | null; usos: number;
+  valido_de: string | null; valido_ate: string | null; ativo: boolean; created_at: string;
+}
+
+export interface RegraFrete { id: string; loja_id: string; regiao: string; valor: number; prazo_dias_uteis: number; ativo: boolean; ordem: number }
+
+export interface AvaliacaoLoja {
+  id: string; loja_id: string; produto_id: string | null; nome_cliente: string; cidade: string | null;
+  nota: number; comentario: string | null; foto_url: string | null; aprovado: boolean; created_at: string;
+}
+
+export interface ConfigSeoLoja { id: string; loja_id: string; titulo_padrao: string | null; descricao_padrao: string | null; updated_at: string }

@@ -2,6 +2,106 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 81] — Central da Loja completa: as 21 seções
+
+Sidebar única em `/loja-admin`, organizando tudo — nada duplicado, nada
+movido do que já funcionava. Itens marcados com "↗" na sidebar apontam
+pra telas que já existiam antes (Estoque, Pedidos, Clientes,
+Configurações); o resto é novo de verdade.
+
+### Novo — 6 telas administrativas completas
+- **Dashboard**: receita do mês, ticket médio, pedidos aguardando
+  atenção — tudo somado direto de `pedidos_loja`/vendas reais.
+- **Marcas**: cadastro simples, usado pra organizar o catálogo.
+- **Coleções**: agrupamentos de produtos (campanhas sazonais, etc).
+- **Cupons**: percentual ou valor fixo, pedido mínimo, limite de uso,
+  validade — **validado de verdade no checkout**, nunca decorativo.
+- **Fretes**: valor e prazo por região — Araguari e Uberlândia já
+  vêm com frete grátis em 1 dia útil, como combinado.
+- **Avaliações**: aprovação manual antes de publicar na loja.
+- **SEO**: título/descrição padrão, agora puxado de verdade pela
+  página real da loja (`generateMetadata` dinâmico, antes era fixo no código).
+
+### Cupom no checkout — com cuidado de segurança
+- Campo de cupom na tela de checkout, aplica e mostra o desconto.
+- **O desconto é sempre recalculado no servidor** — nunca confia num
+  valor vindo do navegador (alguém poderia forjar via devtools). A
+  Server Action revalida o cupom do zero antes de gerar a cobrança de
+  verdade no Mercado Pago.
+- Contador de uso do cupom incrementado automaticamente, registro em
+  `cupom_usos` vinculado ao pedido.
+
+### Correção durante a implementação
+Um arquivo `"use server"` só pode exportar função assíncrona (Server
+Action) — ia exportar `calcularDescontoCupom` (função pura, síncrona)
+junto das actions de cupom, o que quebraria o build. Separado em dois
+arquivos: `cupom.actions.ts` (só Server Actions) e `cupom.utils.ts`
+(função pura).
+
+### Menu principal
+"Central da Loja" adicionada à sidebar do sistema interno, acesso
+direto pra admin/gerente.
+
+---
+
+## [Fase 80] — IA de cadastro de seminovo + regras de lucro + 2 ajustes na loja
+
+Escopo entregue desta vez, do pedido gigante de "Central da Loja":
+o núcleo que resolve o objetivo final descrito ("cadastrar aparelho em
+menos de 30 segundos"). A reestruturação completa em 21 seções
+("LOJA" com Dashboard, Coleções, Cupons, Fretes, SEO, Integrações
+etc.) **não está nessa entrega** — ver "Pendente" no fim.
+
+### IA de cadastro de seminovo
+- `/estoque/seminovos/cadastro-ia`: cola texto solto (um aparelho ou
+  vários juntos) — a IA identifica modelo, memória, cor, bateria, tela
+  original, Face ID, True Tone, peças trocadas, observações e preço
+  pago. Mesma defesa contra o bug já corrigido antes (JSON sempre
+  `{itens: [...]}`, nunca confia em array solto sem checar).
+- Cada item extraído aparece pra **revisão editável** antes de
+  qualquer coisa ser salva — todo campo pode ser corrigido, IMEI é
+  obrigatório (não vem da IA, precisa ser digitado/lido na hora).
+- Acha ou cria o produto genérico (marca/modelo) automaticamente, sem
+  duplicar se já existir.
+
+### Regras de lucro
+- `/estoque/seminovos/regras-lucro`: fixo, percentual, ou por faixa de
+  valor. Uma marcada como padrão — a IA de cadastro já aplica sozinha,
+  calculando preço de venda e lucro na hora, sem esperar decisão manual
+  (dá pra trocar antes de salvar, se quiser).
+
+### 2 ajustes na loja
+- **Balão "🏪 Retire agora na loja"** — aparece em todo aparelho
+  seminovo disponível (já é fisicamente estoque da loja, por
+  definição).
+- **Preço rotulado como "no Pix"** — antes o preço aparecia sem dizer
+  a qual forma de pagamento correspondia, e ainda tinha um "economize
+  X% no Pix" calculado por cima, que não fazia mais sentido depois de
+  confirmado que o preço cadastrado já É o valor no Pix. Removido esse
+  cálculo duplicado; a tabela de parcelamento real (Fase 79) já mostra
+  corretamente quando até o 1x no cartão tem juros, refletindo a
+  configuração real da conta.
+
+### Novo — campos em `aparelhos`
+`tela_original`, `face_id_ok`, `true_tone_ok`, `video_url`.
+
+---
+
+### Pendente — o resto do pedido de "Central da Loja"
+Não construído nesta entrega, por ser um projeto de arquitetura de
+informação à parte (reorganizar tudo que já existe espalhado + criar o
+que falta):
+- Menu lateral unificado "LOJA" com as 21 seções descritas
+- Coleções, Marcas, Cupons, Banners (gestão dedicada — Banners já
+  existe parcialmente via CMS da Home), Fretes, SEO, Integrações como
+  telas próprias
+- Catálogo mestre de Android (só o de iPhone lacrado existe, Fase 66-67)
+- Financiamento automático completo (a tabela de parcelas real já
+  existe, Fase 79 — falta só o cálculo de "financiamento" como produto
+  financeiro à parte, se for isso que quis dizer)
+
+---
+
 ## [Fase 79] — Tabela de parcelamento real, puxada ao vivo do Mercado Pago
 
 ### Corrigido

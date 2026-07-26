@@ -5,6 +5,8 @@ import Link from "next/link";
 import { CheckCircle2, XCircle, CreditCard, QrCode } from "lucide-react";
 import { useCarrinho } from "@/components/loja/carrinho-context";
 import { iniciarCheckoutPixAction, pagarComCartaoAction, buscarPublicKeyMercadoPagoAction } from "@/services/pagamentos/payment.controller";
+import { validarCupomAction } from "@/services/loja/cupom.actions";
+import { calcularDescontoCupom } from "@/services/loja/cupom.utils";
 import { CardPaymentBrick } from "@/components/loja/card-payment-brick";
 import { PixPagamento } from "@/components/loja/pix-pagamento";
 import { formatCurrency } from "@/utils";
@@ -26,6 +28,11 @@ export default function CheckoutPage() {
   const [gatewayAtivo, setGatewayAtivo] = useState(true);
 
   const [dadosPix, setDadosPix] = useState<{ pagamentoId: string; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null } | null>(null);
+  const [cupomInput, setCupomInput] = useState("");
+  const [cupomAplicado, setCupomAplicado] = useState<{ codigo: string; desconto: number } | null>(null);
+  const [validandoCupom, setValidandoCupom] = useState(false);
+  const [erroCupom, setErroCupom] = useState<string | null>(null);
+  const totalComDesconto = Math.max(0, total - (cupomAplicado?.desconto ?? 0));
 
   useEffect(() => {
     buscarPublicKeyMercadoPagoAction().then((result) => {
@@ -50,10 +57,33 @@ export default function CheckoutPage() {
     setEtapa("pagamento");
   }
 
+  async function handleAplicarCupom() {
+    setErroCupom(null);
+    if (!cupomInput.trim()) return;
+
+    setValidandoCupom(true);
+    const result = await validarCupomAction(cupomInput.trim(), total);
+    setValidandoCupom(false);
+
+    if (!result.success) return setErroCupom(result.error);
+    if (!result.data.valido || !result.data.tipoDesconto || result.data.valor == null) {
+      return setErroCupom(result.data.motivo ?? "Cupom inválido");
+    }
+
+    const desconto = calcularDescontoCupom(total, result.data.tipoDesconto, result.data.valor);
+    setCupomAplicado({ codigo: cupomInput.trim().toUpperCase(), desconto });
+  }
+
+  function handleRemoverCupom() {
+    setCupomAplicado(null);
+    setCupomInput("");
+    setErroCupom(null);
+  }
+
   async function handlePagarPix() {
     setErro(null);
     setProcessando(true);
-    const result = await iniciarCheckoutPixAction({ nomeContato: nome, telefoneContato: telefone, itens, cpf: cpf.trim() || undefined });
+    const result = await iniciarCheckoutPixAction({ nomeContato: nome, telefoneContato: telefone, itens, cpf: cpf.trim() || undefined, cupomCodigo: cupomAplicado?.codigo });
     setProcessando(false);
 
     if (!result.success) return setErro(result.error);
@@ -65,7 +95,7 @@ export default function CheckoutPage() {
     setProcessando(true);
     const result = await pagarComCartaoAction({
       nomeContato: nome, telefoneContato: telefone, itens,
-      token: dados.token, parcelas: dados.installments, metodoPagamentoId: dados.paymentMethodId, cpf: cpf.trim() || undefined,
+      token: dados.token, parcelas: dados.installments, metodoPagamentoId: dados.paymentMethodId, cpf: cpf.trim() || undefined, cupomCodigo: cupomAplicado?.codigo,
     });
     setProcessando(false);
 
@@ -166,10 +196,10 @@ export default function CheckoutPage() {
               <PixPagamento pagamentoId={dadosPix.pagamentoId} qrCodeBase64={dadosPix.qrCodeBase64} copiaCola={dadosPix.copiaCola} expiraEm={dadosPix.expiraEm} onAprovado={handlePixAprovado} />
             )}
 
-            {metodo === "cartao" && publicKey && total > 0 && (
-              <CardPaymentBrick publicKey={publicKey} valor={total} onSubmit={handlePagarCartao} onErro={setErro} />
+            {metodo === "cartao" && publicKey && totalComDesconto > 0 && (
+              <CardPaymentBrick publicKey={publicKey} valor={totalComDesconto} onSubmit={handlePagarCartao} onErro={setErro} />
             )}
-            {metodo === "cartao" && publicKey && total <= 0 && <p className="text-sm text-muted-foreground">Carregando valor do pedido...</p>}
+            {metodo === "cartao" && publicKey && totalComDesconto <= 0 && <p className="text-sm text-muted-foreground">Carregando valor do pedido...</p>}
             {metodo === "cartao" && !publicKey && <p className="text-sm text-muted-foreground">Carregando...</p>}
           </div>
         )}
@@ -185,11 +215,39 @@ export default function CheckoutPage() {
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-between pt-4">
+
+        <div className="border-b border-black/[0.06] py-3">
+          {cupomAplicado ? (
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium text-success">Cupom {cupomAplicado.codigo} aplicado</span>
+              <button type="button" onClick={handleRemoverCupom} className="text-muted-foreground hover:underline">Remover</button>
+            </div>
+          ) : (
+            <div className="flex gap-1.5">
+              <input
+                placeholder="Código do cupom" value={cupomInput} onChange={(e) => setCupomInput(e.target.value.toUpperCase())}
+                className="flex-1 rounded-lg border border-black/[0.08] px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+              />
+              <button type="button" onClick={handleAplicarCupom} disabled={validandoCupom || !cupomInput.trim()} className="rounded-lg border border-black/[0.08] px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-60">
+                {validandoCupom ? "..." : "Aplicar"}
+              </button>
+            </div>
+          )}
+          {erroCupom && <p className="mt-1 text-[11px] text-danger">{erroCupom}</p>}
+        </div>
+
+        {cupomAplicado && (
+          <div className="flex items-center justify-between pt-3 text-sm text-muted-foreground">
+            <span>Desconto</span>
+            <span>-{formatCurrency(cupomAplicado.desconto)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between pt-1">
           <span className="text-sm font-medium text-foreground">Total</span>
-          <span className="font-display text-xl font-bold text-foreground">{formatCurrency(total)}</span>
+          <span className="font-display text-xl font-bold text-foreground">{formatCurrency(totalComDesconto)}</span>
         </div>
       </div>
     </div>
+
   );
 }

@@ -14,11 +14,29 @@ import type { ItemPedidoLojaInput } from "@/services/loja/loja-pedido.actions";
  * pagamento dentro de componente".
  */
 
-async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[] }): Promise<{ pedidoId: string; valorTotal: number }> {
-  const valorTotal = input.itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
-  if (valorTotal <= 0) throw new Error("O valor do pedido está zerado — atualiza a página e tenta de novo.");
+async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string }): Promise<{ pedidoId: string; valorTotal: number }> {
+  const valorBruto = input.itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
+  if (valorBruto <= 0) throw new Error("O valor do pedido está zerado — atualiza a página e tenta de novo.");
 
   const supabase = createAdminClient();
+
+  // Cupom sempre revalidado aqui, no servidor — nunca confia num
+  // desconto que viesse pronto do navegador (poderia ser forjado).
+  let valorTotal = valorBruto;
+  let cupomId: string | null = null;
+  if (input.cupomCodigo) {
+    const { data: validacao } = await supabase.rpc("validar_cupom_publico", { p_codigo: input.cupomCodigo, p_valor_pedido: valorBruto });
+    const linha = validacao?.[0];
+    if (linha?.valido) {
+      const desconto = linha.tipo_desconto === "percentual" ? valorBruto * (linha.valor / 100) : Math.min(valorBruto, linha.valor);
+      valorTotal = Math.max(0, valorBruto - desconto);
+      const { data: cupom } = await supabase.from("cupons").select("id, usos").eq("codigo", input.cupomCodigo.toUpperCase()).maybeSingle();
+      if (cupom) {
+        cupomId = cupom.id;
+        await supabase.from("cupons").update({ usos: cupom.usos + 1 }).eq("id", cupom.id);
+      }
+    }
+  }
 
   const { data: pedido, error } = await supabase
     .from("pedidos_loja")
@@ -26,6 +44,8 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+
+  if (cupomId) await supabase.from("cupom_usos").insert({ cupom_id: cupomId, pedido_id: pedido.id });
 
   const { error: erroItens } = await supabase.from("pedido_loja_itens").insert(
     input.itens.map((item) => ({
@@ -44,7 +64,7 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
 }
 
 export async function iniciarCheckoutPixAction(input: {
-  nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cpf?: string;
+  nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cpf?: string; cupomCodigo?: string;
 }): Promise<ActionResult<{ pedidoId: string; pagamentoId: string; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
@@ -60,7 +80,7 @@ export async function iniciarCheckoutPixAction(input: {
 
 export async function pagarComCartaoAction(input: {
   nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[];
-  token: string; parcelas: number; metodoPagamentoId: string; cpf?: string;
+  token: string; parcelas: number; metodoPagamentoId: string; cpf?: string; cupomCodigo?: string;
 }): Promise<ActionResult<{ pedidoId: string; status: string; statusDetail: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
