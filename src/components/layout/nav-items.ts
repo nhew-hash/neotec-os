@@ -56,6 +56,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
   {
     label: "Operação",
     items: [
+      { label: "Central de Cadastro (IA)", href: "/estoque/central-fornecedor", icon: Sparkles, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Estoque", href: "/estoque", icon: Package, cargos: ["admin", "gerente", "vendedor", "tecnico"] },
       { label: "Lacrados", href: "/estoque/lacrados", icon: Sparkles, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Seminovos (IA)", href: "/estoque/seminovos/cadastro-ia", icon: Sparkles, cargos: ["admin", "gerente", "vendedor"] },

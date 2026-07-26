@@ -18,8 +18,8 @@ interface ItemMenuLoja {
 const MENU_LOJA: ItemMenuLoja[] = [
   { label: "Dashboard", href: "/loja-admin", icon: LayoutDashboard },
   { label: "Produtos", href: "/estoque", icon: Package, externo: true },
-  { label: "iPhones Seminovos", href: "/estoque/seminovos/cadastro-ia", icon: Smartphone, externo: true },
-  { label: "iPhones Lacrados", href: "/estoque/lacrados", icon: Sparkles, externo: true },
+  { label: "iPhones Seminovos", href: "/estoque/central-fornecedor", icon: Smartphone, externo: true },
+  { label: "iPhones Lacrados", href: "/estoque/central-fornecedor", icon: Sparkles, externo: true },
   { label: "Categorias", href: "/estoque", icon: Layers, externo: true },
   { label: "Marcas", href: "/loja-admin/marcas", icon: Tag },
   { label: "Coleções", href: "/loja-admin/colecoes", icon: Bookmark },

@@ -2,6 +2,42 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 83] — Central de Cadastro por Fornecedor: uma tela, classificação automática
+
+Antes: seminovo e lacrado tinham telas separadas, cada uma exigindo que
+a equipe já soubesse de antemão o que estava colando. Agora é uma
+central só — cola a lista inteira do fornecedor (misturada, do jeito
+que chega mesmo), a IA classifica cada linha e manda pro destino certo.
+
+### Como classifica
+- **Seminovo**: linha tem % de bateria → vira aparelho de verdade
+  (mesmo fluxo de antes, precisa de IMEI antes de salvar).
+- **Lacrado**: sem % de bateria, geralmente sob cabeçalho "LACRADOS" →
+  casa com o catálogo mestre (Fase 66), atualiza quantidade/preço.
+- **Outro produto** (iPad, MacBook, Apple Watch, acessório, até marca
+  não-Apple como JBL): cria ou atualiza um produto genérico simples.
+
+### Detalhes tratados no prompt
+- **Múltiplas unidades na mesma linha**: "16 PRO MAX 256G
+  90%⚫️90%🩶92%💛5149" vira 3 itens separados (bateria/cor diferentes),
+  todos no mesmo preço mostrado no final da linha — é assim que
+  fornecedor lista várias unidades do mesmo modelo de uma vez.
+- **Emoji de cor**: mapa completo (⚫️preto, ⚪️branco, 🔵azul, 💜roxo,
+  💛amarelo, 💚verde, 🩶titânio/cinza, 🧡laranja) — reconhece sem
+  precisar que o fornecedor escreva o nome da cor por extenso.
+- Categoria nova: `mac` (não existia — MacBook não tinha pra onde ir).
+
+### Nada aplicado sem revisão
+Cada item extraído aparece num card só pra confirmar — nenhum
+cadastro/atualização acontece automaticamente. Seminovo ainda exige
+IMEI digitado na hora (a IA nunca inventa isso).
+
+### Onde acessar
+`/estoque/central-fornecedor` — também substituiu os links de
+"iPhones Seminovos"/"iPhones Lacrados" na Central da Loja (`/loja-admin`).
+
+---
+
 ## [Fase 82] — Correção de build: TipoRegraLucro importado do lugar errado
 
 ### Corrigido
