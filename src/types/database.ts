@@ -198,6 +198,7 @@ export interface Aparelho {
   face_id_ok: boolean | null;
   true_tone_ok: boolean | null;
   video_url: string | null;
+  disponivel_loja_virtual: boolean;
   data_entrada: string;
   updated_at: string;
 }

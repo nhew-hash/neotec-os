@@ -2,6 +2,47 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 90] — Correção de build: tipo genérico em salvarConfig do painel de precificação
+
+### Corrigido
+`precificacao-panel.tsx` — `salvarConfig` tinha `modo_juros?: string`
+(genérico), mas a Server Action exige o union exato
+`"repassar_juros" | "embutir_juros"`. Corrigido pra usar
+`Partial<Pick<ConfiguracaoPrecificacao, ...>>`, o mesmo tipo que a
+action espera.
+
+---
+
+
+## [Fase 89] — Publicação por aparelho individual + abas Loja Física/Virtual
+
+### Problema real
+Aparelho individual não tinha controle próprio de "publicado na loja"
+— a visibilidade dependia só do produto genérico (`produtos.visivel_loja`),
+então não dava pra escolher "esse iPhone específico fica só na loja
+física, aquele outro vai pra online". Tudo que entrava pela Central de
+Cadastro por Fornecedor virava aparelho de estoque, sem distinção.
+
+### Corrigido
+- **`aparelhos.disponivel_loja_virtual`** — campo próprio por unidade
+  (migração preserva o que já estava publicado: todo aparelho cujo
+  produto já tinha `visivel_loja = true` nasce já marcado).
+- **Botão "Publicar"/"Na loja"** em cada linha da tabela de aparelhos
+  — o que faltava, como você apontou.
+- **Estoque → Estoque de Aparelhos** agora tem sub-abas: **Loja
+  Física** (tudo — é o estoque real) e **Loja Virtual** (só o que
+  está marcado como publicado) — visual, como pedido.
+- Função pública da loja (`listar_aparelhos_disponiveis_loja`)
+  atualizada pra filtrar pelo campo novo, por unidade — não mais pelo
+  produto genérico inteiro.
+
+### Comportamento
+Aparelho cadastrado pela Central de Cadastro por Fornecedor nasce
+**não publicado** — precisa clicar "Publicar" na aba Loja Virtual pra
+aparecer no site, igual já funcionava pra produto genérico.
+
+---
+
 ## [Fase 88] — Pricing Engine: motor de precificação (núcleo completo)
 
 ### O que está pronto e correto

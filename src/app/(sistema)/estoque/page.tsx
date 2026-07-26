@@ -51,7 +51,18 @@ export default async function EstoquePage() {
           <TabsTrigger value="produtos">Estoque Comercial</TabsTrigger>
         </TabsList>
         <TabsContent value="aparelhos">
-          <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos} cargo={cargo} /></CardContent></Card>
+          <Tabs defaultValue="fisica">
+            <TabsList>
+              <TabsTrigger value="fisica">Estoque Loja Física ({aparelhos.length})</TabsTrigger>
+              <TabsTrigger value="virtual">Estoque Loja Virtual ({aparelhos.filter((a) => a.disponivel_loja_virtual).length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="fisica">
+              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos} cargo={cargo} /></CardContent></Card>
+            </TabsContent>
+            <TabsContent value="virtual">
+              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.disponivel_loja_virtual)} cargo={cargo} /></CardContent></Card>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
         <TabsContent value="produtos">
           <Card><CardContent className="p-0"><ProdutosTable produtos={produtos} saldos={saldos} cargo={cargo} /></CardContent></Card>

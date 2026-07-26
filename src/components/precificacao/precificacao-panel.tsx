@@ -17,7 +17,7 @@ export function PrecificacaoPanel({ config: configInicial, taxas: taxasIniciais 
   const [simuladorPreco, setSimuladorPreco] = useState(7400);
   const [simuladorCusto, setSimuladorCusto] = useState(5000);
 
-  function salvarConfig(input: { modo_juros?: string; desconto_pix_percentual?: number }) {
+  function salvarConfig(input: Partial<Pick<ConfiguracaoPrecificacao, "modo_juros" | "desconto_pix_percentual">>) {
     atualizarConfigPrecificacaoAction(input).then(() => router.refresh());
   }
 

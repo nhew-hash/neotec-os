@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { StatusAparelhoBadge } from "./status-badge";
+import { PublicarAparelhoButton } from "./publicar-aparelho-button";
 import { formatCurrency } from "@/utils";
 import { podeVerCusto } from "@/utils/permissions";
 import type { CargoUsuario } from "@/types";
@@ -12,7 +13,7 @@ export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComPro
   if (aparelhos.length === 0) {
     return (
       <div className="rounded-card border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
-        Nenhum aparelho cadastrado ainda.
+        Nenhum aparelho encontrado.
       </div>
     );
   }
@@ -26,6 +27,7 @@ export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComPro
           <TableHead>Status</TableHead>
           <TableHead>Preço de venda</TableHead>
           {podeVerCustoAtual && <TableHead>Custo</TableHead>}
+          <TableHead>Loja virtual</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -37,7 +39,7 @@ export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComPro
               </Link>
               {aparelho.cor && <span className="ml-1 text-xs text-muted-foreground">{aparelho.cor}</span>}
             </TableCell>
-            <TableCell className="font-mono text-xs text-muted-foreground">{aparelho.imei}</TableCell>
+            <TableCell className="font-mono text-xs text-muted-foreground">{aparelho.imei ?? "—"}</TableCell>
             <TableCell><StatusAparelhoBadge status={aparelho.status} /></TableCell>
             <TableCell>{aparelho.preco_venda ? formatCurrency(aparelho.preco_venda) : "—"}</TableCell>
             {podeVerCustoAtual && (
@@ -45,6 +47,9 @@ export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComPro
                 {aparelho.custo ? formatCurrency(aparelho.custo) : "—"}
               </TableCell>
             )}
+            <TableCell>
+              <PublicarAparelhoButton aparelhoId={aparelho.id} publicado={aparelho.disponivel_loja_virtual} />
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

@@ -120,3 +120,16 @@ export async function salvarTesteAparelhoAction(
     return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar teste" };
   }
 }
+
+export async function alternarPublicacaoLojaAparelhoAction(id: string, publicado: boolean): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("aparelhos").update({ disponivel_loja_virtual: publicado }).eq("id", id);
+    if (error) throw new Error(error.message);
+    revalidatePath("/estoque");
+    revalidatePath("/loja");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar" };
+  }
+}
