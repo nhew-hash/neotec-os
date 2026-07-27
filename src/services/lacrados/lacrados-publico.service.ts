@@ -14,11 +14,11 @@ export async function buscarLacradoModeloPorNome(nomeSlug: string): Promise<Pick
   return modelos.find((m) => slugify(m.nome) === nomeSlug) ?? null;
 }
 
-export async function listarLacradosVariantesPublico(modeloId: string): Promise<Pick<CatalogoLacradoVariante, "id" | "cor" | "armazenamento" | "quantidade" | "preco_venda">[]> {
+export async function listarLacradosVariantesPublico(modeloId: string): Promise<Pick<CatalogoLacradoVariante, "id" | "cor" | "armazenamento" | "quantidade" | "preco_venda" | "fotos">[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("listar_lacrados_variantes_publico", { p_modelo_id: modeloId });
   if (error) throw new Error(`Não foi possível carregar as opções: ${error.message}`);
-  return (data ?? []) as Pick<CatalogoLacradoVariante, "id" | "cor" | "armazenamento" | "quantidade" | "preco_venda">[];
+  return (data ?? []) as Pick<CatalogoLacradoVariante, "id" | "cor" | "armazenamento" | "quantidade" | "preco_venda" | "fotos">[];
 }
 
 /**

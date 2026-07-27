@@ -23,7 +23,7 @@ export default async function LacradosListaPage() {
               <div className="flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-[#FAFBFC] to-[#F0F2F6]">
                 {m.fotos?.[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.fotos[0]} alt={m.nome} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <img src={m.fotos[0]} alt={m.nome} className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105" />
                 ) : (
                   <Smartphone className="h-16 w-16 text-black/[0.08] transition-transform duration-500 group-hover:scale-110" strokeWidth={1} />
                 )}

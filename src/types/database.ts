@@ -919,6 +919,8 @@ export interface CatalogoLacradoVariante {
   preco_venda: number | null;
   preco_antigo: number | null;
   ativo: boolean;
+  banco_imagens_grupo_id: string | null;
+  fotos: string[];
   updated_at: string;
 }
 

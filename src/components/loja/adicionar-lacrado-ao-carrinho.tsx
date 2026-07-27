@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ShoppingBag } from "lucide-react";
 import { useCarrinho } from "./carrinho-context";
 import { DestaquePrecoCliente } from "./destaque-preco-cliente";
 import type { CatalogoLacradoVariante, CatalogoLacradoModelo } from "@/types";
 
-type Variante = Pick<CatalogoLacradoVariante, "id" | "cor" | "armazenamento" | "quantidade" | "preco_venda">;
+type Variante = Pick<CatalogoLacradoVariante, "id" | "cor" | "armazenamento" | "quantidade" | "preco_venda" | "fotos">;
 
 interface AdicionarLacradoAoCarrinhoProps {
   modelo: Pick<CatalogoLacradoModelo, "id" | "nome">;
   variantes: Variante[];
+  onVarianteFotosChange?: (fotos: string[]) => void;
 }
 
 /**
@@ -21,7 +22,7 @@ interface AdicionarLacradoAoCarrinhoProps {
  * escolher uma combinação sem estoque — a combinação simplesmente não
  * existe na lista se não tiver.
  */
-export function AdicionarLacradoAoCarrinho({ modelo, variantes }: AdicionarLacradoAoCarrinhoProps) {
+export function AdicionarLacradoAoCarrinho({ modelo, variantes, onVarianteFotosChange }: AdicionarLacradoAoCarrinhoProps) {
   const router = useRouter();
   const { adicionar } = useCarrinho();
   const [adicionado, setAdicionado] = useState(false);
@@ -36,6 +37,13 @@ export function AdicionarLacradoAoCarrinho({ modelo, variantes }: AdicionarLacra
   const [armazenamentoSelecionado, setArmazenamentoSelecionado] = useState<string>(armazenamentosDaCor[0] ?? "");
 
   const varianteSelecionada = variantes.find((v) => v.cor === corSelecionada && v.armazenamento === armazenamentoSelecionado);
+
+  // Sem fallback de propósito — se essa variante específica (cor +
+  // armazenamento) não tem foto vinculada, avisa o pai com array
+  // vazio. Nunca mostra a foto de outra cor por engano.
+  useEffect(() => {
+    onVarianteFotosChange?.(varianteSelecionada?.fotos ?? []);
+  }, [varianteSelecionada, onVarianteFotosChange]);
 
   function handleSelecionarCor(cor: string) {
     setCorSelecionada(cor);

@@ -6,7 +6,6 @@ import { ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { atualizarVarianteLacradoAction } from "@/services/lacrados/lacrados.actions";
-import { UploadFotosProduto } from "@/components/estoque/upload-fotos-produto";
 import { formatCurrency } from "@/utils";
 import type { ModeloComVariantes } from "@/services/lacrados/lacrados.service";
 
@@ -36,7 +35,9 @@ function ModeloRow({ modelo }: { modelo: ModeloComVariantes }) {
 
       {aberto && (
         <CardContent className="flex flex-col gap-4 border-t border-border pt-4">
-          <UploadFotosProduto tabela="catalogo_lacrados_modelos" itemId={modelo.id} fotosIniciais={modelo.fotos} />
+          <p className="text-xs text-muted-foreground">
+            Foto de lacrado é gerenciada em <strong>Estoque → Banco de Imagens</strong> — importa a pasta com o nome "{modelo.nome} [Cor]" e ela vincula sozinha na variante certa.
+          </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {modelo.variantes.map((v) => (
             <div key={v.id} className="flex flex-col gap-1.5 rounded-md border border-border p-2.5">

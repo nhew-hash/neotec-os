@@ -32,7 +32,7 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
           <div className="flex aspect-square items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-[#FAFBFC] to-[#F0F2F6]">
             {produto.fotos?.[0] ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={produto.fotos[0]} alt={produto.nome} className="h-full w-full object-cover" />
+              <img src={produto.fotos[0]} alt={produto.nome} className="h-full w-full object-contain" />
             ) : (
               <Smartphone className="h-32 w-32 text-black/[0.08]" strokeWidth={0.75} />
             )}

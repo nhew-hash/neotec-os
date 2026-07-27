@@ -103,13 +103,16 @@ export async function importarPastaImagens(input: {
   }
 
   // Vinculação automática — todo produto/aparelho/lacrado com
-  // marca+modelo+cor batendo passa a referenciar esse grupo. Isso é o
-  // "não preciso mais editar produto por produto" pedido.
+  // marca+modelo+cor batendo EXATO passa a referenciar esse grupo.
+  // Correspondência tem que ser exata, nunca "contém" — "iPhone 14" e
+  // "iPhone 14 Pro Max" são modelos DIFERENTES que só compartilham um
+  // prefixo em comum; usar "includes" aqui vinculava a foto errada em
+  // modelo nenhuma relação real (bug real, corrigido).
   let produtosVinculados = 0;
 
   const { data: produtosCandidatos } = await supabase.from("produtos").select("id, marca, modelo, nome");
   for (const p of produtosCandidatos ?? []) {
-    const nomeBate = normalizar(p.nome)?.includes(normalizar(modelo) ?? "");
+    const nomeBate = normalizar(p.nome) === normalizar(modelo);
     const marcaBate = normalizar(p.marca) === normalizar(marca) || !p.marca;
     if (nomeBate && marcaBate) {
       await supabase.from("produtos").update({ banco_imagens_grupo_id: grupoId }).eq("id", p.id);
@@ -122,7 +125,7 @@ export async function importarPastaImagens(input: {
       .from("aparelhos").select("id, cor, produto:produtos!inner(nome, marca)");
     for (const a of aparelhosCandidatos ?? []) {
       const produtoInfo = a.produto as unknown as { nome: string; marca: string | null };
-      const nomeBate = normalizar(produtoInfo.nome)?.includes(normalizar(modelo) ?? "");
+      const nomeBate = normalizar(produtoInfo.nome) === normalizar(modelo);
       const corBate = normalizar(a.cor) === normalizar(cor);
       if (nomeBate && corBate) {
         await supabase.from("aparelhos").update({ banco_imagens_grupo_id: grupoId }).eq("id", a.id);
@@ -133,9 +136,19 @@ export async function importarPastaImagens(input: {
 
   const { data: modelosLacrado } = await supabase.from("catalogo_lacrados_modelos").select("id, nome");
   for (const m of modelosLacrado ?? []) {
-    if (normalizar(m.nome)?.includes(normalizar(modelo) ?? "")) {
-      await supabase.from("catalogo_lacrados_modelos").update({ banco_imagens_grupo_id: grupoId }).eq("id", m.id);
-      produtosVinculados++;
+    if (normalizar(m.nome) !== normalizar(modelo)) continue;
+
+    // Vincula na(s) VARIANTE(S) de cor que batem exatamente — nunca no
+    // modelo inteiro. Sem cor identificada na pasta, não vincula nada
+    // (evita vínculo ambíguo tipo "essa foto é de qual cor mesmo?").
+    if (!cor) continue;
+
+    const { data: variantesDoModelo } = await supabase.from("catalogo_lacrados_variantes").select("id, cor").eq("modelo_id", m.id);
+    for (const v of variantesDoModelo ?? []) {
+      if (normalizar(v.cor) === normalizar(cor)) {
+        await supabase.from("catalogo_lacrados_variantes").update({ banco_imagens_grupo_id: grupoId }).eq("id", v.id);
+        produtosVinculados++;
+      }
     }
   }
 
