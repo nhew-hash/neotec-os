@@ -2,6 +2,40 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 93] — Publicar de vez, e Pix/sem juros em destaque na loja
+
+### Bug real do "publica e não aparece" — achado e corrigido
+Depois da Fase 89 (publicação por aparelho individual), publicar um
+aparelho e publicar o produto genérico viraram dois controles
+separados. Produto auto-criado pela Central de Cadastro nasce com
+`visivel_loja: false` — então mesmo publicando o aparelho, o
+produto-pai continuava invisível, e nada aparecia na loja.
+**Corrigido**: publicar um aparelho agora publica o produto-pai
+automaticamente junto. Despublicar só esconde o produto-pai se não
+sobrar nenhum outro aparelho publicado dele (não derruba unidades-irmãs
+que continuam à venda).
+
+### Pix e "sem juros" em destaque — sem precisar clicar
+Antes, parcelamento só aparecia atrás de um "Ver opções de
+parcelamento" — o pedido era ter isso visível na cara. Trocado por:
+- Preço no Pix com desconto, em destaque verde, com selo de %.
+- "Até Nx sem juros" em destaque azul — vem de dado real (tabela de
+  taxas configurável, Fase 88), nunca "sem juros" assumido.
+- Busca automática ao carregar a página (antes só buscava se
+  clicasse) — cache de 1h no servidor evita sobrecarga.
+- Aplicado nas duas telas de produto (seminovo/genérico e lacrado).
+
+### Motor de precificação (Fase 88) agora tem 2 modos
+- Produto com "preço líquido desejado" cadastrado → motor deriva o
+  vitrine a partir dele (como já era).
+- Produto SEM isso cadastrado (a maioria hoje) → novo método
+  `calcularExibicaoComVitrineFixo()` — parte do preço de vitrine já
+  existente, calcula Pix e parcelas em cima dele. Isso é o que fez o
+  destaque funcionar pra loja inteira, não só pros poucos produtos que
+  já tivessem o campo novo preenchido.
+
+---
+
 ## [Fase 92] — 3 correções: produto não publica, delete perigoso demais, publicação explícita
 
 ### 1. "Publico e não aparece no site" — corrigido

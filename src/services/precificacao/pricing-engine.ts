@@ -119,4 +119,48 @@ export class PricingEngine {
 
     return { precoLiquidoDesejado, precoVitrine, precoPix, recebimentoLiquidoPix, parcelas, lucroLiquidoVitrine };
   }
+
+  /**
+   * Pra produto que ainda não tem "preço líquido desejado" cadastrado
+   * (maioria, hoje) — o preço de vitrine já existe (`preco_venda`
+   * direto), então não tem o que derivar. Ainda assim dá pra mostrar
+   * Pix com desconto e "até Nx sem juros" de forma honesta, só que
+   * calculado NA DIREÇÃO CONTRÁRIA: parte do vitrine já fixo, não de
+   * um líquido desejado.
+   */
+  calcularExibicaoComVitrineFixo(precoVitrine: number): { precoPix: number; parcelas: OpcaoParcelaCalculada[] } {
+    const taxaPix = this.taxaDe(0);
+    // A taxa do Pix já é baixíssima e é custo da loja, não repassado
+    // ao cliente — só o desconto comercial (config.descontoPixPercentual)
+    // aparece no preço que o cliente vê.
+    const precoPixExibido = precoVitrine * (1 - this.config.descontoPixPercentual / 100);
+
+    const parcelasDisponiveis = this.taxas.filter((t) => t.parcela >= 1).sort((a, b) => a.parcela - b.parcela);
+
+    const parcelas: OpcaoParcelaCalculada[] = parcelasDisponiveis.map((t) => {
+      if (this.config.modoJuros === "embutir_juros") {
+        return {
+          numero: t.parcela,
+          valorParcela: precoVitrine / t.parcela,
+          valorTotal: precoVitrine,
+          temJuros: false,
+          taxaAplicada: t.taxaPercentual,
+          recebimentoLiquido: precoVitrine * (1 - t.taxaPercentual / 100),
+        };
+      }
+      // repassar_juros — parte do vitrine como se fosse o preço 1x, escala pra cima proporcional à taxa de cada parcela vs. a taxa de 1x.
+      const taxa1x = this.taxaDe(1);
+      const valorTotal = precoVitrine * ((1 - taxa1x / 100) / (1 - t.taxaPercentual / 100));
+      return {
+        numero: t.parcela,
+        valorParcela: valorTotal / t.parcela,
+        valorTotal,
+        temJuros: t.taxaPercentual > taxaPix,
+        taxaAplicada: t.taxaPercentual,
+        recebimentoLiquido: valorTotal * (1 - t.taxaPercentual / 100),
+      };
+    });
+
+    return { precoPix: precoPixExibido, parcelas };
+  }
 }

@@ -6,7 +6,7 @@ import { Check, ShoppingBag, MapPin, Truck, BatteryFull, ShieldCheck } from "luc
 import { useCarrinho } from "./carrinho-context";
 import { formatCurrency } from "@/utils";
 import { PrecoComEconomia } from "./badges-e-economia";
-import { TabelaParcelamento } from "./tabela-parcelamento";
+import { DestaquePrecoCliente } from "./destaque-preco-cliente";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
 
 const LABEL_CONDICAO: Record<string, string> = { novo: "Novo", seminovo: "Seminovo", usado: "Usado" };
@@ -57,9 +57,8 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
         <div className="flex flex-col gap-1.5">
           <div className="flex items-baseline gap-2">
             <PrecoComEconomia precoAtual={precoExibido} precoAntigo={produto.preco_antigo} />
-            <span className="text-xs font-medium text-success">no Pix</span>
           </div>
-          <TabelaParcelamento valor={precoExibido} />
+          <DestaquePrecoCliente precoVenda={precoExibido} precoLiquidoDesejado={null} mostrarPrecoPrincipal={false} />
         </div>
       )}
 

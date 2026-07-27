@@ -124,8 +124,32 @@ export async function salvarTesteAparelhoAction(
 export async function alternarPublicacaoLojaAparelhoAction(id: string, publicado: boolean): Promise<ActionResult> {
   try {
     const supabase = await createClient();
-    const { error } = await supabase.from("aparelhos").update({ disponivel_loja_virtual: publicado }).eq("id", id);
-    if (error) throw new Error(error.message);
+
+    const { data: aparelho, error: erroAparelho } = await supabase
+      .from("aparelhos")
+      .update({ disponivel_loja_virtual: publicado })
+      .eq("id", id)
+      .select("produto_id")
+      .single();
+    if (erroAparelho) throw new Error(erroAparelho.message);
+
+    if (publicado) {
+      // Publicar o aparelho sem publicar o produto-pai deixava tudo
+      // invisível mesmo assim — o produto genérico é quem controla se
+      // a página existe no catálogo. Publica os dois juntos.
+      await supabase.from("produtos").update({ visivel_loja: true }).eq("id", aparelho.produto_id);
+    } else {
+      // Só esconde o produto-pai se não sobrar NENHUM outro aparelho
+      // publicado dele — não quero derrubar unidades-irmãs que
+      // continuam à venda.
+      const { count } = await supabase
+        .from("aparelhos")
+        .select("id", { count: "exact", head: true })
+        .eq("produto_id", aparelho.produto_id)
+        .eq("disponivel_loja_virtual", true);
+      if (!count) await supabase.from("produtos").update({ visivel_loja: false }).eq("id", aparelho.produto_id);
+    }
+
     revalidatePath("/estoque");
     revalidatePath("/loja", "layout");
     return { success: true, data: undefined };
