@@ -83,19 +83,27 @@ export async function classificarItensFornecedor(texto: string): Promise<ItemFor
     sistema: PROMPT_SISTEMA,
     temperatura: 0.1,
     formatoJson: true,
-    maxTokens: 4000, // listas de fornecedor podem ser longas — evita cortar resposta no meio
+    // Listas de fornecedor de Android costumam ter mais variação por
+    // linha (armazenamento/RAM, 5G, NFC, edição especial) do que
+    // iPhone — cada item ocupa mais tokens pra descrever. 4000 cortava
+    // a resposta no meio em listas de 25-30+ itens, gerando JSON
+    // incompleto. 12000 dá margem confortável pra listas bem grandes.
+    maxTokens: 12000,
   });
 
   let bruto: unknown;
   try {
     bruto = JSON.parse(resultado.texto);
   } catch {
-    throw new Error("Não consegui interpretar o texto — a IA não devolveu um JSON válido. Tenta colar em partes menores.");
+    throw new Error("A resposta da IA veio incompleta ou cortada — tenta colar a lista em 2-3 partes menores, ou tenta de novo.");
   }
 
   const itensBrutos = normalizarResposta(bruto);
   const parsed = z.array(itemSchema).safeParse(itensBrutos);
-  if (!parsed.success) throw new Error("A IA devolveu dados em formato inesperado — confere o texto colado e tenta de novo.");
+  if (!parsed.success) {
+    console.error("Falha de validação na Central de Cadastro:", parsed.error.issues.slice(0, 5));
+    throw new Error("A IA devolveu dados em formato inesperado — se a lista for muito grande, tenta colar em partes menores (ex: 15 itens de cada vez).");
+  }
 
   // Item com memória abaixo de 1GB quase certamente é erro de leitura
   // (emoji/número confundido com capacidade) — nunca aplica, nem

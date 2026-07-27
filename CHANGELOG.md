@@ -2,6 +2,30 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 98] — Correção: listas grandes cortando a resposta da IA no meio
+
+### Causa raiz
+`maxTokens: 4000` era baixo demais pra listas com muitos itens (o
+relato tinha 30+ linhas de Android, com specs mais longas que iPhone —
+armazenamento/RAM, 5G, NFC, edição especial). A resposta da IA vinha
+cortada no meio do JSON, gerando "formato inesperado" mesmo com a
+lista sendo válida.
+
+### Corrigido
+- `maxTokens` de 4000 → 12000 — margem confortável pra listas grandes.
+- Mensagem de erro agora diferencia os dois casos: JSON cortado
+  (sugere colar em partes menores) vs. dado realmente inválido.
+- Log do erro de validação agora registra os primeiros problemas
+  encontrados, ajuda a diagnosticar se acontecer de novo.
+
+### Sobre "estoque loja virtual não tá indo pra lá"
+Consequência do mesmo erro — como a classificação falhava antes de
+qualquer item aparecer pra revisão, nada chegava a ser criado. Not a
+bug separado; corrigindo a causa acima resolve os dois.
+
+---
+
+
 ## [Fase 97] — Tudo cadastrado já nasce publicado, na categoria certa
 
 Reversão intencional das Fases 92-95 (que faziam publicação manual de
