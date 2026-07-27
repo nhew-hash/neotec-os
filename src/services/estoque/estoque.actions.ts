@@ -11,6 +11,14 @@ import {
 } from "./estoque.service";
 import type { ActionResult, StatusAparelho } from "@/types";
 
+function gerarSlug(nome: string): string {
+  return nome
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove acento
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 export async function criarProdutoAction(formData: FormData): Promise<ActionResult> {
   const raw = {
     categoria: String(formData.get("categoria") ?? ""),
@@ -137,7 +145,9 @@ export async function alternarPublicacaoLojaAparelhoAction(id: string, publicado
       // Publicar o aparelho sem publicar o produto-pai deixava tudo
       // invisível mesmo assim — o produto genérico é quem controla se
       // a página existe no catálogo. Publica os dois juntos.
-      await supabase.from("produtos").update({ visivel_loja: true }).eq("id", aparelho.produto_id);
+      const { data: produto } = await supabase.from("produtos").select("nome, slug").eq("id", aparelho.produto_id).maybeSingle();
+      const slug = produto?.slug ?? (produto ? `${gerarSlug(produto.nome)}-${aparelho.produto_id.slice(0, 6)}` : undefined);
+      await supabase.from("produtos").update({ visivel_loja: true, ...(slug ? { slug } : {}) }).eq("id", aparelho.produto_id);
     } else {
       // Só esconde o produto-pai se não sobrar NENHUM outro aparelho
       // publicado dele — não quero derrubar unidades-irmãs que

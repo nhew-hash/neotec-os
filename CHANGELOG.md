@@ -2,6 +2,27 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 94] — Correção: /loja/produto/null
+
+### Causa raiz
+A correção anterior (Fase 93 — "publicar aparelho publica o produto-pai
+junto") esqueceu de gerar o slug do produto ao publicar — produto
+ficava visível mas sem endereço próprio, virando literalmente a string
+"null" na URL.
+
+### Corrigido
+- `alternarPublicacaoLojaAparelhoAction` agora gera o slug (mesma
+  lógica de `publicarProdutoLojaAction`) sempre que publica um produto
+  que ainda não tinha um.
+- **Migração `fase94_fix_slug_null.sql`** — corrige produtos que já
+  ficaram publicados sem slug antes dessa correção (não depende da
+  extensão `unaccent`, trata acento manualmente).
+- Conferido que não existe mais nenhum outro lugar do código que
+  publique produto sem gerar slug junto.
+
+---
+
+
 ## [Fase 93] — Publicar de vez, e Pix/sem juros em destaque na loja
 
 ### Bug real do "publica e não aparece" — achado e corrigido
