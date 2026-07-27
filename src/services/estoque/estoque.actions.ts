@@ -9,7 +9,7 @@ import {
   atualizarStatusAparelho,
   salvarTesteAparelho,
 } from "./estoque.service";
-import type { ActionResult, StatusAparelho } from "@/types";
+import type { ActionResult, StatusAparelho, Produto } from "@/types";
 
 function gerarSlug(nome: string): string {
   return nome
@@ -165,5 +165,21 @@ export async function alternarPublicacaoLojaAparelhoAction(id: string, publicado
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar" };
+  }
+}
+
+/** Criação rápida de produto, direto do formulário de novo aparelho — sem precisar sair da tela e voltar. Devolve o produto criado pra já selecionar sozinho. */
+export async function criarProdutoRapidoAction(input: { nome: string; categoria: string; marca?: string }): Promise<ActionResult<{ id: string; nome: string }>> {
+  if (!input.nome.trim()) return { success: false, error: "Nome é obrigatório" };
+  try {
+    const produto = await criarProduto({
+      nome: input.nome.trim(),
+      categoria: input.categoria as Produto["categoria"],
+      marca: input.marca || undefined,
+    });
+    revalidatePath("/estoque");
+    return { success: true, data: { id: produto.id, nome: produto.nome } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao criar produto" };
   }
 }

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { aparelhoSchema, type AparelhoFormValues } from "@/services/estoque/estoque.schema";
-import { criarAparelhoAction } from "@/services/estoque/estoque.actions";
+import { criarAparelhoAction, criarProdutoRapidoAction } from "@/services/estoque/estoque.actions";
+import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +17,16 @@ const CONDICOES = [
   { value: "novo", label: "Novo" },
   { value: "seminovo", label: "Seminovo" },
   { value: "usado", label: "Usado" },
+] as const;
+
+const CATEGORIAS_PRODUTO_NOVO = [
+  { value: "iphone", label: "iPhone" },
+  { value: "android", label: "Android" },
+  { value: "apple_watch", label: "Apple Watch" },
+  { value: "ipad", label: "iPad" },
+  { value: "mac", label: "Mac" },
+  { value: "acessorio", label: "Acessório" },
+  { value: "peca", label: "Peça" },
 ] as const;
 
 const ORIGENS_ENTRADA = [
@@ -29,10 +40,16 @@ const ORIGENS_ENTRADA = [
   { value: "leilao", label: "Leilão" },
 ] as const;
 
-export function AparelhoForm({ produtos, investidores }: { produtos: Produto[]; investidores: Investidor[] }) {
+export function AparelhoForm({ produtos: produtosIniciais, investidores }: { produtos: Produto[]; investidores: Investidor[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
+  const [produtos, setProdutos] = useState(produtosIniciais);
+  const [criandoProduto, setCriandoProduto] = useState(false);
+  const [nomeNovoProduto, setNomeNovoProduto] = useState("");
+  const [categoriaNovoProduto, setCategoriaNovoProduto] = useState<Produto["categoria"]>("iphone");
+  const [salvandoProduto, setSalvandoProduto] = useState(false);
+  const [erroProduto, setErroProduto] = useState<string | null>(null);
 
   const form = useForm<AparelhoFormValues>({
     resolver: zodResolver(aparelhoSchema),
@@ -64,18 +81,69 @@ export function AparelhoForm({ produtos, investidores }: { produtos: Produto[]; 
   const condicaoAtual = form.watch("condicao");
   const ehUsado = condicaoAtual === "seminovo" || condicaoAtual === "usado";
 
+  async function handleCriarProduto() {
+    setErroProduto(null);
+    if (!nomeNovoProduto.trim()) return setErroProduto("Dá um nome pro produto");
+
+    setSalvandoProduto(true);
+    const result = await criarProdutoRapidoAction({ nome: nomeNovoProduto.trim(), categoria: categoriaNovoProduto });
+    setSalvandoProduto(false);
+
+    if (!result.success) return setErroProduto(result.error);
+
+    const novoProduto: Produto = {
+      id: result.data.id, nome: result.data.nome, categoria: categoriaNovoProduto,
+      loja_id: "", marca: null, modelo: null, descricao: null, preco_venda: null, custo: null,
+      estoque_minimo: 0, status: "ativo", visivel_loja: false, slug: null, descricao_loja: null,
+      preco_antigo: null, preco_liquido_desejado: null, selos_manuais: [], fotos: [],
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    };
+
+    setProdutos((prev) => [...prev, novoProduto]);
+    form.setValue("produto_id", novoProduto.id);
+    setCriandoProduto(false);
+    setNomeNovoProduto("");
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5">
         <FormField control={form.control} name="produto_id" render={({ field }) => (
           <FormItem>
             <FormLabel>Modelo do catálogo</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
-              <FormControl><SelectTrigger><SelectValue placeholder="Selecione um produto" /></SelectTrigger></FormControl>
-              <SelectContent>
-                {produtos.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Selecione um produto" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    {produtos.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setCriandoProduto((v) => !v)}>
+                <Plus className="h-4 w-4" />Novo
+              </Button>
+            </div>
+
+            {criandoProduto && (
+              <div className="flex flex-col gap-2 rounded-lg border border-border bg-secondary/40 p-3">
+                <div className="flex gap-2">
+                  <Input placeholder="Nome do produto (ex: iPhone 16 Pro)" value={nomeNovoProduto} onChange={(e) => setNomeNovoProduto(e.target.value)} className="flex-1" />
+                  <Select value={categoriaNovoProduto} onValueChange={(v) => setCategoriaNovoProduto(v as Produto["categoria"])}>
+                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIAS_PRODUTO_NOVO.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {erroProduto && <p className="text-xs text-danger">{erroProduto}</p>}
+                <Button type="button" size="sm" onClick={handleCriarProduto} disabled={salvandoProduto} className="w-fit">
+                  {salvandoProduto ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  {salvandoProduto ? "Criando..." : "Criar e usar esse produto"}
+                </Button>
+              </div>
+            )}
+
             <FormMessage />
           </FormItem>
         )} />
