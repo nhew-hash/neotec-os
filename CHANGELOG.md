@@ -2,6 +2,32 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 100] — diagnostico_inicial, terceira vez (Fases 18 → 56 → 100)
+
+### Investigação
+Não achei nenhuma migração que derruba a coluna ou a tabela —
+nenhum "drop column"/"drop table" em `ordens_servico` no histórico
+inteiro. Não é um bug reintroduzido pelo código.
+
+### Explicação mais provável
+As Fases 18 e 56 nunca chegaram a rodar de verdade nesse banco
+específico — banco recriado do zero, restaurado de um snapshot
+anterior à Fase 18, ou uma migração pulada na sequência.
+
+### O que essa migração faz
+- `add column if not exists` — garante a coluna, idempotente.
+- `notify pgrst, 'reload schema'` — cobre o outro cenário possível
+  (coluna existe, mas o cache de schema do PostgREST está
+  desatualizado — comum depois de alteração via SQL Editor).
+
+### Recomendação
+Depois de rodar essa, sugiro conferir no Supabase (Database → 
+Migrations, ou uma query em `information_schema.columns`) se as
+migrações anteriores realmente foram todas aplicadas em ordem —
+evita esse mesmo erro reaparecer numa quarta vez com outra coluna.
+
+---
+
 ## [Fase 99] — Loja Virtual unificada — um lugar só pra conferir tudo publicado
 
 ### O gap real
