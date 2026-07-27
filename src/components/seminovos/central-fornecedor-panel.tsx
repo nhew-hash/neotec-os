@@ -32,7 +32,7 @@ const LABEL_DESTINO: Record<string, { label: string; icon: typeof Smartphone; co
 async function aplicarItem(item: ItemComEstado): Promise<{ success: boolean; error?: string; aparelhoId?: string }> {
   if (item.destino === "seminovo") {
     const result = await aplicarSeminovoFornecedorAction({
-      modelo: item.modelo, memoria: item.memoria, cor: item.cor, bateria: item.bateria,
+      modelo: item.modelo, categoria: item.categoria, marca: item.marca, memoria: item.memoria, cor: item.cor, bateria: item.bateria,
       observacoes: item.observacoes, precoPago: item.preco, precoVenda: item.precoVendaEditavel, imei: item.imei,
     });
     return result.success ? { success: true, aparelhoId: result.data.aparelhoId } : result;
@@ -51,14 +51,6 @@ function ItemCard({ item, index, onAtualizar }: { item: ItemComEstado; index: nu
     onAtualizar(index, { ...item, status: "salvo", erro: null, aparelhoId: result.aparelhoId });
   }
 
-  async function handlePublicar() {
-    if (!item.aparelhoId) return;
-    onAtualizar(index, { ...item, publicado: true }); // otimista — a maioria funciona, e a tela não trava esperando
-    const { alternarPublicacaoLojaAparelhoAction } = await import("@/services/estoque/estoque.actions");
-    const result = await alternarPublicacaoLojaAparelhoAction(item.aparelhoId, true);
-    if (!result.success) onAtualizar(index, { ...item, publicado: false, erro: result.error });
-  }
-
   const destino = LABEL_DESTINO[item.destino];
 
   if (item.status === "salvo") {
@@ -66,13 +58,7 @@ function ItemCard({ item, index, onAtualizar }: { item: ItemComEstado; index: nu
       <Card>
         <CardContent className="flex items-center justify-between gap-2 p-3">
           <span className="flex items-center gap-2 text-sm text-success"><Check className="h-4 w-4" />{item.modelo} — aplicado</span>
-          {item.destino === "seminovo" && item.aparelhoId && (
-            item.publicado ? (
-              <span className="flex items-center gap-1 text-xs font-medium text-primary"><Check className="h-3.5 w-3.5" />Publicado na loja</span>
-            ) : (
-              <Button size="sm" variant="outline" onClick={handlePublicar}>Publicar na loja</Button>
-            )
-          )}
+          <span className="flex items-center gap-1 text-xs font-medium text-primary"><Check className="h-3.5 w-3.5" />Publicado na loja</span>
         </CardContent>
       </Card>
     );

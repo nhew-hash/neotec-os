@@ -7,6 +7,14 @@ import { listarRegrasLucro, calcularPrecoComRegra } from "./regras-lucro.service
 import { listarLacradosComVariantes } from "@/services/lacrados/lacrados.service";
 import type { ActionResult } from "@/types";
 
+function gerarSlug(nome: string): string {
+  return nome
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 export interface ItemFornecedorClassificado extends ItemFornecedorExtraido {
   /** Só preenchido pra itens "seminovo" — preço de venda já calculado com a regra de lucro padrão aplicada sobre o preço pago (item.preco). */
   precoVendaSugerido: number | null;
@@ -43,20 +51,32 @@ function normalizarTexto(texto: string): string {
  * aparelho no Estoque.
  */
 export async function aplicarSeminovoFornecedorAction(item: {
-  modelo: string; memoria: string | null; cor: string | null; bateria: number | null;
+  modelo: string; categoria: string; marca: string | null; memoria: string | null; cor: string | null; bateria: number | null;
   observacoes: string | null; precoPago: number; precoVenda: number; imei: string;
 }): Promise<ActionResult<{ aparelhoId: string }>> {
   try {
     const supabase = await createClient();
 
-    let { data: produto } = await supabase.from("produtos").select("id").eq("nome", item.modelo).maybeSingle();
+    let { data: produto } = await supabase.from("produtos").select("id, visivel_loja").eq("nome", item.modelo).maybeSingle();
     if (!produto) {
+      const slug = `${gerarSlug(item.modelo)}-${gerarSlug(item.cor ?? "")}`.replace(/-+$/, "") || gerarSlug(item.modelo);
       const { data: novoProduto, error: erroProduto } = await supabase
         .from("produtos")
-        .insert({ nome: item.modelo, categoria: item.modelo.toLowerCase().includes("iphone") ? "iphone" : "android", marca: item.modelo.toLowerCase().includes("iphone") ? "Apple" : null, visivel_loja: false })
-        .select("id").single();
+        .insert({
+          nome: item.modelo,
+          categoria: item.categoria, // categoria já classificada certa pela IA — nunca mais adivinhada só pelo nome
+          marca: item.marca ?? (item.categoria === "iphone" || item.categoria === "ipad" || item.categoria === "apple_watch" || item.categoria === "mac" ? "Apple" : null),
+          visivel_loja: true, // cadastrado = já publicado, como pedido
+          slug,
+        })
+        .select("id, visivel_loja").single();
       if (erroProduto) throw new Error(erroProduto.message);
       produto = novoProduto;
+    } else if (!produto.visivel_loja) {
+      // Produto já existia (outro aparelho do mesmo modelo já cadastrado antes) mas por algum motivo não estava publicado — publica agora também.
+      const { data: dadosAtuais } = await supabase.from("produtos").select("nome, slug").eq("id", produto.id).maybeSingle();
+      const slug = dadosAtuais?.slug ?? `${gerarSlug(dadosAtuais?.nome ?? item.modelo)}-${produto.id.slice(0, 6)}`;
+      await supabase.from("produtos").update({ visivel_loja: true, slug }).eq("id", produto.id);
     }
 
     const { data: aparelho, error } = await supabase
@@ -64,7 +84,7 @@ export async function aplicarSeminovoFornecedorAction(item: {
       .insert({
         produto_id: produto.id, imei: item.imei.trim() || null, memoria: item.memoria, cor: item.cor, bateria: item.bateria,
         condicao: "seminovo", custo: item.precoPago, preco_venda: item.precoVenda, observacoes: item.observacoes,
-        origem_entrada: "fornecedor", status: "disponivel", disponivel_loja_virtual: false,
+        origem_entrada: "fornecedor", status: "disponivel", disponivel_loja_virtual: true, // já publicado, como pedido
       })
       .select("id").single();
 
@@ -74,6 +94,7 @@ export async function aplicarSeminovoFornecedorAction(item: {
     }
 
     revalidatePath("/estoque");
+    revalidatePath("/loja", "layout");
     return { success: true, data: { aparelhoId: aparelho.id } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar" };
@@ -132,22 +153,26 @@ export async function aplicarGenericoFornecedorAction(item: {
 }): Promise<ActionResult<{ produtoId: string }>> {
   try {
     const supabase = await createClient();
-    const { data: existente } = await supabase.from("produtos").select("id").eq("nome", item.modelo).maybeSingle();
+    const { data: existente } = await supabase.from("produtos").select("id, slug").eq("nome", item.modelo).maybeSingle();
 
     if (existente) {
-      const { error } = await supabase.from("produtos").update({ preco_venda: item.preco, descricao: item.observacoes }).eq("id", existente.id);
+      const slug = existente.slug ?? `${gerarSlug(item.modelo)}-${existente.id.slice(0, 6)}`;
+      const { error } = await supabase.from("produtos").update({ preco_venda: item.preco, descricao: item.observacoes, visivel_loja: true, slug }).eq("id", existente.id);
       if (error) throw new Error(error.message);
       revalidatePath("/estoque");
+      revalidatePath("/loja", "layout");
       return { success: true, data: { produtoId: existente.id } };
     }
 
+    const slug = gerarSlug(item.modelo);
     const { data: novo, error } = await supabase
       .from("produtos")
-      .insert({ nome: item.modelo, categoria: item.categoria, marca: item.marca, preco_venda: item.preco, descricao: item.observacoes, visivel_loja: false })
+      .insert({ nome: item.modelo, categoria: item.categoria, marca: item.marca, preco_venda: item.preco, descricao: item.observacoes, visivel_loja: true, slug })
       .select("id").single();
     if (error) throw new Error(error.message);
 
     revalidatePath("/estoque");
+    revalidatePath("/loja", "layout");
     return { success: true, data: { produtoId: novo.id } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar produto" };

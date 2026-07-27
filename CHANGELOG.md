@@ -2,6 +2,36 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 97] — Tudo cadastrado já nasce publicado, na categoria certa
+
+Reversão intencional das Fases 92-95 (que faziam publicação manual de
+propósito, por segurança) — agora é publicação automática, como pedido.
+
+### Publicação automática
+- `aplicarSeminovoFornecedorAction`: aparelho e produto-pai nascem
+  publicados (`disponivel_loja_virtual`/`visivel_loja = true`), slug
+  gerado na hora.
+- `aplicarGenericoFornecedorAction`: mesmo comportamento, tanto criando
+  produto novo quanto atualizando um que já existia sem estar publicado.
+- Tela antiga (`seminovos.actions.ts`, ainda acessível por URL direta)
+  corrigida igual, por consistência.
+- Botão manual "Publicar na loja" na Central de Cadastro removido —
+  não faz mais sentido, já que tudo nasce publicado.
+
+### Bug real corrigido no caminho — categoria errada
+`aplicarSeminovoFornecedorAction` recriava a categoria adivinhando
+pelo nome ("tem 'iphone' no texto? então é iphone, senão android") —
+ignorava a categoria que a IA já tinha classificado certo (podia ser
+iPad, Mac, Apple Watch...). Corrigido: usa `item.categoria`, a mesma
+que a IA de classificação já identificou.
+
+### Lacrado já era automático
+Lacrado não precisou de mudança — desde a Fase 66/67, aparece na loja
+sozinho assim que a quantidade fica maior que zero, sem depender de um
+campo de publicação separado.
+
+---
+
 ## [Fase 96] — Pix é o preço principal, e botão de avaliar aparelho
 
 ### Correção de conceito — o preço cadastrado É o Pix
