@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Smartphone, Wrench, ArrowRight } from "lucide-react";
+import { Smartphone, Wrench, ArrowRight, Repeat } from "lucide-react";
 import { buscarProdutoLojaPorSlug, listarAparelhosDisponiveisLoja } from "@/services/loja/loja-publica.service";
 import { obterConfigMarketingPublico, contarVendasRealDoProduto, contarEstoqueRealDoProduto } from "@/services/marketing/marketing-publico.service";
 import { AdicionarAoCarrinho } from "@/components/loja/adicionar-ao-carrinho";
@@ -67,6 +67,17 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
               Precisar de assistência depois? <Link href="/consultar-os" className="font-medium text-primary hover:underline inline-flex items-center gap-0.5">Acompanhe sua OS aqui<ArrowRight className="h-3 w-3" /></Link>
             </p>
           </div>
+
+          <Link
+            href="/loja/trade-in"
+            className="mt-1 flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
+          >
+            <div className="flex items-center gap-3">
+              <Repeat className="h-4 w-4 shrink-0 text-primary" />
+              <p className="text-xs font-medium text-foreground">Tem um aparelho pra dar de entrada? Avalie o seu agora</p>
+            </div>
+            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary" />
+          </Link>
         </div>
       </div>
 

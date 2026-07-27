@@ -19,6 +19,8 @@ interface ItemComEstado extends ItemFornecedorClassificado {
   precoVendaEditavel: number;
   status: "pendente" | "salvando" | "salvo" | "erro";
   erro: string | null;
+  aparelhoId?: string; // só preenchido pra "seminovo" — usado pro botão de publicar direto aqui
+  publicado?: boolean;
 }
 
 const LABEL_DESTINO: Record<string, { label: string; icon: typeof Smartphone; cor: string }> = {
@@ -27,12 +29,13 @@ const LABEL_DESTINO: Record<string, { label: string; icon: typeof Smartphone; co
   generico: { label: "Outro produto", icon: Package, cor: "bg-warning/10 text-warning" },
 };
 
-async function aplicarItem(item: ItemComEstado): Promise<{ success: boolean; error?: string }> {
+async function aplicarItem(item: ItemComEstado): Promise<{ success: boolean; error?: string; aparelhoId?: string }> {
   if (item.destino === "seminovo") {
-    return aplicarSeminovoFornecedorAction({
+    const result = await aplicarSeminovoFornecedorAction({
       modelo: item.modelo, memoria: item.memoria, cor: item.cor, bateria: item.bateria,
       observacoes: item.observacoes, precoPago: item.preco, precoVenda: item.precoVendaEditavel, imei: item.imei,
     });
+    return result.success ? { success: true, aparelhoId: result.data.aparelhoId } : result;
   }
   if (item.destino === "lacrado") {
     return aplicarLacradoFornecedorAction({ modelo: item.modelo, memoria: item.memoria, cor: item.cor, preco: item.preco });
@@ -45,13 +48,34 @@ function ItemCard({ item, index, onAtualizar }: { item: ItemComEstado; index: nu
     onAtualizar(index, { ...item, status: "salvando", erro: null });
     const result = await aplicarItem(item);
     if (!result.success) return onAtualizar(index, { ...item, status: "erro", erro: result.error ?? "Erro" });
-    onAtualizar(index, { ...item, status: "salvo", erro: null });
+    onAtualizar(index, { ...item, status: "salvo", erro: null, aparelhoId: result.aparelhoId });
+  }
+
+  async function handlePublicar() {
+    if (!item.aparelhoId) return;
+    onAtualizar(index, { ...item, publicado: true }); // otimista — a maioria funciona, e a tela não trava esperando
+    const { alternarPublicacaoLojaAparelhoAction } = await import("@/services/estoque/estoque.actions");
+    const result = await alternarPublicacaoLojaAparelhoAction(item.aparelhoId, true);
+    if (!result.success) onAtualizar(index, { ...item, publicado: false, erro: result.error });
   }
 
   const destino = LABEL_DESTINO[item.destino];
 
   if (item.status === "salvo") {
-    return <Card><CardContent className="flex items-center gap-2 p-3 text-sm text-success"><Check className="h-4 w-4" />{item.modelo} — aplicado</CardContent></Card>;
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-between gap-2 p-3">
+          <span className="flex items-center gap-2 text-sm text-success"><Check className="h-4 w-4" />{item.modelo} — aplicado</span>
+          {item.destino === "seminovo" && item.aparelhoId && (
+            item.publicado ? (
+              <span className="flex items-center gap-1 text-xs font-medium text-primary"><Check className="h-3.5 w-3.5" />Publicado na loja</span>
+            ) : (
+              <Button size="sm" variant="outline" onClick={handlePublicar}>Publicar na loja</Button>
+            )
+          )}
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -136,7 +160,7 @@ export function CentralFornecedorPanel() {
       pendentes.map(async ({ it, i }) => {
         const result = await aplicarItem(it);
         setItens((prev) => prev!.map((item, idx) =>
-          idx === i ? { ...item, status: result.success ? "salvo" : "erro", erro: result.success ? null : (result.error ?? "Erro") } : item
+          idx === i ? { ...item, status: result.success ? "salvo" : "erro", erro: result.success ? null : (result.error ?? "Erro"), aparelhoId: result.aparelhoId } : item
         ));
       })
     );

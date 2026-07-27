@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ShoppingBag } from "lucide-react";
 import { useCarrinho } from "./carrinho-context";
-import { formatCurrency } from "@/utils";
 import { DestaquePrecoCliente } from "./destaque-preco-cliente";
 import type { CatalogoLacradoVariante, CatalogoLacradoModelo } from "@/types";
 
@@ -65,8 +64,7 @@ export function AdicionarLacradoAoCarrinho({ modelo, variantes }: AdicionarLacra
     <div className="flex flex-col gap-5">
       {varianteSelecionada?.preco_venda != null && (
         <div>
-          <span className="font-display text-3xl font-bold text-foreground">{formatCurrency(varianteSelecionada.preco_venda)}</span>
-          <DestaquePrecoCliente precoVenda={varianteSelecionada.preco_venda} precoLiquidoDesejado={null} mostrarPrecoPrincipal={false} />
+          <DestaquePrecoCliente precoVenda={varianteSelecionada.preco_venda} precoLiquidoDesejado={null} />
         </div>
       )}
 

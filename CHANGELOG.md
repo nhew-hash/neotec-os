@@ -2,6 +2,70 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 96] — Pix é o preço principal, e botão de avaliar aparelho
+
+### Correção de conceito — o preço cadastrado É o Pix
+A Fase 88/93 tinha invertido isso sem perceber — tratava o preço
+cadastrado como "vitrine" e calculava um Pix menor por cima. Voltado
+ao que foi estabelecido desde a Fase 89: **o preço que você cadastra
+é exatamente o que você quer receber no Pix**, sem recalcular nada em
+cima dele. O motor de precificação agora só deriva o preço de
+vitrine/cartão PRA CIMA a partir desse valor — nunca o contrário.
+
+### Pix agora é o preço em destaque, não o menor
+Redesenhado: bloco verde grande com o preço Pix como protagonista,
+preço de cartão/vitrine menor do lado ("ou R$X no cartão"). Antes
+estava invertido — vitrine grande, Pix pequeno.
+
+### Botão "Avalie o seu aparelho" na página de produto
+Link direto pro simulador de troca (`/loja/trade-in`, já existia desde
+a Fase 60) — agora visível tanto na página de seminovo/genérico quanto
+na de lacrado (onde faz até mais sentido — quem compra novo é quem
+mais costuma dar o usado de entrada).
+
+### Simplificação
+Removido o método `calcularExibicaoComVitrineFixo` do motor (ficou
+sem uso depois da correção de conceito) e o preço duplicado que
+aparecia junto com o novo destaque nas duas telas de produto.
+
+---
+
+## [Fase 95] — Central de Cadastro: auto-criar variante, publicar direto, lucro sempre aplicado
+
+### 1. Lacrado com combinação nova não existia mais erro
+Antes: fornecedor oferece um armazenamento/cor que o catálogo mestre
+ainda não tinha → erro "variante não encontrada", travava o cadastro.
+Agora: cria o modelo e/ou a variante na hora, automaticamente — nunca
+mais trava por isso.
+
+### 2. Publicar direto na Central de Cadastro
+Depois de aplicar um item seminovo, aparece o botão **"Publicar na
+loja"** na hora, sem precisar ir pra outra tela (Estoque → Loja
+Virtual). Continua sendo um clique manual, de propósito — nunca
+publica sozinho sem confirmação.
+
+### 3. Lucro zero silencioso — causa raiz achada e corrigida
+Instalação nova nunca tinha regra de lucro nenhuma cadastrada (a Fase
+80 só criou a tabela). Resultado: todo item saía com preço de venda
+igual ao preço pago, lucro zero, sem avisar ninguém.
+**Migração `fase95_regra_lucro_padrao.sql`** semeia uma regra padrão
+de 15% — só insere se a loja não tiver nenhuma regra ainda, não
+sobrescreve nada configurado.
+
+### 4. Categoria mais precisa, menos bagunça
+Prompt da IA reescrito com regra explícita por categoria (o que É e o
+que NÃO É cada uma) — acessório de marca não-Apple sempre cai em
+"acessorio" com a marca certa, nunca mistura com celular/tablet/relógio
+só por estar na mesma lista.
+
+### 5. Telas antigas saíram do menu
+"Lacrados" (gestão manual + IA antiga) e "Seminovos (IA)" — como
+pedido, a Central de Cadastro por Fornecedor é agora o único caminho
+visível no menu. Os arquivos continuam existindo (acessíveis por URL
+direta), só não aparecem mais na navegação.
+
+---
+
 ## [Fase 94] — Correção: /loja/produto/null
 
 ### Causa raiz

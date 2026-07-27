@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Check, ShoppingBag, MapPin, Truck, BatteryFull, ShieldCheck } from "lucide-react";
 import { useCarrinho } from "./carrinho-context";
 import { formatCurrency } from "@/utils";
-import { PrecoComEconomia } from "./badges-e-economia";
 import { DestaquePrecoCliente } from "./destaque-preco-cliente";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
 
@@ -55,10 +54,7 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
     <div className="flex flex-col gap-5">
       {precoExibido != null && (
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-baseline gap-2">
-            <PrecoComEconomia precoAtual={precoExibido} precoAntigo={produto.preco_antigo} />
-          </div>
-          <DestaquePrecoCliente precoVenda={precoExibido} precoLiquidoDesejado={null} mostrarPrecoPrincipal={false} />
+          <DestaquePrecoCliente precoVenda={precoExibido} precoLiquidoDesejado={null} />
         </div>
       )}
 

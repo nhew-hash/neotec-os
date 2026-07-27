@@ -45,7 +45,14 @@ Responda APENAS com um objeto JSON no formato {"itens": [...]}, assim:
 
 Regras gerais:
 - "modelo" sempre completo: "iPhone 17 Pro Max", "iPad", "MacBook Air", "Apple Watch Series 11", "JBL Go 4" — o que fizer sentido.
-- "categoria": iphone/android/apple_watch/ipad/mac/acessorio — pra JBL (não é Apple), usa "acessorio" e põe "JBL" em "marca".
+- "categoria" — siga essa lista ao pé da letra, nunca invente outra categoria:
+  - "iphone": qualquer iPhone (seminovo ou lacrado).
+  - "android": qualquer celular Android (Samsung, Xiaomi, Motorola etc).
+  - "apple_watch": qualquer Apple Watch (SE, Series X, Ultra).
+  - "ipad": qualquer iPad (Air, Pro, Mini, ou "iPad" sozinho).
+  - "mac": qualquer MacBook, iMac, Mac Mini, Mac Studio.
+  - "acessorio": TUDO que não é aparelho em si — cabo, fonte, capinha, película, fone, caixa de som (inclusive JBL, Bose, ou qualquer marca que não seja Apple), power bank, suporte, etc. Pra marca não-Apple, sempre "acessorio" + o nome da marca em "marca".
+  Nunca classifique um acessório como celular/tablet/relógio só porque veio na mesma lista — cada linha tem sua própria categoria, independente do que veio antes ou depois dela no texto.
 - "observacoes": guarda detalhe extra relevante — "com caixa", "detalhes de uso", "tampa traseira trocada", tamanho de tela (40mm/42mm/46mm), specs (256/8), etc.
 - "linhaOriginal": copia a linha (ou trecho) de origem, ajuda a equipe conferir depois.
 - Nunca invente preço — se não tiver preço claro na linha, pule o item.

@@ -81,20 +81,43 @@ export async function aplicarSeminovoFornecedorAction(item: {
 }
 
 /** Item classificado como "lacrado" — casa com o catálogo mestre já existente (Fase 66), atualiza quantidade/preço. */
+/**
+ * Item classificado como "lacrado" — casa com o catálogo mestre já
+ * existente (Fase 66). Quando o modelo ou a variante (cor/armazenamento)
+ * ainda não existem no catálogo, CRIA na hora em vez de dar erro —
+ * fornecedor pode oferecer uma combinação nova que a gente ainda não
+ * tinha catalogado, isso não pode travar o cadastro.
+ */
 export async function aplicarLacradoFornecedorAction(item: { modelo: string; memoria: string | null; cor: string | null; preco: number }): Promise<ActionResult> {
   try {
+    const supabase = await createClient();
     const catalogo = await listarLacradosComVariantes();
-    const modeloEncontrado = catalogo.find((m) => normalizarTexto(m.nome) === normalizarTexto(item.modelo));
-    if (!modeloEncontrado) return { success: false, error: `Modelo "${item.modelo}" não encontrado no catálogo mestre de lacrados` };
 
-    const variante = modeloEncontrado.variantes.find(
+    let modeloEncontrado = catalogo.find((m) => normalizarTexto(m.nome) === normalizarTexto(item.modelo));
+    let modeloId = modeloEncontrado?.id;
+
+    if (!modeloEncontrado) {
+      const { data: novoModelo, error: erroModelo } = await supabase
+        .from("catalogo_lacrados_modelos")
+        .insert({ nome: item.modelo, marca: item.modelo.toLowerCase().includes("iphone") || item.modelo.toLowerCase().includes("ipad") || item.modelo.toLowerCase().includes("mac") ? "Apple" : "Outra" })
+        .select("id").single();
+      if (erroModelo) throw new Error(erroModelo.message);
+      modeloId = novoModelo.id;
+    }
+
+    const varianteEncontrada = modeloEncontrado?.variantes.find(
       (v) => normalizarTexto(v.armazenamento) === normalizarTexto(item.memoria ?? "") && normalizarTexto(v.cor).includes(normalizarTexto(item.cor ?? ""))
     );
-    if (!variante) return { success: false, error: `Variante ${item.memoria ?? "?"} ${item.cor ?? "?"} não encontrada pra esse modelo` };
 
-    const supabase = await createClient();
-    const { error } = await supabase.from("catalogo_lacrados_variantes").update({ preco_venda: item.preco, quantidade: 1 }).eq("id", variante.id);
-    if (error) throw new Error(error.message);
+    if (varianteEncontrada) {
+      const { error } = await supabase.from("catalogo_lacrados_variantes").update({ preco_venda: item.preco, quantidade: 1 }).eq("id", varianteEncontrada.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await supabase
+        .from("catalogo_lacrados_variantes")
+        .insert({ modelo_id: modeloId, cor: item.cor ?? "—", armazenamento: item.memoria ?? "—", preco_venda: item.preco, quantidade: 1 });
+      if (error) throw new Error(error.message);
+    }
 
     revalidatePath("/estoque/lacrados");
     return { success: true, data: undefined };

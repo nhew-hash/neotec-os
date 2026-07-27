@@ -56,17 +56,25 @@ export async function calcularDestaquePrecoLoja(precoVenda: number, precoLiquido
   }));
   const engine = new PricingEngine(taxasEngine, configEngine);
 
-  const { precoVitrine, precoPix, parcelas } = precoLiquidoDesejado != null
-    ? engine.calcular(precoLiquidoDesejado)
-    : { precoVitrine: precoVenda, ...engine.calcularExibicaoComVitrineFixo(precoVenda) };
+  // O preço cadastrado (produto ou "líquido desejado", se tiver) É o
+  // valor exato do Pix — nunca recalculado com desconto em cima. O
+  // motor só deriva pra CIMA o preço de vitrine/cartão a partir dele.
+  const alvo = precoLiquidoDesejado ?? precoVenda;
+  const { precoVitrine, parcelas } = engine.calcular(alvo);
+  const precoPix = alvo;
 
   const semJuros = parcelas.filter((p) => !p.temJuros).sort((a, b) => b.numero - a.numero);
   const maior = semJuros[0] ?? null;
 
+  // Percentual mostrado é a economia REAL entre vitrine e Pix — não o
+  // campo de configuração isolado, que representava outra coisa antes
+  // dessa mudança (desconto adicional sobre um preço já calculado).
+  const percentualEconomiaReal = precoVitrine > precoPix ? Math.round(((precoVitrine - precoPix) / precoVitrine) * 100) : 0;
+
   return {
     precoVitrine,
     precoPix,
-    percentualDescontoPix: configEngine.descontoPixPercentual,
+    percentualDescontoPix: percentualEconomiaReal,
     maiorParcelaSemJuros: maior?.numero ?? null,
     valorDaMaiorParcelaSemJuros: maior?.valorParcela ?? null,
   };

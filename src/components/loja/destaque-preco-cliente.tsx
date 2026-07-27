@@ -11,7 +11,7 @@ import type { DestaquePrecoLoja } from "@/services/precificacao/precificacao-pub
  * existe no servidor (mesma fonte da Fase 79/88), então buscar direto
  * ao montar não sobrecarrega nada.
  */
-export function DestaquePrecoCliente({ precoVenda, precoLiquidoDesejado, mostrarPrecoPrincipal = true }: { precoVenda: number; precoLiquidoDesejado: number | null; mostrarPrecoPrincipal?: boolean }) {
+export function DestaquePrecoCliente({ precoVenda, precoLiquidoDesejado }: { precoVenda: number; precoLiquidoDesejado: number | null }) {
   const [destaque, setDestaque] = useState<DestaquePrecoLoja | null>(null);
   const [carregando, setCarregando] = useState(true);
 
@@ -34,5 +34,5 @@ export function DestaquePrecoCliente({ precoVenda, precoLiquidoDesejado, mostrar
   }
 
   if (!destaque) return null;
-  return <DestaquePreco destaque={destaque} mostrarPrecoPrincipal={mostrarPrecoPrincipal} />;
+  return <DestaquePreco destaque={destaque} />;
 }
