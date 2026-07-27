@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Smartphone } from "lucide-react";
 import { AdicionarAoCarrinho } from "./adicionar-ao-carrinho";
+import { GaleriaFotos } from "./galeria-fotos";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
 
 /**
@@ -36,14 +36,7 @@ export function ProdutoPdpCliente({
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
       <div className="lg:sticky lg:top-24 lg:h-fit">
-        <div className="flex aspect-square items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-[#FAFBFC] to-[#F0F2F6]">
-          {fotosAtuais[0] ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={fotosAtuais[0]} alt={produto.nome} className="h-full w-full object-contain" />
-          ) : (
-            <Smartphone className="h-32 w-32 text-black/[0.08]" strokeWidth={0.75} />
-          )}
-        </div>
+        <GaleriaFotos fotos={fotosAtuais} alt={produto.nome} />
       </div>
 
       <div className="flex flex-col gap-4">
