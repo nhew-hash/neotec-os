@@ -2,6 +2,27 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 99] — Loja Virtual unificada — um lugar só pra conferir tudo publicado
+
+### O gap real
+Verifiquei o dado no banco (seminovo, lacrado, genérico) — tudo
+estava correto e realmente publicado. O problema era outro: a aba
+"Loja Virtual" só mostrava APARELHOS (seminovo) — lacrado e produto
+genérico nunca apareciam ali, cada um só existia na sua própria tela
+separada. Fácil de concluir "não foi pra lá" mesmo estando tudo certo.
+
+### Corrigido
+Nova aba **"Loja Virtual (tudo publicado)"** em Estoque — primeira
+aba, em destaque — junta as 3 fontes:
+- Seminovo (`aparelhos` com `disponivel_loja_virtual = true`)
+- Lacrado (`catalogo_lacrados_variantes` com `quantidade > 0`)
+- Produto genérico (iPad, Mac, Watch, acessório com `visivel_loja = true`)
+
+Cada linha tem um link "Ver na loja →" que abre a página pública de
+verdade, pra conferir sem sair do admin.
+
+---
+
 ## [Fase 98] — Correção: listas grandes cortando a resposta da IA no meio
 
 ### Causa raiz

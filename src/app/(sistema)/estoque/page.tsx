@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { listarProdutos, listarAparelhos, listarSaldosProdutos } from "@/services/estoque/estoque.service";
 import { ProdutosTable } from "@/components/estoque/produtos-table";
 import { AparelhosTable } from "@/components/estoque/aparelhos-table";
+import { LojaVirtualUnificadaTable } from "@/components/estoque/loja-virtual-unificada-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -45,16 +46,24 @@ export default async function EstoquePage() {
         </div>
       </div>
 
-      <Tabs defaultValue="aparelhos">
+      <Tabs defaultValue="loja-virtual">
         <TabsList>
+          <TabsTrigger value="loja-virtual">Loja Virtual (tudo publicado)</TabsTrigger>
           <TabsTrigger value="aparelhos">Estoque de Aparelhos</TabsTrigger>
           <TabsTrigger value="produtos">Estoque Comercial</TabsTrigger>
         </TabsList>
+        <TabsContent value="loja-virtual">
+          <Card>
+            <CardContent className="p-0">
+              <LojaVirtualUnificadaTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="aparelhos">
           <Tabs defaultValue="fisica">
             <TabsList>
               <TabsTrigger value="fisica">Estoque Loja Física ({aparelhos.length})</TabsTrigger>
-              <TabsTrigger value="virtual">Estoque Loja Virtual ({aparelhos.filter((a) => a.disponivel_loja_virtual).length})</TabsTrigger>
+              <TabsTrigger value="virtual">Publicados na Loja Virtual ({aparelhos.filter((a) => a.disponivel_loja_virtual).length})</TabsTrigger>
             </TabsList>
             <TabsContent value="fisica">
               <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos} cargo={cargo} /></CardContent></Card>
