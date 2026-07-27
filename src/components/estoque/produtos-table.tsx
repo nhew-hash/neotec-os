@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { PublicarLojaDialog } from "./publicar-loja-dialog";
@@ -54,7 +55,9 @@ export function ProdutosTable({ produtos, saldos, cargo }: ProdutosTableProps) {
 
           return (
             <TableRow key={produto.id}>
-              <TableCell className="font-medium text-foreground">{produto.nome}</TableCell>
+              <TableCell>
+                <Link href={`/estoque/produtos/${produto.id}`} className="font-medium text-foreground hover:underline">{produto.nome}</Link>
+              </TableCell>
               <TableCell>
                 <Badge variant="secondary">{CATEGORIA_LABEL[produto.categoria]}</Badge>
               </TableCell>

@@ -2,14 +2,14 @@ import { createClient } from "@/lib/supabase/server";
 import type { CatalogoLacradoModelo, CatalogoLacradoVariante } from "@/types";
 
 /** Só modelo com pelo menos 1 variante em estoque aparece — filtro já embutido na função SQL (Fase 66). */
-export async function listarLacradosModelosPublico(): Promise<Pick<CatalogoLacradoModelo, "id" | "nome" | "marca">[]> {
+export async function listarLacradosModelosPublico(): Promise<Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos">[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("listar_lacrados_modelos_publico");
   if (error) throw new Error(`Não foi possível carregar o catálogo: ${error.message}`);
-  return (data ?? []) as Pick<CatalogoLacradoModelo, "id" | "nome" | "marca">[];
+  return (data ?? []) as Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos">[];
 }
 
-export async function buscarLacradoModeloPorNome(nomeSlug: string): Promise<Pick<CatalogoLacradoModelo, "id" | "nome" | "marca"> | null> {
+export async function buscarLacradoModeloPorNome(nomeSlug: string): Promise<Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos"> | null> {
   const modelos = await listarLacradosModelosPublico();
   return modelos.find((m) => slugify(m.nome) === nomeSlug) ?? null;
 }

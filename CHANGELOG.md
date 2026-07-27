@@ -1,6 +1,32 @@
 # Changelog — Neotec OS
 
-Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
+Todas as mudanças relevantes do projeto, por fase de daenvolvimento.
+
+## [Fase 102] — Upload de fotos reais em produtos e aparelhos
+
+Antes: nenhum item (produto ou aparelho) tinha campo de foto — a loja
+sempre mostrava um ícone genérico. Isso é infraestrutura pra fotos DE
+VERDADE (suas, do seu estoque) — não fiz nem farei busca/download de
+foto oficial de fabricante pra uso comercial, isso é fora do que eu
+faço independente de quem assume a responsabilidade jurídica depois.
+
+### Adicionado
+- `produtos.fotos` e `aparelhos.fotos` — array de URLs, primeira é a
+  capa. Bucket próprio `produtos-fotos` (público, leitura sem sessão).
+- **Upload de foto** — `/estoque/aparelhos/[id]` (já existia, só
+  faltava foto) e `/estoque/produtos/[id]` (página nova — não existia
+  detalhe de produto nenhum antes). Múltiplas fotos, marca a capa,
+  remove individualmente.
+- **Loja mostra a foto real** — card de produto e página de produto
+  (PDP), com fallback pro ícone genérico quando não tem foto ainda.
+
+### Limitação conhecida
+Não estendi ainda pra página de lacrado (`/loja/lacrados/[modelo]`) —
+lacrado usa o catálogo mestre por variante, não teria uma foto "por
+unidade" fácil de encaixar sem repensar a estrutura. Fica pra próxima,
+se fizer sentido pra você.
+
+---
 
 ## [Fase 101] — Corrigido em 3 lugares: cliente duplicado por WhatsApp
 

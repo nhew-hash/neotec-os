@@ -110,6 +110,13 @@ export async function listarAparelhos(): Promise<AparelhoComProduto[]> {
   }));
 }
 
+export async function buscarProdutoPorId(id: string): Promise<Produto | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("produtos").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(`Não foi possível carregar o produto: ${error.message}`);
+  return data;
+}
+
 export async function buscarAparelhoPorId(id: string): Promise<AparelhoComProduto | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("vw_aparelhos_seguro").select("*").eq("id", id).single();

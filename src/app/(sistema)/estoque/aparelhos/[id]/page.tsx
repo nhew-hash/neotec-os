@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { buscarAparelhoPorId } from "@/services/estoque/estoque.service";
 import { ChecklistQualidade } from "@/components/estoque/checklist-qualidade";
 import { StatusAparelhoBadge } from "@/components/estoque/status-badge";
+import { UploadFotosProduto } from "@/components/estoque/upload-fotos-produto";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/utils";
 
@@ -32,12 +33,15 @@ export default async function AparelhoDetailPage({ params }: { params: Promise<{
 
         <Card className="h-fit">
           <CardHeader><CardTitle>Dados do aparelho</CardTitle></CardHeader>
-          <CardContent className="flex flex-col gap-2 text-sm">
-            <Info label="Cor" value={aparelho.cor} />
-            <Info label="Memória" value={aparelho.memoria} />
-            <Info label="Bateria" value={aparelho.bateria ? `${aparelho.bateria}%` : null} />
-            <Info label="Condição" value={aparelho.condicao} />
-            <Info label="Entrada" value={formatDate(aparelho.data_entrada)} />
+          <CardContent className="flex flex-col gap-4 text-sm">
+            <UploadFotosProduto tabela="aparelhos" itemId={aparelho.id} fotosIniciais={aparelho.fotos} />
+            <div className="flex flex-col gap-2 border-t border-border pt-3">
+              <Info label="Cor" value={aparelho.cor} />
+              <Info label="Memória" value={aparelho.memoria} />
+              <Info label="Bateria" value={aparelho.bateria ? `${aparelho.bateria}%` : null} />
+              <Info label="Condição" value={aparelho.condicao} />
+              <Info label="Entrada" value={formatDate(aparelho.data_entrada)} />
+            </div>
           </CardContent>
         </Card>
       </div>

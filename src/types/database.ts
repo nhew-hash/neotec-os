@@ -162,7 +162,9 @@ export interface Produto {
   slug: string | null;
   descricao_loja: string | null;
   preco_antigo: number | null;
+  preco_liquido_desejado: number | null;
   selos_manuais: string[];
+  fotos: string[];
   created_at: string;
   updated_at: string;
 }
@@ -199,6 +201,8 @@ export interface Aparelho {
   true_tone_ok: boolean | null;
   video_url: string | null;
   disponivel_loja_virtual: boolean;
+  preco_liquido_desejado: number | null;
+  fotos: string[];
   data_entrada: string;
   updated_at: string;
 }
@@ -795,6 +799,7 @@ export interface ProdutoLoja {
   preco_antigo: number | null;
   selos_manuais: string[];
   slug: string;
+  fotos: string[];
 }
 
 export interface AparelhoDisponivelLoja {
@@ -806,6 +811,7 @@ export interface AparelhoDisponivelLoja {
   preco_venda: number | null;
   pecas_substituidas: string[];
   observacoes: string | null;
+  fotos: string[];
 }
 
 export type StatusPedidoLoja = "novo" | "em_atendimento" | "concluido" | "cancelado";
@@ -899,6 +905,7 @@ export interface CatalogoLacradoModelo {
   marca: string;
   ordem: number;
   ativo: boolean;
+  fotos: string[];
   created_at: string;
   updated_at: string;
 }

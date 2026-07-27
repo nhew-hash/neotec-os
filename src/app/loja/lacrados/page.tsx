@@ -20,8 +20,13 @@ export default async function LacradosListaPage() {
               href={`/loja/lacrados/${slugify(m.nome)}`}
               className="group flex flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white transition-all hover:-translate-y-1 hover:shadow-[0_12px_32px_-12px_rgba(16,24,40,0.15)]"
             >
-              <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-[#FAFBFC] to-[#F0F2F6]">
-                <Smartphone className="h-16 w-16 text-black/[0.08] transition-transform duration-500 group-hover:scale-110" strokeWidth={1} />
+              <div className="flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-[#FAFBFC] to-[#F0F2F6]">
+                {m.fotos?.[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.fotos[0]} alt={m.nome} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                ) : (
+                  <Smartphone className="h-16 w-16 text-black/[0.08] transition-transform duration-500 group-hover:scale-110" strokeWidth={1} />
+                )}
               </div>
               <div className="flex flex-col gap-1 p-4">
                 <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Lacrado</span>

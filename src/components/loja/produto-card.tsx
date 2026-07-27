@@ -50,8 +50,13 @@ export function ProdutoCard({ produto, maisVendido, ultimasUnidades }: ProdutoCa
       )}
 
       <Link href={`/loja/produto/${produto.slug}`} className="flex flex-col">
-        <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-[#FAFBFC] to-[#F0F2F6]">
-          <Smartphone className="h-16 w-16 text-black/[0.08] transition-transform duration-500 group-hover:scale-110" strokeWidth={1} />
+        <div className="flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-[#FAFBFC] to-[#F0F2F6]">
+          {produto.fotos?.[0] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={produto.fotos[0]} alt={produto.nome} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          ) : (
+            <Smartphone className="h-16 w-16 text-black/[0.08] transition-transform duration-500 group-hover:scale-110" strokeWidth={1} />
+          )}
         </div>
         <div className="flex flex-col gap-1.5 p-4">
           <BadgesProduto selosManuais={produto.selos_manuais} maisVendido={maisVendido} ultimasUnidades={ultimasUnidades} />
