@@ -143,6 +143,23 @@ export async function criarCliente(input: ClienteInput): Promise<Cliente> {
     .single();
 
   if (error) {
+    // Já existe cliente com esse WhatsApp — em vez de estourar o erro
+    // cru do banco (confuso pra quem tá usando o sistema), busca e
+    // devolve o cliente que já existe. Faz sentido em praticamente
+    // todo lugar que chama essa função: automação de WhatsApp, PDV,
+    // cadastro manual — nenhum desses quer travar só porque o cliente
+    // já tinha sido cadastrado antes, quer é seguir usando o registro certo.
+    if (error.code === "23505" && input.whatsapp) {
+      const { data: existente, error: erroBusca } = await supabase
+        .from("clientes")
+        .select("*")
+        .eq("whatsapp", normalizarInput(input).whatsapp)
+        .maybeSingle();
+
+      if (existente) return existente;
+      if (erroBusca) throw new Error(`Cliente com esse WhatsApp já existe, mas não consegui recuperar os dados: ${erroBusca.message}`);
+    }
+
     throw new Error(`Não foi possível criar o cliente: ${error.message}`);
   }
 

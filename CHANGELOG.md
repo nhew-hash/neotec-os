@@ -2,6 +2,28 @@
 
 Todas as mudanças relevantes do projeto, por fase de desenvolvimento.
 
+## [Fase 101] — Corrigido em 3 lugares: cliente duplicado por WhatsApp
+
+### Causa
+`clientes.whatsapp` tem restrição de unicidade — 3 pontos diferentes
+do sistema criavam cliente sem tratar o caso de já existir um com
+esse WhatsApp, estourando o erro cru do banco direto pro usuário.
+
+### Corrigido
+- **`criarCliente`** (service compartilhado — usado por vários
+  fluxos): se der duplicidade, busca e devolve o cliente que já
+  existe, em vez de quebrar.
+- **Automação de WhatsApp** (`whatsapp.automacao.ts`): duas mensagens
+  quase simultâneas do mesmo número novo podiam gerar corrida — agora,
+  se acontecer, busca o cliente que a outra chamada acabou de criar,
+  em vez de derrubar o processamento do webhook inteiro.
+- **Autocadastro no Portal** (`portal.service.ts`): duplo-clique ou
+  duas abas abertas no cadastro podiam deixar um usuário de
+  autenticação órfão (criado, mas nunca vinculado a nenhum cliente) —
+  agora vincula ao cliente que já existe nesse caso.
+
+---
+
 ## [Fase 100] — diagnostico_inicial, terceira vez (Fases 18 → 56 → 100)
 
 ### Investigação

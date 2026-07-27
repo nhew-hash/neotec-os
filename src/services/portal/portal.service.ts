@@ -146,9 +146,25 @@ export async function autoCadastrarCliente(input: {
       .single();
 
     if (erroCliente || !novoCliente) {
-      throw new Error(`Não foi possível criar seu cadastro: ${erroCliente?.message}`);
+      // Duplo-clique no botão de cadastro (ou duas abas abertas) pode
+      // criar essa corrida — o cliente já existia entre a checagem lá
+      // em cima e esse insert. Em vez de deixar o usuário de auth
+      // órfão (criado, mas nunca vinculado a nenhum cliente), vincula
+      // ao cliente que já existe.
+      if (erroCliente?.code === "23505") {
+        const { data: clienteDaCorrida } = await admin.from("clientes").select("id").eq("whatsapp", whatsappDigits).maybeSingle();
+        if (clienteDaCorrida) {
+          await admin.from("clientes").update({ portal_user_id: authUser.user.id, senha_provisoria: false }).eq("id", clienteDaCorrida.id);
+          clienteId = clienteDaCorrida.id;
+        } else {
+          throw new Error(`Cliente duplicado detectado, mas não consegui recuperar o registro: ${erroCliente.message}`);
+        }
+      } else {
+        throw new Error(`Não foi possível criar seu cadastro: ${erroCliente?.message}`);
+      }
+    } else {
+      clienteId = novoCliente.id;
     }
-    clienteId = novoCliente.id;
   }
 
   return { clienteId };

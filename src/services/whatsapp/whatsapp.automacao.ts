@@ -40,12 +40,30 @@ export async function processarAutomacaoNovaMensagem(params: {
       .single();
 
     if (erroCliente || !novoCliente) {
-      throw new Error(
-        `Não foi possível criar o cliente automaticamente: ${erroCliente?.message}`
-      );
+      // Duas mensagens quase simultâneas do mesmo número novo podem
+      // corrida aqui — a primeira já criou o cliente entre o SELECT
+      // e o INSERT dessa chamada. Em vez de derrubar o processamento
+      // do webhook inteiro, busca o cliente que a outra chamada
+      // acabou de criar.
+      if (erroCliente?.code === "23505") {
+        const { data: clienteDaCorrida } = await supabase
+          .from("clientes")
+          .select("id")
+          .eq("whatsapp", telefoneLocal)
+          .maybeSingle();
+        if (clienteDaCorrida) {
+          clienteId = clienteDaCorrida.id;
+        } else {
+          throw new Error(`Cliente duplicado detectado, mas não consegui recuperar o registro: ${erroCliente.message}`);
+        }
+      } else {
+        throw new Error(
+          `Não foi possível criar o cliente automaticamente: ${erroCliente?.message}`
+        );
+      }
+    } else {
+      clienteId = novoCliente.id;
     }
-
-    clienteId = novoCliente.id;
   }
 
   // Garantia para o TypeScript
