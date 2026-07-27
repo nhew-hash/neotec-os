@@ -21,13 +21,19 @@ interface AdicionarAoCarrinhoProps {
   produto: ProdutoLoja;
   aparelhosDisponiveis: AparelhoDisponivelLoja[];
   pixDescontoPercentual?: number;
+  onAparelhoChange?: (aparelhoId: string | null) => void;
 }
 
-export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDescontoPercentual = 0 }: AdicionarAoCarrinhoProps) {
+export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDescontoPercentual = 0, onAparelhoChange }: AdicionarAoCarrinhoProps) {
   const router = useRouter();
   const { adicionar } = useCarrinho();
   const [aparelhoSelecionadoId, setAparelhoSelecionadoId] = useState<string | null>(aparelhosDisponiveis[0]?.id ?? null);
   const [adicionado, setAdicionado] = useState(false);
+
+  function handleSelecionarAparelho(id: string) {
+    setAparelhoSelecionadoId(id);
+    onAparelhoChange?.(id);
+  }
 
   const temVariantes = aparelhosDisponiveis.length > 0;
   const aparelhoSelecionado = aparelhosDisponiveis.find((a) => a.id === aparelhoSelecionadoId);
@@ -72,7 +78,7 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
               <button
                 key={a.id}
                 type="button"
-                onClick={() => setAparelhoSelecionadoId(a.id)}
+                onClick={() => handleSelecionarAparelho(a.id)}
                 className={`flex items-center justify-between rounded-xl border p-3 text-left transition-colors ${
                   aparelhoSelecionadoId === a.id ? "border-primary bg-primary/5" : "border-black/[0.08] hover:border-black/20"
                 }`}
