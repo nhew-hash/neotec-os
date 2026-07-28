@@ -41,6 +41,7 @@ export default async function AparelhoDetailPage({ params }: { params: Promise<{
               <Info label="Bateria" value={aparelho.bateria ? `${aparelho.bateria}%` : null} />
               <Info label="Condição" value={aparelho.condicao} />
               <Info label="Entrada" value={formatDate(aparelho.data_entrada)} />
+              <Info label="Peças substituídas" value={aparelho.pecas_substituidas?.length ? aparelho.pecas_substituidas.join(", ") : null} />
             </div>
           </CardContent>
         </Card>

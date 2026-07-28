@@ -39,15 +39,6 @@ export default async function LacradoProdutoPage({ params }: { params: Promise<{
         }
         conteudoDepois={
           <>
-            <div className="mt-2 flex flex-col gap-2.5 rounded-2xl bg-[#FAFBFC] p-4">
-              {DESTAQUES_LACRADO.map((d, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <d.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <p className="text-xs text-foreground">{d.texto}</p>
-                </div>
-              ))}
-            </div>
-
             <Link
               href="/loja/trade-in"
               className="flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
@@ -58,6 +49,15 @@ export default async function LacradoProdutoPage({ params }: { params: Promise<{
               </div>
               <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary" />
             </Link>
+
+            <div className="mt-2 flex flex-col gap-2.5 rounded-2xl bg-[#FAFBFC] p-4">
+              {DESTAQUES_LACRADO.map((d, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <d.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <p className="text-xs text-foreground">{d.texto}</p>
+                </div>
+              ))}
+            </div>
           </>
         }
       />

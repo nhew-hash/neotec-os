@@ -165,6 +165,7 @@ export interface Produto {
   preco_liquido_desejado: number | null;
   selos_manuais: string[];
   fotos: string[];
+  mostrar_trade_in: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -203,6 +204,7 @@ export interface Aparelho {
   disponivel_loja_virtual: boolean;
   preco_liquido_desejado: number | null;
   fotos: string[];
+  mostrar_trade_in: boolean;
   data_entrada: string;
   updated_at: string;
 }
@@ -800,6 +802,7 @@ export interface ProdutoLoja {
   selos_manuais: string[];
   slug: string;
   fotos: string[];
+  mostrar_trade_in: boolean;
 }
 
 export interface AparelhoDisponivelLoja {

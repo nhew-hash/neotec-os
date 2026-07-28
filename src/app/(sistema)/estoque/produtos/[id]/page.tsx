@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { buscarProdutoPorId } from "@/services/estoque/estoque.service";
 import { UploadFotosProduto } from "@/components/estoque/upload-fotos-produto";
+import { ToggleTradeIn } from "@/components/estoque/toggle-trade-in";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/utils";
@@ -35,6 +36,7 @@ export default async function ProdutoDetailPage({ params }: { params: Promise<{ 
             <Info label="Categoria" value={produto.categoria} />
             <Info label="Slug" value={produto.slug} />
             <Info label="Cadastrado em" value={formatDate(produto.created_at)} />
+            <ToggleTradeIn produtoId={produto.id} valorInicial={produto.mostrar_trade_in} />
           </CardContent>
         </Card>
       </div>

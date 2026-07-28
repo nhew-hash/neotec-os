@@ -183,3 +183,16 @@ export async function criarProdutoRapidoAction(input: { nome: string; categoria:
     return { success: false, error: err instanceof Error ? err.message : "Erro ao criar produto" };
   }
 }
+
+export async function atualizarMostrarTradeInAction(produtoId: string, valor: boolean): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("produtos").update({ mostrar_trade_in: valor }).eq("id", produtoId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/estoque");
+    revalidatePath("/loja", "layout");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar" };
+  }
+}

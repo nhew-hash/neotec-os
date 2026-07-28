@@ -205,6 +205,8 @@ export function AparelhoForm({ produtos: produtosIniciais, investidores }: { pro
                     { valor: "tela", label: "Tela" },
                     { valor: "bateria", label: "Bateria" },
                     { valor: "carcaca", label: "Carcaça" },
+                    { valor: "camera", label: "Câmera" },
+                    { valor: "sem_face_id", label: "Sem Face ID" },
                   ].map((peca) => (
                     <label key={peca.valor} className="flex items-center gap-1.5 text-sm">
                       <input

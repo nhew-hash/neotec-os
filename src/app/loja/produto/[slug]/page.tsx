@@ -48,6 +48,19 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
         }
         conteudoDepois={
           <>
+            {produto.mostrar_trade_in && (
+              <Link
+                href="/loja/trade-in"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
+              >
+                <div className="flex items-center gap-3">
+                  <Repeat className="h-4 w-4 shrink-0 text-primary" />
+                  <p className="text-xs font-medium text-foreground">Tem um aparelho pra dar de entrada? Avalie o seu agora</p>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary" />
+              </Link>
+            )}
+
             {produto.descricao_loja && (
               <div className="mt-4 border-t border-black/[0.06] pt-4">
                 <p className="text-sm leading-relaxed text-muted-foreground">{produto.descricao_loja}</p>
@@ -62,17 +75,6 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
                 Precisar de assistência depois? <Link href="/consultar-os" className="font-medium text-primary hover:underline inline-flex items-center gap-0.5">Acompanhe sua OS aqui<ArrowRight className="h-3 w-3" /></Link>
               </p>
             </div>
-
-            <Link
-              href="/loja/trade-in"
-              className="mt-1 flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
-            >
-              <div className="flex items-center gap-3">
-                <Repeat className="h-4 w-4 shrink-0 text-primary" />
-                <p className="text-xs font-medium text-foreground">Tem um aparelho pra dar de entrada? Avalie o seu agora</p>
-              </div>
-              <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary" />
-            </Link>
           </>
         }
       />

@@ -11,7 +11,11 @@ interface UploadFotosProdutoProps {
 }
 
 export function UploadFotosProduto({ tabela, itemId, fotosIniciais }: UploadFotosProdutoProps) {
-  const [fotos, setFotos] = useState(fotosIniciais);
+  // Defesa extra: se algum dia uma consulta/view esquecer essa coluna
+  // de novo, isso vem undefined em vez de array vazio — sem essa
+  // proteção, o .map() mais abaixo derruba a página inteira (foi
+  // exatamente o que aconteceu — Fase 125).
+  const [fotos, setFotos] = useState(fotosIniciais ?? []);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
