@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { CatalogoLacradoModelo, CatalogoLacradoVariante } from "@/types";
+import { slugify } from "./slugify";
+export { slugify };
 
 /** Só modelo com pelo menos 1 variante em estoque aparece — filtro já embutido na função SQL (Fase 66). */
 export async function listarLacradosModelosPublico(): Promise<Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos">[]> {
@@ -27,4 +29,3 @@ export async function listarLacradosVariantesPublico(modeloId: string): Promise<
  * o catálogo mestre é fixo (29 modelos conhecidos), não editável em
  * texto livre pelo lojista.
  */
-export { slugify } from "./slugify";
