@@ -28,7 +28,7 @@ export async function classificarFornecedorAction(texto: string): Promise<Action
     const regraPadrao = regras.find((r) => r.padrao) ?? regras[0];
 
     const itens: ItemFornecedorClassificado[] = itensExtraidos.map((item) => {
-      if (item.destino !== "seminovo" || !regraPadrao) return { ...item, precoVendaSugerido: null, lucroSugerido: null };
+      if ((item.destino !== "seminovo" && item.destino !== "lacrado") || !regraPadrao) return { ...item, precoVendaSugerido: null, lucroSugerido: null };
       const { precoVenda, lucro } = calcularPrecoComRegra(item.preco, regraPadrao);
       return { ...item, precoVendaSugerido: precoVenda, lucroSugerido: lucro };
     });

@@ -38,7 +38,7 @@ async function aplicarItem(item: ItemComEstado): Promise<{ success: boolean; err
     return result.success ? { success: true, aparelhoId: result.data.aparelhoId } : result;
   }
   if (item.destino === "lacrado") {
-    return aplicarLacradoFornecedorAction({ modelo: item.modelo, memoria: item.memoria, cor: item.cor, preco: item.preco });
+    return aplicarLacradoFornecedorAction({ modelo: item.modelo, memoria: item.memoria, cor: item.cor, preco: item.precoVendaEditavel });
   }
   return aplicarGenericoFornecedorAction({ modelo: item.modelo, categoria: item.categoria, marca: item.marca, observacoes: item.observacoes, preco: item.preco });
 }
@@ -74,7 +74,7 @@ function ItemCard({ item, index, onAtualizar }: { item: ItemComEstado; index: nu
             <span className="text-xs text-muted-foreground">{[item.memoria, item.cor, item.bateria != null && `${item.bateria}%`].filter(Boolean).join(" · ")}</span>
           </div>
 
-          {item.destino === "seminovo" ? (
+          {item.destino === "seminovo" || item.destino === "lacrado" ? (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground">Pago: {formatCurrency(item.preco)}</span>
               <span className="text-foreground">→</span>
