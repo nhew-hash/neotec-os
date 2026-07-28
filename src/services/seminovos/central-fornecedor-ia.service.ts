@@ -122,14 +122,26 @@ export async function classificarItensFornecedor(texto: string): Promise<ItemFor
     return gb === null || gb >= 1;
   });
 
-  // Trava determinística — não depende só do prompt acertar. Se a IA
-  // marcou "seminovo" mas a linha original não tem nenhum "%", é
-  // fisicamente impossível ser seminovo (não tem como saber saúde de
-  // bateria sem % na lista) — corrige sozinho pra "lacrado".
+  // Trava determinística — não depende só do prompt acertar.
   return itensFiltrados.map((item) => {
-    if (item.destino === "seminovo" && !/\d+\s*%/.test(item.linhaOriginal)) {
+    const temPercentual = /(\d+)\s*%/.test(item.linhaOriginal);
+
+    // Caso 1: marcou "seminovo" mas não tem % nenhum na linha —
+    // impossível ser seminovo sem saúde de bateria informada, corrige pra "lacrado".
+    if (item.destino === "seminovo" && !temPercentual) {
       return { ...item, destino: "lacrado" as const, bateria: null };
     }
+
+    // Caso 2 (o oposto): a linha TEM % mas a IA classificou como
+    // outra coisa (lacrado/generico) — % é sinal forte demais de
+    // seminovo pra ignorar. Corrige e extrai a bateria do texto,
+    // já que nesse caso o campo bateria pode ter ficado vazio.
+    if (item.destino !== "seminovo" && temPercentual) {
+      const match = item.linhaOriginal.match(/(\d+)\s*%/);
+      const bateriaExtraida = item.bateria ?? (match ? Number(match[1]) : null);
+      return { ...item, destino: "seminovo" as const, bateria: bateriaExtraida };
+    }
+
     return item;
   });
 }

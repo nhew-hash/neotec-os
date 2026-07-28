@@ -83,7 +83,11 @@ function ItemCard({ item, index, onAtualizar }: { item: ItemComEstado; index: nu
                 onChange={(e) => onAtualizar(index, { ...item, precoVendaEditavel: Number(e.target.value) || 0 })}
                 className="h-7 w-24 text-xs font-semibold"
               />
-              {item.lucroSugerido != null && <span className="text-success">lucro {formatCurrency(item.precoVendaEditavel - item.preco)}</span>}
+              {item.lucroSugerido != null ? (
+                <span className="text-success">lucro {formatCurrency(item.precoVendaEditavel - item.preco)}</span>
+              ) : (
+                <span className="flex items-center gap-1 text-warning">⚠️ sem regra de lucro aplicada — confere o preço</span>
+              )}
             </div>
           ) : (
             <span className="text-sm font-semibold text-foreground">{formatCurrency(item.preco)}</span>
