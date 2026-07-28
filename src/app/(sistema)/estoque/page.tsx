@@ -62,11 +62,11 @@ export default async function EstoquePage() {
         <TabsContent value="aparelhos">
           <Tabs defaultValue="fisica">
             <TabsList>
-              <TabsTrigger value="fisica">Estoque Loja Física ({aparelhos.filter((a) => a.status !== "vendido").length})</TabsTrigger>
+              <TabsTrigger value="fisica">Estoque Loja Física ({aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual).length})</TabsTrigger>
               <TabsTrigger value="virtual">Publicados na Loja Virtual ({aparelhos.filter((a) => a.disponivel_loja_virtual).length})</TabsTrigger>
             </TabsList>
             <TabsContent value="fisica">
-              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.status !== "vendido")} cargo={cargo} /></CardContent></Card>
+              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual)} cargo={cargo} /></CardContent></Card>
             </TabsContent>
             <TabsContent value="virtual">
               <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.disponivel_loja_virtual)} cargo={cargo} /></CardContent></Card>

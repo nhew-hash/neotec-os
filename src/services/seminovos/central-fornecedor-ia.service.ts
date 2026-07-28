@@ -39,6 +39,13 @@ e nem sempre segue exatamente a mesma ordem dentro da mesma linha. Exemplos:
 - "15 PRO MAX 256G🩶92% 85%⚫️ 4099" → 2 itens (256G, 92% titânio / 85% preto, todos 4099) — repare que aqui a cor do primeiro item vem ANTES do %, e o segundo vem DEPOIS
 - "13 128G 💚 83% 88% 84% 90%⚫️1699 ⚪️ 86% 1749" → aqui os preços SÃO diferentes por cor (1699 pro grupo preto/verde, 1749 pro branco) — quando isso acontecer, associe cada bateria ao preço mais próximo dela no texto, não assuma sempre o mesmo preço pra tudo.
 
+REGRA DE "NFC", EDIÇÃO ESPECIAL, E SPECS DE RAM (importante — evita erro de formato):
+- "NFC" NUNCA vira campo separado nem item novo — é só texto dentro de "observacoes" (ex: "com NFC"). O item continua sendo UM SÓ, igual seria sem o NFC.
+- Edição especial (ex: "Homem de Ferro", "Iron Man", qualquer nome de edição limitada) NUNCA vira "cor" nem item novo — é texto em "observacoes" (ex: "Edição Homem de Ferro").
+- "256/8", "512/12" etc = armazenamento/RAM — SEMPRE um item só, "memoria" recebe só o armazenamento ("256GB"), o RAM (o número depois da barra) vira texto em "observacoes" se quiser guardar (ex: "8GB RAM"), nunca cria item ou campo novo por causa disso.
+- "5G", "108mp", "48mp" (specs de câmera) — mesma coisa, tudo vira texto em "observacoes", nunca item novo nem campo novo.
+- Regra geral: se não é "modelo", "categoria", "marca", "memoria", "cor", "bateria" ou "preco", é OBSERVAÇÃO — nunca invente um campo novo no JSON que não esteja no formato pedido, isso quebra a leitura do resultado.
+
 REGRA DE EMOJI DE COR (comum em fornecedor):
 ⚫️/🖤 = Preto, ⚪️ = Branco, 🔵 = Azul, 🟣/💜 = Roxo, 🟡/💛 = Amarelo,
 🟢/💚 = Verde, 🩶 = Titânio/Cinza, 🧡 = Laranja.
@@ -108,16 +115,33 @@ export async function classificarItensFornecedor(texto: string): Promise<ItemFor
   }
 
   const itensBrutos = normalizarResposta(bruto);
-  const parsed = z.array(itemSchema).safeParse(itensBrutos);
-  if (!parsed.success) {
-    console.error("Falha de validação na Central de Cadastro:", parsed.error.issues.slice(0, 5));
+
+  // Valida item por item — antes, UM item mal formatado derrubava a
+  // lista inteira. Agora só descarta o item ruim, o resto passa
+  // normal (equipe consegue ver o que faltou e adicionar na mão).
+  const itensValidos: z.infer<typeof itemSchema>[] = [];
+  let itensDescartados = 0;
+  for (const itemBruto of itensBrutos) {
+    const resultado = itemSchema.safeParse(itemBruto);
+    if (resultado.success) {
+      itensValidos.push(resultado.data);
+    } else {
+      itensDescartados++;
+      console.error("Item descartado por formato inválido:", JSON.stringify(itemBruto).slice(0, 200), resultado.error.issues.slice(0, 3));
+    }
+  }
+
+  if (itensValidos.length === 0) {
     throw new Error("A IA devolveu dados em formato inesperado — se a lista for muito grande, tenta colar em partes menores (ex: 15 itens de cada vez).");
+  }
+  if (itensDescartados > 0) {
+    console.error(`Central de Cadastro: ${itensDescartados} item(ns) descartado(s) por formato inválido, ${itensValidos.length} processado(s) normalmente.`);
   }
 
   // Item com memória abaixo de 1GB quase certamente é erro de leitura
   // (emoji/número confundido com capacidade) — nunca aplica, nem
   // mostra pra revisão, já descarta aqui.
-  const itensFiltrados = parsed.data.filter((item) => {
+  const itensFiltrados = itensValidos.filter((item) => {
     const gb = memoriaEmGB(item.memoria);
     return gb === null || gb >= 1;
   });
