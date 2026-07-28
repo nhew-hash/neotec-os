@@ -6,7 +6,7 @@ import type { ActionResult } from "@/types";
 export interface ResultadoCupom {
   valido: boolean;
   motivo: string | null;
-  tipoDesconto: "percentual" | "valor_fixo" | null;
+  tipoDesconto: "percentual" | "valor_fixo" | "cashback" | null;
   valor: number | null;
 }
 

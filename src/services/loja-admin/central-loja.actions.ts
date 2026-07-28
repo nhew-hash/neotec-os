@@ -31,7 +31,7 @@ export async function removerColecaoAction(id: string): Promise<ActionResult> {
 }
 
 export async function criarCupomAction(input: {
-  codigo: string; tipoDesconto: "percentual" | "valor_fixo"; valor: number;
+  codigo: string; tipoDesconto: "percentual" | "valor_fixo" | "cashback"; valor: number;
   valorMinimoPedido?: number; limiteUso?: number; validoAte?: string;
 }): Promise<ActionResult> {
   try { await service.criarCupom(input); revalidar(); return { success: true, data: undefined }; }

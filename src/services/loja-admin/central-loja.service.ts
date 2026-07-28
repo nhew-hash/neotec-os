@@ -45,7 +45,7 @@ export async function listarCupons(): Promise<Cupom[]> {
   return data ?? [];
 }
 export async function criarCupom(input: {
-  codigo: string; tipoDesconto: "percentual" | "valor_fixo"; valor: number;
+  codigo: string; tipoDesconto: "percentual" | "valor_fixo" | "cashback"; valor: number;
   valorMinimoPedido?: number; limiteUso?: number; validoAte?: string;
 }): Promise<void> {
   const supabase = await createClient();
