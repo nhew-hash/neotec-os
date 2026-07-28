@@ -22,16 +22,23 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
 
   // Busca ou cria o cliente pelo telefone — sem isso, o pedido nunca
   // tem "dono" de verdade, e cashback/histórico de compra não têm pra
-  // quem vincular. Mesmo padrão find-or-create usado em outros lugares
-  // do sistema (nunca falha por telefone duplicado).
+  // quem vincular.
   const telefoneLimpo = input.telefoneContato.replace(/\D/g, "");
   let clienteId: string | null = null;
   const { data: clienteExistente } = await supabase.from("clientes").select("id").eq("whatsapp", telefoneLimpo).maybeSingle();
   if (clienteExistente) {
     clienteId = clienteExistente.id;
   } else {
-    const { data: novoCliente } = await supabase.from("clientes").insert({ nome: input.nomeContato.trim(), whatsapp: telefoneLimpo }).select("id").maybeSingle();
-    clienteId = novoCliente?.id ?? null;
+    const { data: novoCliente, error: erroCliente } = await supabase.from("clientes").insert({ nome: input.nomeContato.trim(), whatsapp: telefoneLimpo }).select("id").maybeSingle();
+    if (erroCliente?.code === "23505") {
+      // Corrida real — dois checkouts quase simultâneos do mesmo
+      // telefone (duplo-clique, duas abas). Em vez de derrubar o
+      // checkout, busca o cliente que a outra chamada acabou de criar.
+      const { data: clienteDaCorrida } = await supabase.from("clientes").select("id").eq("whatsapp", telefoneLimpo).maybeSingle();
+      clienteId = clienteDaCorrida?.id ?? null;
+    } else {
+      clienteId = novoCliente?.id ?? null;
+    }
   }
 
   // Cupom sempre revalidado aqui, no servidor — nunca confia num

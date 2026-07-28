@@ -4,7 +4,6 @@
  */
 export const CATEGORIAS_LOJA = [
   { valor: "iphone", label: "iPhone", emoji: "📱" },
-  { valor: "android", label: "Android", emoji: "📱" },
   { valor: "apple_watch", label: "Apple Watch", emoji: "⌚" },
   { valor: "ipad", label: "iPad", emoji: "📲" },
   { valor: "mac", label: "Mac", emoji: "💻" },

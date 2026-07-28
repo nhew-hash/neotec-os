@@ -64,6 +64,7 @@ export function ProdutoCard({ produto, maisVendido, ultimasUnidades }: ProdutoCa
           <span className="text-sm font-semibold leading-snug text-foreground">{produto.nome}</span>
           {produto.preco_venda != null && (
             <>
+              <span className="text-[10px] font-medium text-muted-foreground">A partir de</span>
               <PrecoComEconomia precoAtual={produto.preco_venda} precoAntigo={produto.preco_antigo} tamanho="compacto" />
               <span className="text-[11px] text-muted-foreground">{formatarParcelamento(produto.preco_venda)}</span>
             </>
