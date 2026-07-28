@@ -56,7 +56,7 @@ export async function montarHtmlImpressaoOS(id: string, formato: FormatoImpressa
   }));
 
   const qrCodeHtml = viaCliente
-    ? `<img src="${await gerarQrCodeDataUrl(urlConsultaPublicaOS(os.numero_os))}" alt="QR Code" style="width:80px;height:80px;" />`
+    ? `<img src="${await gerarQrCodeDataUrl(urlConsultaPublicaOS())}" alt="QR Code" style="width:80px;height:80px;" />`
     : "";
 
   return renderizarTemplate(template.conteudo_html, {

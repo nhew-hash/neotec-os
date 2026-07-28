@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { montarHtmlImpressaoOS } from "@/services/impressao/impressao-os.service";
 import { montarHtmlImpressaoOrcamento } from "@/services/impressao/impressao-orcamento.service";
 import { montarHtmlImpressaoVenda, montarHtmlImpressaoRecibo } from "@/services/impressao/impressao-venda.service";
+import { montarHtmlComprovanteAparelho } from "@/services/impressao/impressao-comprovante-aparelho.service";
 import { registrarImpressao } from "@/services/impressao/historico.service";
 import type { FormatoImpressao, TipoDocumentoImpressao } from "@/types";
 
@@ -36,6 +37,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       break;
     case "recibo":
       html = await montarHtmlImpressaoRecibo(id, viaCliente);
+      break;
+    case "comprovante_aparelho":
+      html = await montarHtmlComprovanteAparelho({
+        vendaId: id,
+        entrada: request.nextUrl.searchParams.get("entrada") ? Number(request.nextUrl.searchParams.get("entrada")) : undefined,
+        saldo: request.nextUrl.searchParams.get("saldo") ? Number(request.nextUrl.searchParams.get("saldo")) : undefined,
+        garantia: request.nextUrl.searchParams.get("garantia") ?? undefined,
+        observacoes: request.nextUrl.searchParams.get("observacoes") ?? undefined,
+      });
       break;
     default:
       return NextResponse.json({ erro: `Tipo de documento "${tipo}" não suportado` }, { status: 400 });

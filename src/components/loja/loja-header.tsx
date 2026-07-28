@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, Menu, X, Repeat, Sparkles } from "lucide-react";
+import { ShoppingBag, Menu, X, Repeat, Sparkles, User } from "lucide-react";
 import { useState } from "react";
 import { CATEGORIAS_LOJA } from "./categorias";
 import { useCarrinho } from "./carrinho-context";
@@ -25,7 +25,7 @@ export function LojaHeader() {
               <Sparkles className="h-3.5 w-3.5" />Encontre seu iPhone ideal
             </Link>
             <Link href="/loja/lacrados" className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
-              iPhone Lacrado
+              Lacrados
             </Link>
             {CATEGORIAS_LOJA.map((c) => (
               <Link key={c.valor} href={`/loja/categoria/${c.valor}`} className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
@@ -40,6 +40,9 @@ export function LojaHeader() {
 
         <div className="flex items-center gap-1">
           <BuscaLoja />
+          <Link href="/portal/login" className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-secondary" title="Minha conta">
+            <User className="h-5 w-5 text-foreground" />
+          </Link>
           <Link href="/loja/carrinho" className="relative flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-secondary">
             <ShoppingBag className="h-5 w-5 text-foreground" />
             {totalItens > 0 && (
@@ -60,7 +63,7 @@ export function LojaHeader() {
             <Sparkles className="h-4 w-4" />Encontre seu iPhone ideal
           </Link>
           <Link href="/loja/lacrados" className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
-            📱 iPhone Lacrado
+            📱 Lacrados
           </Link>
           {CATEGORIAS_LOJA.map((c) => (
             <Link key={c.valor} href={`/loja/categoria/${c.valor}`} className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
@@ -69,6 +72,9 @@ export function LojaHeader() {
           ))}
           <Link href="/loja/trade-in" className="flex items-center gap-1.5 py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
             <Repeat className="h-4 w-4" />Troque seu usado
+          </Link>
+          <Link href="/portal/login" className="flex items-center gap-1.5 border-t border-black/[0.06] py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
+            <User className="h-4 w-4" />Minha conta
           </Link>
         </nav>
       )}

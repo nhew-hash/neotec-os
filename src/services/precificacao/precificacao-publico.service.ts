@@ -29,6 +29,7 @@ export interface DestaquePrecoLoja {
   percentualDescontoPix: number;
   maiorParcelaSemJuros: number | null; // null = nenhuma parcela sem juros disponível
   valorDaMaiorParcelaSemJuros: number | null;
+  cashbackValor: number | null; // null = sem cashback configurado pra esse item
 }
 
 /**
@@ -38,11 +39,12 @@ export interface DestaquePrecoLoja {
  * vitrine direto (quando não tem, é a maioria hoje). Sempre dado real
  * — taxa configurada, nunca inventada.
  */
-export async function calcularDestaquePrecoLoja(precoVenda: number, precoLiquidoDesejado: number | null): Promise<DestaquePrecoLoja> {
+export async function calcularDestaquePrecoLoja(precoVenda: number, precoLiquidoDesejado: number | null, produtoId?: string, aparelhoId?: string): Promise<DestaquePrecoLoja> {
   const supabase = await createClient();
-  const [{ data: configRaw }, { data: taxasRaw }] = await Promise.all([
+  const [{ data: configRaw }, { data: taxasRaw }, { data: cashbackPercentual }] = await Promise.all([
     supabase.rpc("obter_config_precificacao_publico"),
     supabase.rpc("listar_taxas_parcelamento_publico"),
+    supabase.rpc("obter_percentual_cashback_publico", { p_produto_id: produtoId ?? null, p_aparelho_id: aparelhoId ?? null }),
   ]);
 
   const configLinha = configRaw?.[0];
@@ -70,6 +72,7 @@ export async function calcularDestaquePrecoLoja(precoVenda: number, precoLiquido
   // campo de configuração isolado, que representava outra coisa antes
   // dessa mudança (desconto adicional sobre um preço já calculado).
   const percentualEconomiaReal = precoVitrine > precoPix ? Math.round(((precoVitrine - precoPix) / precoVitrine) * 100) : 0;
+  const cashbackValor = (cashbackPercentual ?? 0) > 0 ? Math.round(precoPix * ((cashbackPercentual ?? 0) / 100) * 100) / 100 : null;
 
   return {
     precoVitrine,
@@ -77,5 +80,6 @@ export async function calcularDestaquePrecoLoja(precoVenda: number, precoLiquido
     percentualDescontoPix: percentualEconomiaReal,
     maiorParcelaSemJuros: maior?.numero ?? null,
     valorDaMaiorParcelaSemJuros: maior?.valorParcela ?? null,
+    cashbackValor,
   };
 }

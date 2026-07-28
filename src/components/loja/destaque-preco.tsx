@@ -1,4 +1,4 @@
-import { Zap, CreditCard } from "lucide-react";
+import { Zap, CreditCard, Wallet } from "lucide-react";
 import { formatCurrency } from "@/utils";
 import type { DestaquePrecoLoja } from "@/services/precificacao/precificacao-publico.service";
 
@@ -33,6 +33,16 @@ export function DestaquePreco({ destaque }: { destaque: DestaquePrecoLoja }) {
           <p className="text-sm text-foreground">
             Até <span className="font-bold text-primary">{destaque.maiorParcelaSemJuros}x de {formatCurrency(destaque.valorDaMaiorParcelaSemJuros)}</span>
             <span className="ml-1 font-semibold text-primary">sem juros</span>
+          </p>
+        </div>
+      )}
+
+      {destaque.cashbackValor != null && (
+        <div className="flex items-center gap-2 rounded-xl bg-warning/10 px-3 py-2">
+          <Wallet className="h-4 w-4 shrink-0 text-warning" />
+          <p className="text-sm text-foreground">
+            Ganhe <span className="font-bold text-warning">{formatCurrency(destaque.cashbackValor)}</span>
+            <span className="ml-1 font-semibold text-warning">de cashback</span> nessa compra
           </p>
         </div>
       )}

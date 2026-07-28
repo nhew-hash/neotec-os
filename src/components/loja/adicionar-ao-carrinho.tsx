@@ -60,7 +60,7 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
     <div className="flex flex-col gap-5">
       {precoExibido != null && (
         <div className="flex flex-col gap-1.5">
-          <DestaquePrecoCliente precoVenda={precoExibido} precoLiquidoDesejado={null} />
+          <DestaquePrecoCliente precoVenda={precoExibido} precoLiquidoDesejado={null} produtoId={produto.id} aparelhoId={aparelhoSelecionadoId ?? undefined} />
         </div>
       )}
 

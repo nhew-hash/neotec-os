@@ -722,7 +722,7 @@ export interface IAPerguntaEquipe {
 
 // ---- Fase 46: Módulo de Impressão ----
 
-export type TipoDocumentoImpressao = "os" | "orcamento" | "venda" | "recibo" | "etiqueta" | "garantia" | "termo_entrega" | "termo_entrada";
+export type TipoDocumentoImpressao = "os" | "orcamento" | "venda" | "recibo" | "etiqueta" | "garantia" | "termo_entrega" | "termo_entrada" | "comprovante_aparelho";
 export type FormatoImpressao = "a4" | "cupom" | "etiqueta";
 export type TipoImpressora = "a4" | "cupom" | "etiqueta";
 
