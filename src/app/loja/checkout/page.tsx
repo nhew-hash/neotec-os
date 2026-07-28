@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { CheckCircle2, XCircle, CreditCard, QrCode } from "lucide-react";
 import { useCarrinho } from "@/components/loja/carrinho-context";
-import { iniciarCheckoutPixAction, pagarComCartaoAction, buscarPublicKeyMercadoPagoAction } from "@/services/pagamentos/payment.controller";
+import { iniciarCheckoutPixAction, pagarComCartaoAction, buscarPublicKeyMercadoPagoAction, consultarSaldoCashbackPorTelefoneAction } from "@/services/pagamentos/payment.controller";
 import { validarCupomAction } from "@/services/loja/cupom.actions";
 import { calcularDescontoCupom } from "@/services/loja/cupom.utils";
 import { CardPaymentBrick } from "@/components/loja/card-payment-brick";
@@ -32,7 +32,26 @@ export default function CheckoutPage() {
   const [cupomAplicado, setCupomAplicado] = useState<{ codigo: string; desconto: number } | null>(null);
   const [validandoCupom, setValidandoCupom] = useState(false);
   const [erroCupom, setErroCupom] = useState<string | null>(null);
-  const totalComDesconto = Math.max(0, total - (cupomAplicado?.desconto ?? 0));
+  const [saldoCashback, setSaldoCashback] = useState(0);
+  const [usarCashback, setUsarCashback] = useState(false);
+
+  const totalAposCupom = Math.max(0, total - (cupomAplicado?.desconto ?? 0));
+  const cashbackAplicavel = usarCashback ? Math.min(saldoCashback, totalAposCupom) : 0;
+  const totalComDesconto = Math.max(0, totalAposCupom - cashbackAplicavel);
+
+  // Consulta o saldo assim que o telefone tiver dígitos suficientes —
+  // sem exigir login, o telefone já identifica o cliente (mesma lógica
+  // de find-or-create usada no resto do sistema).
+  useEffect(() => {
+    const digitos = telefone.replace(/\D/g, "");
+    if (digitos.length < 10) return setSaldoCashback(0);
+    const timer = setTimeout(() => {
+      consultarSaldoCashbackPorTelefoneAction(digitos).then((result) => {
+        if (result.success) setSaldoCashback(result.data.saldo);
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [telefone]);
 
   useEffect(() => {
     buscarPublicKeyMercadoPagoAction().then((result) => {
@@ -83,7 +102,7 @@ export default function CheckoutPage() {
   async function handlePagarPix() {
     setErro(null);
     setProcessando(true);
-    const result = await iniciarCheckoutPixAction({ nomeContato: nome, telefoneContato: telefone, itens, cpf: cpf.trim() || undefined, cupomCodigo: cupomAplicado?.codigo });
+    const result = await iniciarCheckoutPixAction({ nomeContato: nome, telefoneContato: telefone, itens, cpf: cpf.trim() || undefined, cupomCodigo: cupomAplicado?.codigo, usarCashback: cashbackAplicavel });
     setProcessando(false);
 
     if (!result.success) return setErro(result.error);
@@ -95,7 +114,7 @@ export default function CheckoutPage() {
     setProcessando(true);
     const result = await pagarComCartaoAction({
       nomeContato: nome, telefoneContato: telefone, itens,
-      token: dados.token, parcelas: dados.installments, metodoPagamentoId: dados.paymentMethodId, cpf: cpf.trim() || undefined, cupomCodigo: cupomAplicado?.codigo,
+      token: dados.token, parcelas: dados.installments, metodoPagamentoId: dados.paymentMethodId, cpf: cpf.trim() || undefined, cupomCodigo: cupomAplicado?.codigo, usarCashback: cashbackAplicavel,
     });
     setProcessando(false);
 
@@ -236,10 +255,24 @@ export default function CheckoutPage() {
           {erroCupom && <p className="mt-1 text-[11px] text-danger">{erroCupom}</p>}
         </div>
 
+        {saldoCashback > 0 && (
+          <label className="flex items-center gap-2 border-b border-black/[0.06] py-3 text-xs">
+            <input type="checkbox" checked={usarCashback} onChange={(e) => setUsarCashback(e.target.checked)} className="h-4 w-4 accent-primary" />
+            <span className="text-foreground">Usar meu saldo de cashback (<strong className="text-success">{formatCurrency(saldoCashback)}</strong> disponível)</span>
+          </label>
+        )}
+
         {cupomAplicado && (
           <div className="flex items-center justify-between pt-3 text-sm text-muted-foreground">
             <span>Desconto</span>
             <span>-{formatCurrency(cupomAplicado.desconto)}</span>
+          </div>
+        )}
+
+        {cashbackAplicavel > 0 && (
+          <div className="flex items-center justify-between pt-1 text-sm text-muted-foreground">
+            <span>Cashback usado</span>
+            <span>-{formatCurrency(cashbackAplicavel)}</span>
           </div>
         )}
         <div className="flex items-center justify-between pt-1">

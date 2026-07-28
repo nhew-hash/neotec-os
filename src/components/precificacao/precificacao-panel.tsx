@@ -13,11 +13,12 @@ export function PrecificacaoPanel({ config: configInicial, taxas: taxasIniciais 
   const router = useRouter();
   const [modoJuros, setModoJuros] = useState(configInicial.modo_juros);
   const [descontoPix, setDescontoPix] = useState(configInicial.desconto_pix_percentual);
+  const [cashbackPercentual, setCashbackPercentual] = useState(configInicial.cashback_percentual_padrao);
   const [taxas, setTaxas] = useState(taxasIniciais);
   const [simuladorPreco, setSimuladorPreco] = useState(7400);
   const [simuladorCusto, setSimuladorCusto] = useState(5000);
 
-  function salvarConfig(input: Partial<Pick<ConfiguracaoPrecificacao, "modo_juros" | "desconto_pix_percentual">>) {
+  function salvarConfig(input: Partial<Pick<ConfiguracaoPrecificacao, "modo_juros" | "desconto_pix_percentual" | "cashback_percentual_padrao">>) {
     atualizarConfigPrecificacaoAction(input).then(() => router.refresh());
   }
 
@@ -63,6 +64,16 @@ export function PrecificacaoPanel({ config: configInicial, taxas: taxasIniciais 
             <div className="flex items-center gap-2">
               <Input type="number" step="0.1" value={descontoPix} onChange={(e) => setDescontoPix(Number(e.target.value) || 0)} onBlur={(e) => salvarConfig({ desconto_pix_percentual: Number(e.target.value) || 0 })} className="w-24" />
               <span className="text-sm text-muted-foreground">% de desconto pra quem paga no Pix</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Cashback</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Input type="number" step="0.1" value={cashbackPercentual} onChange={(e) => setCashbackPercentual(Number(e.target.value) || 0)} onBlur={(e) => salvarConfig({ cashback_percentual_padrao: Number(e.target.value) || 0 })} className="w-24" />
+              <span className="text-sm text-muted-foreground">% que o cliente recebe de volta em saldo, em toda compra (padrão — dá pra sobrescrever por produto)</span>
             </div>
           </CardContent>
         </Card>

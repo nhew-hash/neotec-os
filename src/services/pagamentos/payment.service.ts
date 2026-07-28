@@ -184,6 +184,40 @@ export class PaymentService {
         p_tipo: "entrada", p_categoria: "Venda", p_valor: pedido.valor_total,
         p_origem_tipo: "venda", p_origem_id: venda.id, p_usuario_id: null,
       });
+
+      // Cashback — checkout online nunca creditava isso antes, só o
+      // PDV manual fazia. Pedido sem cliente vinculado (guest
+      // checkout) simplesmente não tem pra quem creditar, segue sem erro.
+      if (pedido.cliente_id) {
+        try {
+          const { registrarCashback } = await import("@/services/cashback/cashback.service");
+
+          for (const item of itensPedido ?? []) {
+            const { data: percentual } = await supabase.rpc("obter_percentual_cashback_publico", {
+              p_produto_id: item.produto_id, p_aparelho_id: item.aparelho_id,
+            });
+            const valorCashback = Math.round(item.valor * item.quantidade * ((percentual ?? 1.5) / 100) * 100) / 100;
+            if (valorCashback > 0) {
+              await registrarCashback({ cliente_id: pedido.cliente_id, tipo: "credito", valor: valorCashback, origem: `Compra online — pedido ${pedido.id.slice(0, 8)}` });
+            }
+          }
+
+          // Cupom tipo "cashback" usado nesse pedido — credita o valor
+          // fixo do cupom também, além do cashback normal por item.
+          const { data: usoCupom } = await supabase
+            .from("cupom_usos")
+            .select("cupom:cupons(codigo, tipo_desconto, valor)")
+            .eq("pedido_id", pedido.id)
+            .maybeSingle();
+          const cupomUsado = usoCupom?.cupom as unknown as { codigo: string; tipo_desconto: string; valor: number } | null;
+          if (cupomUsado?.tipo_desconto === "cashback" && cupomUsado.valor > 0) {
+            await registrarCashback({ cliente_id: pedido.cliente_id, tipo: "credito", valor: cupomUsado.valor, origem: `Cupom ${cupomUsado.codigo}` });
+          }
+        } catch (erroCashback) {
+          // Nunca derruba a aprovação do pagamento por causa disso — cliente ainda recebe o produto normalmente, só não ganha cashback dessa vez.
+          console.error("Falha ao creditar cashback (não bloqueia a venda):", erroCashback);
+        }
+      }
     }
 
     await supabase.from("pedidos_loja").update({ status: "concluido" }).eq("id", pedido.id);

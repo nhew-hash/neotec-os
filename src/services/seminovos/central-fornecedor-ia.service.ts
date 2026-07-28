@@ -24,7 +24,9 @@ REGRA DE CLASSIFICAÇÃO (a mais importante):
 - "seminovo": tem SAÚDE DE BATERIA (%) no texto. Ex: "17 256G 100%💜4499" → seminovo, bateria 100.
 - "lacrado": aparelho novo/lacrado — NUNCA tem % de bateria. Ex: "17 pro max 512g⚪️8599" → lacrado.
   **Toda lista de Android (Samsung, Xiaomi, Redmi, Poco, Realme, Motorola, Honor, Infinix/Spark...) SEM % de bateria é SEMPRE lacrado** — esse é o formato padrão de lista de fornecedor de Android, nunca precisa de mais confirmação além da ausência de %.
-- "generico": qualquer coisa que não é iPhone/Android — iPad, MacBook, Apple Watch, acessório, caixa de som, videogame, tablet, brinquedo, qualquer produto/marca. Nunca tenta forçar isso em seminovo ou lacrado.
+  **TESTE OBRIGATÓRIO antes de marcar "seminovo": a linha tem um número seguido de "%" em algum lugar? Se NÃO tiver, é IMPOSSÍVEL ser "seminovo" — tem que ser "lacrado", mesmo que o modelo/contexto pareça sugerir seminovo. Não classifique por intuição ou pelo que veio antes na lista — só o "%" decide.**
+  **Tablet Android (Samsung Tab, Xiaomi Pad) também é "lacrado" quando sem % de bateria** — tem cor/armazenamento como variante, igual celular, por isso segue o mesmo caminho de catálogo (não é "generico"). iPad continua "generico" — segue seu próprio catálogo separado.
+- "generico": produto de item único, sem variante de cor/armazenamento fazendo sentido pra ele — MacBook, Apple Watch, acessório (cabo/fonte/capinha), caixa de som (JBL/Bose), videogame (PS5/Xbox), brinquedo, qualquer outro produto/marca. Nunca tenta forçar isso em seminovo ou lacrado.
 
 REGRA DE ITENS MÚLTIPLOS NA MESMA LINHA:
 Quando uma linha de seminovo tiver VÁRIOS pares de bateria+cor antes do preço,
@@ -115,8 +117,19 @@ export async function classificarItensFornecedor(texto: string): Promise<ItemFor
   // Item com memória abaixo de 1GB quase certamente é erro de leitura
   // (emoji/número confundido com capacidade) — nunca aplica, nem
   // mostra pra revisão, já descarta aqui.
-  return parsed.data.filter((item) => {
+  const itensFiltrados = parsed.data.filter((item) => {
     const gb = memoriaEmGB(item.memoria);
     return gb === null || gb >= 1;
+  });
+
+  // Trava determinística — não depende só do prompt acertar. Se a IA
+  // marcou "seminovo" mas a linha original não tem nenhum "%", é
+  // fisicamente impossível ser seminovo (não tem como saber saúde de
+  // bateria sem % na lista) — corrige sozinho pra "lacrado".
+  return itensFiltrados.map((item) => {
+    if (item.destino === "seminovo" && !/\d+\s*%/.test(item.linhaOriginal)) {
+      return { ...item, destino: "lacrado" as const, bateria: null };
+    }
+    return item;
   });
 }

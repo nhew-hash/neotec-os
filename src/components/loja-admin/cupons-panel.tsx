@@ -48,6 +48,7 @@ export function CuponsPanel({ cupons }: { cupons: Cupom[] }) {
               <SelectContent>
                 <SelectItem value="percentual">%</SelectItem>
                 <SelectItem value="valor_fixo">R$ fixo</SelectItem>
+                <SelectItem value="cashback">Cashback (credita saldo, não desconta na hora)</SelectItem>
               </SelectContent>
             </Select>
             <Input type="number" placeholder="Valor" value={valor} onChange={(e) => setValor(e.target.value)} />
@@ -69,7 +70,7 @@ export function CuponsPanel({ cupons }: { cupons: Cupom[] }) {
                   <Badge variant={c.ativo ? "success" : "secondary"}>{c.ativo ? "Ativo" : "Inativo"}</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {c.tipo_desconto === "percentual" ? `${c.valor}% de desconto` : `${formatCurrency(c.valor)} de desconto`}
+                  {c.tipo_desconto === "percentual" ? `${c.valor}% de desconto` : c.tipo_desconto === "valor_fixo" ? `${formatCurrency(c.valor)} de desconto` : `${formatCurrency(c.valor)} de cashback`}
                   {c.valor_minimo_pedido && ` · pedido mín. ${formatCurrency(c.valor_minimo_pedido)}`}
                   {c.limite_uso && ` · usado ${c.usos}/${c.limite_uso}`}
                   {!c.limite_uso && ` · usado ${c.usos}x`}

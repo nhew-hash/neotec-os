@@ -1041,7 +1041,7 @@ export interface Marca { id: string; loja_id: string; nome: string; ativo: boole
 
 export interface Colecao { id: string; loja_id: string; nome: string; descricao: string | null; ativo: boolean; ordem: number }
 
-export type TipoDescontoCupom = "percentual" | "valor_fixo";
+export type TipoDescontoCupom = "percentual" | "valor_fixo" | "cashback";
 
 export interface Cupom {
   id: string; loja_id: string; codigo: string; tipo_desconto: TipoDescontoCupom; valor: number;
@@ -1065,6 +1065,7 @@ export interface ConfiguracaoPrecificacao {
   loja_id: string;
   modo_juros: "repassar_juros" | "embutir_juros";
   desconto_pix_percentual: number;
+  cashback_percentual_padrao: number;
   gateway_referencia: string;
   updated_at: string;
 }

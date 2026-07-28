@@ -14,11 +14,25 @@ import type { ItemPedidoLojaInput } from "@/services/loja/loja-pedido.actions";
  * pagamento dentro de componente".
  */
 
-async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string }): Promise<{ pedidoId: string; valorTotal: number }> {
+async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number }): Promise<{ pedidoId: string; valorTotal: number }> {
   const valorBruto = input.itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
   if (valorBruto <= 0) throw new Error("O valor do pedido está zerado — atualiza a página e tenta de novo.");
 
   const supabase = createAdminClient();
+
+  // Busca ou cria o cliente pelo telefone — sem isso, o pedido nunca
+  // tem "dono" de verdade, e cashback/histórico de compra não têm pra
+  // quem vincular. Mesmo padrão find-or-create usado em outros lugares
+  // do sistema (nunca falha por telefone duplicado).
+  const telefoneLimpo = input.telefoneContato.replace(/\D/g, "");
+  let clienteId: string | null = null;
+  const { data: clienteExistente } = await supabase.from("clientes").select("id").eq("whatsapp", telefoneLimpo).maybeSingle();
+  if (clienteExistente) {
+    clienteId = clienteExistente.id;
+  } else {
+    const { data: novoCliente } = await supabase.from("clientes").insert({ nome: input.nomeContato.trim(), whatsapp: telefoneLimpo }).select("id").maybeSingle();
+    clienteId = novoCliente?.id ?? null;
+  }
 
   // Cupom sempre revalidado aqui, no servidor — nunca confia num
   // desconto que viesse pronto do navegador (poderia ser forjado).
@@ -28,8 +42,8 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
     const { data: validacao } = await supabase.rpc("validar_cupom_publico", { p_codigo: input.cupomCodigo, p_valor_pedido: valorBruto });
     const linha = validacao?.[0];
     if (linha?.valido) {
-      const desconto = linha.tipo_desconto === "percentual" ? valorBruto * (linha.valor / 100) : Math.min(valorBruto, linha.valor);
-      valorTotal = Math.max(0, valorBruto - desconto);
+      const desconto = linha.tipo_desconto === "percentual" ? valorBruto * (linha.valor / 100) : linha.tipo_desconto === "valor_fixo" ? Math.min(valorBruto, linha.valor) : 0;
+      valorTotal = Math.max(0, valorTotal - desconto);
       const { data: cupom } = await supabase.from("cupons").select("id, usos").eq("codigo", input.cupomCodigo.toUpperCase()).maybeSingle();
       if (cupom) {
         cupomId = cupom.id;
@@ -38,14 +52,34 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
     }
   }
 
+  // Resgate de cashback — sempre revalidado aqui contra o saldo real
+  // do cliente, nunca confia no valor que veio do navegador.
+  let cashbackUsado = 0;
+  if (input.usarCashback && input.usarCashback > 0 && clienteId) {
+    const { obterSaldoCashback } = await import("@/services/cashback/cashback.service");
+    const saldoReal = await obterSaldoCashback(clienteId);
+    cashbackUsado = Math.min(input.usarCashback, saldoReal, valorTotal);
+    valorTotal = Math.max(0, valorTotal - cashbackUsado);
+  }
+
   const { data: pedido, error } = await supabase
     .from("pedidos_loja")
-    .insert({ nome_contato: input.nomeContato.trim(), telefone_contato: input.telefoneContato.replace(/\D/g, ""), valor_total: valorTotal, origem_fechamento: "pagamento_online" })
+    .insert({ cliente_id: clienteId, nome_contato: input.nomeContato.trim(), telefone_contato: telefoneLimpo, valor_total: valorTotal, origem_fechamento: "pagamento_online" })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
 
   if (cupomId) await supabase.from("cupom_usos").insert({ cupom_id: cupomId, pedido_id: pedido.id });
+
+  // Debita o cashback usado JÁ na criação do pedido (não espera
+  // aprovação) — evita o cliente conseguir "usar" o mesmo saldo em
+  // dois pedidos simultâneos antes de qualquer um deles ser aprovado.
+  // Se o pagamento cair, dá pra estornar manualmente (fica registrado
+  // na transação com o pedido vinculado).
+  if (cashbackUsado > 0 && clienteId) {
+    const { registrarCashback } = await import("@/services/cashback/cashback.service");
+    await registrarCashback({ cliente_id: clienteId, tipo: "debito", valor: cashbackUsado, origem: `Usado no pedido ${pedido.id.slice(0, 8)}` });
+  }
 
   const { error: erroItens } = await supabase.from("pedido_loja_itens").insert(
     input.itens.map((item) => ({
@@ -64,7 +98,7 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
 }
 
 export async function iniciarCheckoutPixAction(input: {
-  nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cpf?: string; cupomCodigo?: string;
+  nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cpf?: string; cupomCodigo?: string; usarCashback?: number;
 }): Promise<ActionResult<{ pedidoId: string; pagamentoId: string; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
@@ -80,7 +114,7 @@ export async function iniciarCheckoutPixAction(input: {
 
 export async function pagarComCartaoAction(input: {
   nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[];
-  token: string; parcelas: number; metodoPagamentoId: string; cpf?: string; cupomCodigo?: string;
+  token: string; parcelas: number; metodoPagamentoId: string; cpf?: string; cupomCodigo?: string; usarCashback?: number;
 }): Promise<ActionResult<{ pedidoId: string; status: string; statusDetail: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
@@ -133,5 +167,23 @@ export async function buscarTabelaParcelasAction(valor: number): Promise<ActionR
     return { success: true, data: { opcoes } };
   } catch (err) {
     return { success: false, error: extrairMensagemErro(err, "Não foi possível consultar as parcelas agora") };
+  }
+}
+
+/** Consulta o saldo de cashback pelo telefone — usado no checkout pra mostrar "você tem RX de saldo" antes de fechar a compra, sem exigir login. */
+export async function consultarSaldoCashbackPorTelefoneAction(telefone: string): Promise<ActionResult<{ saldo: number }>> {
+  try {
+    const telefoneLimpo = telefone.replace(/\D/g, "");
+    if (telefoneLimpo.length < 10) return { success: true, data: { saldo: 0 } };
+
+    const supabase = createAdminClient();
+    const { data: cliente } = await supabase.from("clientes").select("id").eq("whatsapp", telefoneLimpo).maybeSingle();
+    if (!cliente) return { success: true, data: { saldo: 0 } };
+
+    const { obterSaldoCashback } = await import("@/services/cashback/cashback.service");
+    const saldo = await obterSaldoCashback(cliente.id);
+    return { success: true, data: { saldo } };
+  } catch {
+    return { success: true, data: { saldo: 0 } }; // nunca trava o checkout por causa disso
   }
 }
