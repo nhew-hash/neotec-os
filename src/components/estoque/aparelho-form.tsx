@@ -95,7 +95,7 @@ export function AparelhoForm({ produtos: produtosIniciais, investidores }: { pro
       id: result.data.id, nome: result.data.nome, categoria: categoriaNovoProduto,
       loja_id: "", marca: null, modelo: null, descricao: null, preco_venda: null, custo: null,
       estoque_minimo: 0, status: "ativo", visivel_loja: false, slug: null, descricao_loja: null,
-      preco_antigo: null, preco_liquido_desejado: null, selos_manuais: [], fotos: [],
+      preco_antigo: null, preco_liquido_desejado: null, selos_manuais: [], fotos: [], mostrar_trade_in: false,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     };
 
