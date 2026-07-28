@@ -6,7 +6,7 @@ export type DestinoItemFornecedor = "seminovo" | "lacrado" | "generico";
 const itemSchema = z.object({
   destino: z.enum(["seminovo", "lacrado", "generico"]),
   modelo: z.string(),
-  categoria: z.enum(["iphone", "android", "apple_watch", "ipad", "mac", "acessorio"]).default("iphone"),
+  categoria: z.string().trim().min(1).default("acessorio"),
   marca: z.string().nullable().default(null),
   memoria: z.string().nullable().default(null),
   cor: z.string().nullable().default(null),
@@ -22,8 +22,9 @@ const PROMPT_SISTEMA = `Você é a Central de Cadastro por Fornecedor da Neotec 
 
 REGRA DE CLASSIFICAÇÃO (a mais importante):
 - "seminovo": tem SAÚDE DE BATERIA (%) no texto. Ex: "17 256G 100%💜4499" → seminovo, bateria 100.
-- "lacrado": aparelho novo/lacrado, geralmente sob um cabeçalho "LACRADOS" — NUNCA tem % de bateria. Ex: "17 pro max 512g⚪️8599" → lacrado.
-- "generico": qualquer coisa que não é iPhone/Android (iPad, MacBook, Apple Watch, acessório, JBL, qualquer outra marca/produto). Nunca tenta forçar isso em seminovo ou lacrado.
+- "lacrado": aparelho novo/lacrado — NUNCA tem % de bateria. Ex: "17 pro max 512g⚪️8599" → lacrado.
+  **Toda lista de Android (Samsung, Xiaomi, Redmi, Poco, Realme, Motorola, Honor, Infinix/Spark...) SEM % de bateria é SEMPRE lacrado** — esse é o formato padrão de lista de fornecedor de Android, nunca precisa de mais confirmação além da ausência de %.
+- "generico": qualquer coisa que não é iPhone/Android — iPad, MacBook, Apple Watch, acessório, caixa de som, videogame, tablet, brinquedo, qualquer produto/marca. Nunca tenta forçar isso em seminovo ou lacrado.
 
 REGRA DE ITENS MÚLTIPLOS NA MESMA LINHA:
 Quando uma linha de seminovo tiver VÁRIOS pares de bateria+cor antes do preço,
@@ -44,19 +45,26 @@ Responda APENAS com um objeto JSON no formato {"itens": [...]}, assim:
 {"itens": [{"destino": "seminovo", "modelo": "iPhone 17", "categoria": "iphone", "marca": null, "memoria": "256GB", "cor": "Roxo", "bateria": 100, "observacoes": null, "preco": 4499, "linhaOriginal": "17 256G 100%💜4499"}]}
 
 Regras gerais:
-- "modelo" sempre completo: "iPhone 17 Pro Max", "iPad", "MacBook Air", "Apple Watch Series 11", "JBL Go 4" — o que fizer sentido.
-- "categoria" — siga essa lista ao pé da letra, nunca invente outra categoria:
-  - "iphone": qualquer iPhone (seminovo ou lacrado).
-  - "android": qualquer celular Android (Samsung, Xiaomi, Motorola etc).
-  - "apple_watch": qualquer Apple Watch (SE, Series X, Ultra).
-  - "ipad": qualquer iPad (Air, Pro, Mini, ou "iPad" sozinho).
+- "modelo" sempre completo: "iPhone 17 Pro Max", "iPad", "MacBook Air", "Apple Watch Series 11", "JBL Go 4", "PS5" — o que fizer sentido pro item.
+- "categoria" — texto livre, minúsculo, sem espaço (use "_" se precisar). NUNCA fica travado numa lista fixa — categorias conhecidas e seus critérios:
+  - "iphone": qualquer iPhone.
+  - "android": qualquer celular Android.
+  - "apple_watch": qualquer Apple Watch.
+  - "ipad": qualquer iPad.
   - "mac": qualquer MacBook, iMac, Mac Mini, Mac Studio.
-  - "acessorio": TUDO que não é aparelho em si — cabo, fonte, capinha, película, fone, caixa de som (inclusive JBL, Bose, ou qualquer marca que não seja Apple), power bank, suporte, etc. Pra marca não-Apple, sempre "acessorio" + o nome da marca em "marca".
-  Nunca classifique um acessório como celular/tablet/relógio só porque veio na mesma lista — cada linha tem sua própria categoria, independente do que veio antes ou depois dela no texto.
-- "observacoes": guarda detalhe extra relevante — "com caixa", "detalhes de uso", "tampa traseira trocada", tamanho de tela (40mm/42mm/46mm), specs (256/8), etc.
+  - "tablet": tablet que NÃO é iPad (Samsung Tab, Xiaomi Pad, etc).
+  - "acessorio": cabo, fonte, capinha, película, fone, power bank, suporte — SÓ pra marca Apple original. Marca não-Apple usa a categoria da marca (ver abaixo).
+  Quando o item não se encaixa em nenhuma dessas, **crie uma categoria nova que faça sentido** — minúscula, sem espaço, baseada no tipo de produto ou na marca. Exemplos de categoria nova que você deve criar sozinho quando aparecer:
+  - Caixa de som JBL/Bose/etc → categoria "jbl" (ou o nome da marca em minúsculo).
+  - Videogame/console (PS5, Xbox, Switch) → categoria "videogame".
+  - Brinquedo, triciclo, patinete elétrico, drone → categoria "brinquedo" (ou mais específico se fizer mais sentido, tipo "mobilidade").
+  Nunca force um item numa categoria que não combina só pra evitar criar uma nova — criar categoria nova é o comportamento CORRETO e esperado, não uma exceção.
+  Nunca classifique um item pela categoria do item anterior/seguinte na lista — cada linha tem sua própria categoria, independente do contexto ao redor.
+- "marca": preenche sempre que identificável (Apple, Samsung, Xiaomi, JBL, Sony...) — mesmo em categoria nova criada por você.
+- "observacoes": guarda detalhe extra relevante — "com caixa", "detalhes de uso", "tampa traseira trocada", tamanho de tela (40mm/42mm/46mm), specs (256/8), "5G", "NFC", "PROMOÇÃO", edição especial (ex: "Homem de Ferro"), etc.
 - "linhaOriginal": copia a linha (ou trecho) de origem, ajuda a equipe conferir depois.
 - Nunca invente preço — se não tiver preço claro na linha, pule o item.
-- Ignore linhas de cabeçalho/decoração (títulos de seção, "🔥🔥🔥", etc.) — elas não são item, só ajudam a entender o contexto das linhas seguintes.`;
+- Ignore linhas de cabeçalho/decoração (títulos de seção, "🔥🔥🔥", asteriscos de negrito, etc.) — elas não são item, só ajudam a entender o contexto das linhas seguintes.`;
 
 function normalizarResposta(bruto: unknown): unknown[] {
   if (Array.isArray(bruto)) return bruto;
@@ -83,12 +91,11 @@ export async function classificarItensFornecedor(texto: string): Promise<ItemFor
     sistema: PROMPT_SISTEMA,
     temperatura: 0.1,
     formatoJson: true,
-    // Listas de fornecedor de Android costumam ter mais variação por
-    // linha (armazenamento/RAM, 5G, NFC, edição especial) do que
-    // iPhone — cada item ocupa mais tokens pra descrever. 4000 cortava
-    // a resposta no meio em listas de 25-30+ itens, gerando JSON
-    // incompleto. 12000 dá margem confortável pra listas bem grandes.
-    maxTokens: 12000,
+    // Listas com muitas categorias diferentes (Android + tablet + Apple
+    // Watch + acessório + JBL + videogame etc misturados) precisam de
+    // ainda mais espaço que uma lista só de Android — 12000 já cortou
+    // uma vez, foi pra 16000.
+    maxTokens: 16000,
   });
 
   let bruto: unknown;

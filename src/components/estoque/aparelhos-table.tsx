@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { StatusAparelhoBadge } from "./status-badge";
@@ -8,6 +11,7 @@ import type { CargoUsuario } from "@/types";
 import type { AparelhoComProduto } from "@/services/estoque/estoque.service";
 
 export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComProduto[]; cargo: CargoUsuario }) {
+  const router = useRouter();
   const podeVerCustoAtual = podeVerCusto(cargo);
 
   if (aparelhos.length === 0) {
@@ -32,9 +36,13 @@ export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComPro
       </TableHeader>
       <TableBody>
         {aparelhos.map((aparelho) => (
-          <TableRow key={aparelho.id}>
+          <TableRow
+            key={aparelho.id}
+            onClick={() => router.push(`/estoque/aparelhos/${aparelho.id}`)}
+            className="cursor-pointer"
+          >
             <TableCell>
-              <Link href={`/estoque/aparelhos/${aparelho.id}`} className="font-medium text-foreground hover:underline">
+              <Link href={`/estoque/aparelhos/${aparelho.id}`} className="font-medium text-foreground hover:underline" onClick={(e) => e.stopPropagation()}>
                 {aparelho.produto?.nome ?? "—"}
               </Link>
               {aparelho.cor && <span className="ml-1 text-xs text-muted-foreground">{aparelho.cor}</span>}
@@ -47,7 +55,7 @@ export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComPro
                 {aparelho.custo ? formatCurrency(aparelho.custo) : "—"}
               </TableCell>
             )}
-            <TableCell>
+            <TableCell onClick={(e) => e.stopPropagation()}>
               <PublicarAparelhoButton aparelhoId={aparelho.id} publicado={aparelho.disponivel_loja_virtual} />
             </TableCell>
           </TableRow>

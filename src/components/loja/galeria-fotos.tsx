@@ -1,21 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Smartphone } from "lucide-react";
+
+const INTERVALO_AUTO_TROCA_MS = 4000;
 
 export function GaleriaFotos({ fotos, alt }: { fotos: string[]; alt: string }) {
   const [indice, setIndice] = useState(0);
+  const [pausado, setPausado] = useState(false);
 
   // Sempre que o array de fotos mudar (troca de unidade/cor
   // selecionada), volta pra primeira foto — evita ficar "preso" num
   // índice que não existe mais no novo conjunto.
   const indiceSeguro = indice < fotos.length ? indice : 0;
 
+  useEffect(() => {
+    setIndice(0);
+  }, [fotos]);
+
+  // Troca sozinha enquanto a pessoa está olhando o produto — pausa se
+  // ela mexer manualmente (seta ou bolinha), assim não briga com a
+  // navegação manual do cliente.
+  useEffect(() => {
+    if (fotos.length <= 1 || pausado) return;
+    const timer = setInterval(() => {
+      setIndice((i) => (i === fotos.length - 1 ? 0 : i + 1));
+    }, INTERVALO_AUTO_TROCA_MS);
+    return () => clearInterval(timer);
+  }, [fotos.length, pausado]);
+
   function anterior() {
+    setPausado(true);
     setIndice((i) => (i === 0 ? fotos.length - 1 : i - 1));
   }
   function proxima() {
+    setPausado(true);
     setIndice((i) => (i === fotos.length - 1 ? 0 : i + 1));
+  }
+  function irPara(i: number) {
+    setPausado(true);
+    setIndice(i);
   }
 
   return (
@@ -52,7 +76,7 @@ export function GaleriaFotos({ fotos, alt }: { fotos: string[]; alt: string }) {
         <div className="flex justify-center gap-1.5">
           {fotos.map((_, i) => (
             <button
-              key={i} type="button" onClick={() => setIndice(i)}
+              key={i} type="button" onClick={() => irPara(i)}
               aria-label={`Ver foto ${i + 1}`}
               className={`h-1.5 rounded-full transition-all ${i === indiceSeguro ? "w-5 bg-primary" : "w-1.5 bg-black/15"}`}
             />

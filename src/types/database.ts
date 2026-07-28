@@ -149,7 +149,7 @@ export interface Retorno {
 export interface Produto {
   id: string;
   loja_id: string;
-  categoria: "iphone" | "android" | "apple_watch" | "ipad" | "mac" | "acessorio" | "peca";
+  categoria: string; // livre — cresce sozinha conforme a IA identifica categorias novas (JBL, videogame, etc), nunca mais lista fixa
   marca: string | null;
   modelo: string | null;
   nome: string;

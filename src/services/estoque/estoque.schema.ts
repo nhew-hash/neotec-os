@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const produtoSchema = z.object({
-  categoria: z.enum(["iphone", "android", "apple_watch", "ipad", "mac", "acessorio", "peca"]),
+  categoria: z.string().trim().min(1, "Categoria é obrigatória"),
   marca: z.string().trim().optional().or(z.literal("")),
   modelo: z.string().trim().optional().or(z.literal("")),
   nome: z.string().trim().min(2, "Informe o nome do produto"),

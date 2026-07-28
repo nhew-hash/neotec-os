@@ -93,7 +93,7 @@ async function buscarEmProdutosGenericos(termo: string): Promise<ResultadoBuscaP
   const { data } = await supabase
     .from("produtos")
     .select("nome, categoria, preco_venda")
-    .in("categoria", ["ipad", "mac", "apple_watch", "acessorio"])
+    .not("categoria", "in", "(iphone,android)")
     .ilike("nome", `%${termo}%`)
     .not("preco_venda", "is", null)
     .eq("status", "ativo")
