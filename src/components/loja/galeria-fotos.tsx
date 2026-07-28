@@ -44,7 +44,7 @@ export function GaleriaFotos({ fotos, alt }: { fotos: string[]; alt: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-[#FAFBFC] to-[#F0F2F6]">
+      <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-3xl bg-white">
         {fotos[indiceSeguro] ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={fotos[indiceSeguro]} alt={alt} className="h-full w-full object-contain" />

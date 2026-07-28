@@ -4,14 +4,14 @@ import { slugify } from "./slugify";
 export { slugify };
 
 /** Só modelo com pelo menos 1 variante em estoque aparece — filtro já embutido na função SQL (Fase 66). */
-export async function listarLacradosModelosPublico(): Promise<Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos">[]> {
+export async function listarLacradosModelosPublico(): Promise<(Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos"> & { preco_a_partir_de: number | null })[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("listar_lacrados_modelos_publico");
   if (error) throw new Error(`Não foi possível carregar o catálogo: ${error.message}`);
-  return (data ?? []) as Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos">[];
+  return (data ?? []) as (Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos"> & { preco_a_partir_de: number | null })[];
 }
 
-export async function buscarLacradoModeloPorNome(nomeSlug: string): Promise<Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos"> | null> {
+export async function buscarLacradoModeloPorNome(nomeSlug: string): Promise<(Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos"> & { preco_a_partir_de: number | null }) | null> {
   const modelos = await listarLacradosModelosPublico();
   return modelos.find((m) => slugify(m.nome) === nomeSlug) ?? null;
 }
