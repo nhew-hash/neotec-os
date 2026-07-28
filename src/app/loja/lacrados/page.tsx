@@ -2,6 +2,14 @@ import { listarLacradosModelosPublico } from "@/services/lacrados/lacrados-publi
 import { LacradosListaCliente } from "@/components/loja/lacrados-lista-cliente";
 
 export default async function LacradosListaPage() {
-  const modelos = await listarLacradosModelosPublico();
-  return <LacradosListaCliente modelos={modelos} />;
+  const todos = await listarLacradosModelosPublico();
+  const modelosApple = todos.filter((m) => m.marca?.toLowerCase() === "apple");
+
+  return (
+    <LacradosListaCliente
+      modelos={modelosApple}
+      titulo="iPhone Lacrado"
+      descricao="Aparelhos novos, lacrados de fábrica, com nota fiscal e garantia Apple."
+    />
+  );
 }

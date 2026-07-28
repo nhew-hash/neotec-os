@@ -29,6 +29,29 @@ export async function moverCardEtapaAction(cardId: string, etapaId: string): Pro
   try {
     await moverCardEtapa(cardId, etapaId);
     revalidatePath("/crm");
+
+    // Avisa o cliente por WhatsApp quando o card muda de etapa —
+    // melhor esforço, nunca derruba a movimentação se o envio falhar.
+    try {
+      const supabase = await createClient();
+      const [{ data: card }, { data: etapa }] = await Promise.all([
+        supabase.from("crm_cards").select("titulo, cliente:clientes(nome, whatsapp)").eq("id", cardId).maybeSingle(),
+        supabase.from("crm_etapas").select("nome").eq("id", etapaId).maybeSingle(),
+      ]);
+      const cliente = card?.cliente as unknown as { nome: string; whatsapp: string } | null;
+      if (cliente?.whatsapp && etapa?.nome) {
+        const { getActiveProvider } = await import("@/services/whatsapp/providers/provider-resolver");
+        const { paraFormatoInternacionalBR } = await import("@/utils/telefone");
+        const provider = await getActiveProvider();
+        await provider.enviarTexto(
+          paraFormatoInternacionalBR(cliente.whatsapp),
+          `Olá, ${cliente.nome.split(" ")[0]}! Seu atendimento na Neotec avançou pra etapa: *${etapa.nome}*.`
+        );
+      }
+    } catch (erroWhatsapp) {
+      console.error("Falha ao enviar WhatsApp de mudança de etapa (não bloqueia a movimentação):", erroWhatsapp);
+    }
+
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao mover card" };

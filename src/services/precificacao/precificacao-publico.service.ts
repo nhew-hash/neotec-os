@@ -61,9 +61,12 @@ export async function calcularDestaquePrecoLoja(precoVenda: number, precoLiquido
   // O preço cadastrado (produto ou "líquido desejado", se tiver) É o
   // valor exato do Pix — nunca recalculado com desconto em cima. O
   // motor só deriva pra CIMA o preço de vitrine/cartão a partir dele.
+  // O preço cadastrado é o LÍQUIDO que a loja quer receber — o Pix
+  // mostrado ao cliente vem um pouco maior, coberto pela taxa real do
+  // Pix (configurável em Financeiro → Parcelamento, ~0,6% hoje), pra
+  // garantir que o valor líquido recebido bate com o que foi cadastrado.
   const alvo = precoLiquidoDesejado ?? precoVenda;
-  const { precoVitrine, parcelas } = engine.calcular(alvo);
-  const precoPix = alvo;
+  const { precoVitrine, precoPix, parcelas } = engine.calcular(alvo);
 
   const semJuros = parcelas.filter((p) => !p.temJuros).sort((a, b) => b.numero - a.numero);
   const maior = semJuros[0] ?? null;

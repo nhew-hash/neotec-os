@@ -25,7 +25,10 @@ export function LojaHeader() {
               <Sparkles className="h-3.5 w-3.5" />Encontre seu iPhone ideal
             </Link>
             <Link href="/loja/lacrados" className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
-              Lacrados
+              iPhone Lacrado
+            </Link>
+            <Link href="/loja/android" className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
+              Android
             </Link>
             {CATEGORIAS_LOJA.map((c) => (
               <Link key={c.valor} href={`/loja/categoria/${c.valor}`} className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
@@ -63,7 +66,10 @@ export function LojaHeader() {
             <Sparkles className="h-4 w-4" />Encontre seu iPhone ideal
           </Link>
           <Link href="/loja/lacrados" className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
-            📱 Lacrados
+            📱 iPhone Lacrado
+          </Link>
+          <Link href="/loja/android" className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
+            🤖 Android
           </Link>
           {CATEGORIAS_LOJA.map((c) => (
             <Link key={c.valor} href={`/loja/categoria/${c.valor}`} className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
