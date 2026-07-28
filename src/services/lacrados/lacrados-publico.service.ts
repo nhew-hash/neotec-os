@@ -27,10 +27,4 @@ export async function listarLacradosVariantesPublico(modeloId: string): Promise<
  * o catálogo mestre é fixo (29 modelos conhecidos), não editável em
  * texto livre pelo lojista.
  */
-export function slugify(nome: string): string {
-  return nome
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
+export { slugify } from "./slugify";

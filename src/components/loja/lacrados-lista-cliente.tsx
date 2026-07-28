@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Smartphone } from "lucide-react";
-import { slugify } from "@/services/lacrados/lacrados-publico.service";
+import { slugify } from "@/services/lacrados/slugify";
 import type { CatalogoLacradoModelo } from "@/types";
 
 type Modelo = Pick<CatalogoLacradoModelo, "id" | "nome" | "marca" | "fotos">;
