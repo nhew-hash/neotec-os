@@ -34,10 +34,10 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
         <>
           {slide.imagem_desktop_url && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={slide.imagem_desktop_url} alt="" className="absolute inset-0 hidden h-full w-full object-cover sm:block" />
+            <img src={slide.imagem_desktop_url} alt="" className="absolute inset-0 hidden h-full w-full bg-black object-contain sm:block" />
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={slide.imagem_mobile_url ?? slide.imagem_desktop_url ?? ""} alt="" className="absolute inset-0 h-full w-full object-cover sm:hidden" />
+          <img src={slide.imagem_mobile_url ?? slide.imagem_desktop_url ?? ""} alt="" className="absolute inset-0 h-full w-full bg-black object-contain sm:hidden" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />
         </>
       ) : (
