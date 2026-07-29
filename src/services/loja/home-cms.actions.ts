@@ -63,6 +63,7 @@ export async function uploadImagemHeroAction(formData: FormData): Promise<Action
   try {
     const arquivo = formData.get("arquivo") as File | null;
     if (!arquivo) return { success: false, error: "Nenhum arquivo enviado" };
+    if (arquivo.size > 8 * 1024 * 1024) return { success: false, error: "Imagem muito grande — máximo 8MB. Tenta comprimir ou usar uma versão menor." };
 
     const supabase = await createClient();
     const bytes = Buffer.from(await arquivo.arrayBuffer());

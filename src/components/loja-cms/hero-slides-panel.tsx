@@ -24,6 +24,7 @@ function SlideForm({ slide }: { slide: HeroSlide }) {
   const [isPending, startTransition] = useTransition();
   const [enviandoDesktop, setEnviandoDesktop] = useState(false);
   const [enviandoMobile, setEnviandoMobile] = useState(false);
+  const [erroUpload, setErroUpload] = useState<string | null>(null);
 
   function salvar(campo: keyof HeroSlide, valor: string | boolean | null) {
     startTransition(async () => {
@@ -35,12 +36,15 @@ function SlideForm({ slide }: { slide: HeroSlide }) {
   async function handleUpload(arquivo: File, tipo: "desktop" | "mobile") {
     const setLoading = tipo === "desktop" ? setEnviandoDesktop : setEnviandoMobile;
     setLoading(true);
+    setErroUpload(null);
     const formData = new FormData();
     formData.set("arquivo", arquivo);
     const result = await uploadImagemHeroAction(formData);
     setLoading(false);
     if (result.success) {
       salvar(tipo === "desktop" ? "imagem_desktop_url" : "imagem_mobile_url", result.data.url);
+    } else {
+      setErroUpload(result.error);
     }
   }
 
@@ -82,6 +86,8 @@ function SlideForm({ slide }: { slide: HeroSlide }) {
           </label>
         </div>
       </div>
+
+      {erroUpload && <p className="text-xs text-danger">{erroUpload}</p>}
 
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
