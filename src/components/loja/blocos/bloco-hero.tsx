@@ -29,7 +29,7 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
   const temImagem = Boolean(slide.imagem_desktop_url || slide.imagem_mobile_url);
 
   return (
-    <section className="relative flex min-h-[420px] items-center overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white px-4 py-24 text-center sm:min-h-[560px] sm:py-32">
+    <section className="relative flex aspect-[16/10] min-h-[420px] items-center overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white px-4 py-24 text-center sm:aspect-[16/5] sm:min-h-0 sm:py-32">
       {temImagem ? (
         <>
           {slide.imagem_desktop_url && (
