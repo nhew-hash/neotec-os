@@ -29,7 +29,7 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
   const temImagem = Boolean(slide.imagem_desktop_url || slide.imagem_mobile_url);
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white px-4 py-24 text-center sm:py-32">
+    <section className="relative flex min-h-[420px] items-center overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white px-4 py-24 text-center sm:min-h-[560px] sm:py-32">
       {temImagem ? (
         <>
           {slide.imagem_desktop_url && (
@@ -47,7 +47,7 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
         />
       )}
 
-      <div className="relative animate-reveal-up" key={slide.id}>
+      <div className="relative w-full animate-reveal-up" key={slide.id}>
         <h1 className={`mx-auto max-w-3xl font-display text-[2.75rem] font-semibold leading-[1.05] tracking-tight sm:text-7xl ${temImagem ? "text-white" : "text-foreground"}`}>
           {slide.titulo}
         </h1>
