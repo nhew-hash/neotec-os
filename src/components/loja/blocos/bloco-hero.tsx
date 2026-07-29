@@ -32,20 +32,12 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
     <section className="relative overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white px-4 py-24 text-center sm:py-32">
       {temImagem ? (
         <>
-          {/* Camada de fundo — mesma imagem, desfocada e ampliada, preenche todo o espaço sem faixa vazia */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={slide.imagem_desktop_url ?? slide.imagem_mobile_url ?? ""} alt="" aria-hidden className="absolute inset-0 hidden h-full w-full scale-110 object-cover blur-2xl sm:block" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={slide.imagem_mobile_url ?? slide.imagem_desktop_url ?? ""} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl sm:hidden" />
-
-          {/* Camada nítida — a imagem de verdade, inteira, sem cortar */}
           {slide.imagem_desktop_url && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={slide.imagem_desktop_url} alt="" className="absolute inset-0 hidden h-full w-full object-contain sm:block" />
+            <img src={slide.imagem_desktop_url} alt="" className="absolute inset-0 hidden h-full w-full object-cover sm:block" />
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={slide.imagem_mobile_url ?? slide.imagem_desktop_url ?? ""} alt="" className="absolute inset-0 h-full w-full object-contain sm:hidden" />
-
+          <img src={slide.imagem_mobile_url ?? slide.imagem_desktop_url ?? ""} alt="" className="absolute inset-0 h-full w-full object-cover sm:hidden" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />
         </>
       ) : (
