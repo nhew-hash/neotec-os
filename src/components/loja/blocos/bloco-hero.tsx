@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { HeroSlide } from "@/types";
 
 /**
@@ -11,6 +11,9 @@ import type { HeroSlide } from "@/types";
  * celular, paisagem no desktop), não é a mesma imagem redimensionada.
  * Sem imagem cadastrada, cai pro fundo com textura (mesmo tratamento
  * visual que a home já tinha antes do CMS existir).
+ *
+ * Navegação é só automática (troca sozinha a cada 6s) — sem setas nem
+ * pontinhos, pedido explícito pra deixar mais limpo.
  */
 export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
   const [indiceAtual, setIndiceAtual] = useState(0);
@@ -35,7 +38,7 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={slide.imagem_mobile_url ?? slide.imagem_desktop_url ?? ""} alt="" className="absolute inset-0 h-full w-full object-cover sm:hidden" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/25 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />
         </>
       ) : (
         <div
@@ -64,30 +67,6 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
           </div>
         )}
       </div>
-
-      {slides.length > 1 && (
-        <>
-          <button type="button" onClick={() => setIndiceAtual((i) => (i - 1 + slides.length) % slides.length)} className="absolute left-4 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 backdrop-blur hover:bg-white">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button type="button" onClick={() => setIndiceAtual((i) => (i + 1) % slides.length)} className="absolute right-4 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 backdrop-blur hover:bg-white">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          <div className="relative mt-8 flex items-center justify-center gap-2">
-            {slides.map((s, i) => (
-              <button
-                key={s.id} type="button" onClick={() => setIndiceAtual(i)}
-                aria-label={`Ver slide ${i + 1}`}
-                className={`h-2 rounded-full transition-all ${
-                  i === indiceAtual
-                    ? `w-7 ${temImagem ? "bg-white" : "bg-primary"}`
-                    : `w-2 ${temImagem ? "bg-white/40 hover:bg-white/60" : "bg-black/15 hover:bg-black/25"}`
-                }`}
-              />
-            ))}
-          </div>
-        </>
-      )}
     </section>
   );
 }
