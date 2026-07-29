@@ -27,6 +27,7 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
   if (slides.length === 0) return null;
   const slide = slides[indiceAtual];
   const temImagem = Boolean(slide.imagem_desktop_url || slide.imagem_mobile_url);
+  const temTextoSobreposto = Boolean(slide.titulo || slide.subtitulo || (slide.texto_botao && slide.link_botao));
 
   return (
     <section className="relative flex aspect-[16/10] min-h-[420px] items-center overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white px-4 py-24 text-center sm:aspect-[16/5] sm:min-h-0 sm:py-32">
@@ -38,7 +39,7 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={slide.imagem_mobile_url ?? slide.imagem_desktop_url ?? ""} alt="" className="absolute inset-0 h-full w-full object-cover sm:hidden" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />
+          {temTextoSobreposto && <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />}
         </>
       ) : (
         <div
@@ -48,9 +49,11 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
       )}
 
       <div className="relative w-full animate-reveal-up" key={slide.id}>
-        <h1 className={`mx-auto max-w-3xl font-display text-[2.75rem] font-semibold leading-[1.05] tracking-tight sm:text-7xl ${temImagem ? "text-white" : "text-foreground"}`}>
-          {slide.titulo}
-        </h1>
+        {slide.titulo && (
+          <h1 className={`mx-auto max-w-3xl font-display text-[2.75rem] font-semibold leading-[1.05] tracking-tight sm:text-7xl ${temImagem ? "text-white" : "text-foreground"}`}>
+            {slide.titulo}
+          </h1>
+        )}
         {slide.subtitulo && (
           <p className={`mx-auto mt-6 max-w-md text-[15px] leading-relaxed sm:text-lg ${temImagem ? "text-white/80" : "text-muted-foreground"}`}>
             {slide.subtitulo}
