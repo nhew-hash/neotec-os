@@ -3,9 +3,18 @@ import type { IdentificacaoPasta } from "./banco-imagens-ia.service";
 
 const BUCKET = "produtos-fotos";
 
+// Rede de segurança — mesma tradução ensinada no prompt da IA
+// (banco-imagens-ia.service.ts), mas aplicada aqui de forma
+// determinística também, caso a IA esqueça de traduzir em algum caso.
+const ALIAS_COR: Record<string, string> = {
+  estelar: "branco", starlight: "branco", prateado: "branco", silver: "branco",
+  "meia-noite": "preto", midnight: "preto", grafite: "preto", graphite: "preto",
+};
+
 function normalizar(valor: string | null): string | null {
   if (!valor) return null;
-  return valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const limpo = valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return ALIAS_COR[limpo] ?? limpo;
 }
 
 export interface GrupoImagem {
