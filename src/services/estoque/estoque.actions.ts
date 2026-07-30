@@ -196,3 +196,23 @@ export async function atualizarMostrarTradeInAction(produtoId: string, valor: bo
     return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar" };
   }
 }
+
+/** Apaga o aparelho de verdade — usado quando cadastro errado ou item que nunca deveria ter entrado no estoque. Sempre com confirmação na tela antes de chegar aqui. */
+export async function apagarAparelhoAction(id: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+
+    const { data: aparelho } = await supabase.from("aparelhos").select("status").eq("id", id).maybeSingle();
+    if (aparelho?.status === "vendido") {
+      return { success: false, error: "Não dá pra apagar aparelho já vendido — isso destruiria o histórico da venda." };
+    }
+
+    const { error } = await supabase.from("aparelhos").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    revalidatePath("/estoque");
+    revalidatePath("/loja", "layout");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao apagar aparelho" };
+  }
+}

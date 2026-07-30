@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Smartphone, Sparkles as SparklesIcon, Package } from "lucide-react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,7 @@ export interface ItemLojaVirtual {
   detalhe: string;
   preco: number | null;
   href: string;
+  hrefAdmin: string;
 }
 
 const LABEL_TIPO: Record<ItemLojaVirtual["tipo"], { label: string; icon: typeof Smartphone; cor: string }> = {
@@ -35,6 +37,7 @@ function labelCategoriaAdmin(categoria: string): string {
 
 /** Abas de categoria calculadas a partir do que EXISTE de verdade nos dados — categoria nova (JBL, videogame, o que vier) aparece sozinha, nunca precisa editar essa tela quando surge uma categoria nova. */
 export function LojaVirtualTabelaCliente({ itens }: { itens: ItemLojaVirtual[] }) {
+  const router = useRouter();
   const categorias = useMemo(() => {
     const contagem = new Map<string, number>();
     for (const item of itens) contagem.set(item.categoria, (contagem.get(item.categoria) ?? 0) + 1);
@@ -77,14 +80,14 @@ export function LojaVirtualTabelaCliente({ itens }: { itens: ItemLojaVirtual[] }
             {itensFiltrados.map((item, i) => {
               const tipo = LABEL_TIPO[item.tipo];
               return (
-                <TableRow key={i}>
+                <TableRow key={i} className="cursor-pointer hover:bg-secondary/50" onClick={() => router.push(item.hrefAdmin)}>
                   <TableCell><Badge className={tipo.cor}><tipo.icon className="h-3 w-3" />{tipo.label}</Badge></TableCell>
                   <TableCell className="font-medium text-foreground">{item.nome}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{item.detalhe}</TableCell>
                   <TableCell>{item.preco ? formatCurrency(item.preco) : "—"}</TableCell>
                   <TableCell>
                     {item.href !== "#" && (
-                      <Link href={item.href} target="_blank" className="text-xs font-medium text-primary hover:underline">Ver na loja →</Link>
+                      <Link href={item.href} target="_blank" onClick={(e) => e.stopPropagation()} className="text-xs font-medium text-primary hover:underline">Ver na loja →</Link>
                     )}
                   </TableCell>
                 </TableRow>

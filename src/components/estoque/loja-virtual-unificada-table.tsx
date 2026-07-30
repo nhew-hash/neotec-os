@@ -40,6 +40,7 @@ async function buscarItensLojaVirtual(): Promise<ItemLojaVirtual[]> {
       detalhe: [a.memoria, a.cor].filter(Boolean).join(" · "),
       preco: a.preco_venda,
       href: produto?.slug ? `/loja/produto/${produto.slug}` : "#",
+      hrefAdmin: `/estoque/aparelhos/${a.id}`,
     };
   });
 
@@ -53,6 +54,7 @@ async function buscarItensLojaVirtual(): Promise<ItemLojaVirtual[]> {
         detalhe: [v.armazenamento, v.cor].filter(Boolean).join(" · "),
         preco: v.preco_venda,
         href: `/loja/lacrados/${m.nome.toLowerCase().replace(/\s+/g, "-")}`,
+        hrefAdmin: `/estoque/lacrados`,
       }))
   );
 
@@ -63,6 +65,7 @@ async function buscarItensLojaVirtual(): Promise<ItemLojaVirtual[]> {
     detalhe: p.categoria,
     preco: p.preco_venda,
     href: p.slug ? `/loja/produto/${p.slug}` : "#",
+    hrefAdmin: `/estoque/produtos/${p.id}`,
   }));
 
   return [...itensSeminovo, ...itensLacrado, ...itensGenericos];

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { StatusAparelhoBadge } from "./status-badge";
 import { PublicarAparelhoButton } from "./publicar-aparelho-button";
+import { ApagarAparelhoButtonCompacto } from "./apagar-aparelho-button-compacto";
 import { formatCurrency } from "@/utils";
 import { podeVerCusto } from "@/utils/permissions";
 import type { CargoUsuario } from "@/types";
@@ -32,6 +33,7 @@ export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComPro
           <TableHead>Preço de venda</TableHead>
           {podeVerCustoAtual && <TableHead>Custo</TableHead>}
           <TableHead>Loja virtual</TableHead>
+          <TableHead></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -57,6 +59,9 @@ export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComPro
             )}
             <TableCell onClick={(e) => e.stopPropagation()}>
               <PublicarAparelhoButton aparelhoId={aparelho.id} publicado={aparelho.disponivel_loja_virtual} />
+            </TableCell>
+            <TableCell onClick={(e) => e.stopPropagation()}>
+              <ApagarAparelhoButtonCompacto aparelhoId={aparelho.id} />
             </TableCell>
           </TableRow>
         ))}

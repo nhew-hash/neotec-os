@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { FolderOpen, Loader2, Check, AlertCircle } from "lucide-react";
+import { FolderOpen, Loader2, Check, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { identificarPastaAction, importarPastaImagensAction } from "@/services/banco-imagens/banco-imagens.actions";
+import { identificarPastaAction, importarPastaImagensAction, revincularTudoAction } from "@/services/banco-imagens/banco-imagens.actions";
 import type { IdentificacaoPasta } from "@/services/banco-imagens/banco-imagens-ia.service";
 import type { GrupoImagem } from "@/services/banco-imagens/banco-imagens.service";
 
@@ -14,6 +14,22 @@ type InputComPasta = HTMLInputElement & { webkitdirectory?: boolean; directory?:
 export function ImportarPastaImagensPanel() {
   const inputRef = useRef<InputComPasta>(null);
   const [etapa, setEtapa] = useState<"ocioso" | "identificando" | "confirmando" | "importando" | "concluido">("ocioso");
+  const [revinculando, setRevinculando] = useState(false);
+  const [resultadoRevinculo, setResultadoRevinculo] = useState<string | null>(null);
+
+  async function handleRevincular() {
+    setRevinculando(true);
+    setResultadoRevinculo(null);
+    const result = await revincularTudoAction();
+    setRevinculando(false);
+    if (result.success) {
+      setResultadoRevinculo(
+        result.data.novosVinculos > 0
+          ? `${result.data.novosVinculos} vínculo(s) novo(s) encontrado(s) e aplicado(s).`
+          : "Tudo já estava vinculado — nenhum vínculo novo encontrado."
+      );
+    }
+  }
   const [nomePasta, setNomePasta] = useState("");
   const [arquivos, setArquivos] = useState<File[]>([]);
   const [identificacao, setIdentificacao] = useState<IdentificacaoPasta | null>(null);
@@ -87,10 +103,19 @@ export function ImportarPastaImagensPanel() {
   return (
     <Card>
       <CardContent className="flex flex-col gap-4 p-4">
-        <div>
-          <p className="text-sm font-medium text-foreground">Importar pasta de imagens</p>
-          <p className="text-xs text-muted-foreground">Nomeia a pasta como "Modelo Cor" (ex: "iPhone 13 Branco") — a IA identifica e vincula sozinha aos produtos correspondentes.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">Importar pasta de imagens</p>
+            <p className="text-xs text-muted-foreground">Nomeia a pasta como "Modelo Cor" (ex: "iPhone 13 Branco") — a IA identifica e vincula sozinha aos produtos correspondentes.</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={handleRevincular} disabled={revinculando} className="shrink-0">
+            {revinculando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {revinculando ? "Revinculando..." : "Revincular tudo"}
+          </Button>
         </div>
+        {resultadoRevinculo && (
+          <p className="flex items-center gap-1.5 text-xs text-success"><Check className="h-3.5 w-3.5" />{resultadoRevinculo}</p>
+        )}
 
         {etapa === "ocioso" && (
           <label className="flex w-fit cursor-pointer items-center gap-2 rounded-full border border-primary/40 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5">

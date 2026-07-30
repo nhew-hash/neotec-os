@@ -163,3 +163,64 @@ export async function importarPastaImagens(input: {
 
   return { grupoId, produtosVinculados };
 }
+
+/**
+ * Revincula TUDO — roda a mesma lógica de vinculação de novo pra cada
+ * grupo já existente, contra o estado ATUAL do catálogo. Resolve
+ * casos onde a variante certa não existia (ou tinha outro
+ * armazenamento) no momento da importação da foto, e por isso nunca
+ * vinculou. Nunca cria grupo novo nem apaga foto — só atualiza vínculo.
+ */
+export async function revincularTudo(): Promise<{ novosVinculos: number }> {
+  const supabase = await createClient();
+  const { data: grupos } = await supabase.from("banco_imagens_grupos").select("id, marca, modelo, cor, armazenamento");
+
+  let novosVinculos = 0;
+
+  for (const g of grupos ?? []) {
+    // Produtos genéricos e seminovos
+    const { data: produtosCandidatos } = await supabase.from("produtos").select("id, marca, modelo, nome, banco_imagens_grupo_id");
+    for (const p of produtosCandidatos ?? []) {
+      if (p.banco_imagens_grupo_id) continue; // já vinculado, não mexe
+      const nomeBate = normalizar(p.nome) === normalizar(g.modelo);
+      const marcaBate = normalizar(p.marca) === normalizar(g.marca) || !p.marca;
+      if (nomeBate && marcaBate) {
+        await supabase.from("produtos").update({ banco_imagens_grupo_id: g.id }).eq("id", p.id);
+        novosVinculos++;
+      }
+    }
+
+    // Aparelhos (seminovo) — por cor específica
+    if (g.cor) {
+      const { data: aparelhosCandidatos } = await supabase.from("aparelhos").select("id, cor, banco_imagens_grupo_id, produto:produtos!inner(nome, marca)");
+      for (const a of aparelhosCandidatos ?? []) {
+        if (a.banco_imagens_grupo_id) continue;
+        const produtoInfo = a.produto as unknown as { nome: string; marca: string | null };
+        const nomeBate = normalizar(produtoInfo.nome) === normalizar(g.modelo);
+        const corBate = normalizar(a.cor) === normalizar(g.cor);
+        if (nomeBate && corBate) {
+          await supabase.from("aparelhos").update({ banco_imagens_grupo_id: g.id }).eq("id", a.id);
+          novosVinculos++;
+        }
+      }
+    }
+
+    // Lacrado — por variante (modelo + cor, armazenamento nunca importa pra aparência)
+    if (g.cor) {
+      const { data: modelosLacrado } = await supabase.from("catalogo_lacrados_modelos").select("id, nome");
+      for (const m of modelosLacrado ?? []) {
+        if (normalizar(m.nome) !== normalizar(g.modelo)) continue;
+        const { data: variantesDoModelo } = await supabase.from("catalogo_lacrados_variantes").select("id, cor, banco_imagens_grupo_id").eq("modelo_id", m.id);
+        for (const v of variantesDoModelo ?? []) {
+          if (v.banco_imagens_grupo_id) continue; // já vinculado, não mexe
+          if (normalizar(v.cor) === normalizar(g.cor)) {
+            await supabase.from("catalogo_lacrados_variantes").update({ banco_imagens_grupo_id: g.id }).eq("id", v.id);
+            novosVinculos++;
+          }
+        }
+      }
+    }
+  }
+
+  return { novosVinculos };
+}

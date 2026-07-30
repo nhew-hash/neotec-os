@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { identificarPasta, type IdentificacaoPasta } from "./banco-imagens-ia.service";
-import { buscarGrupoExistente, importarPastaImagens, type GrupoImagem } from "./banco-imagens.service";
+import { buscarGrupoExistente, importarPastaImagens, revincularTudo, type GrupoImagem } from "./banco-imagens.service";
 import type { ActionResult } from "@/types";
 
 export async function identificarPastaAction(nomePasta: string): Promise<ActionResult<{ identificacao: IdentificacaoPasta; grupoExistente: GrupoImagem | null }>> {
@@ -38,5 +38,16 @@ export async function importarPastaImagensAction(formData: FormData): Promise<Ac
     return { success: true, data: resultado };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao importar a pasta" };
+  }
+}
+
+export async function revincularTudoAction(): Promise<ActionResult<{ novosVinculos: number }>> {
+  try {
+    const resultado = await revincularTudo();
+    revalidatePath("/estoque");
+    revalidatePath("/loja", "layout");
+    return { success: true, data: resultado };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao revincular" };
   }
 }

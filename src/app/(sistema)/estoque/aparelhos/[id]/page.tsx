@@ -3,6 +3,8 @@ import { buscarAparelhoPorId } from "@/services/estoque/estoque.service";
 import { ChecklistQualidade } from "@/components/estoque/checklist-qualidade";
 import { StatusAparelhoBadge } from "@/components/estoque/status-badge";
 import { UploadFotosProduto } from "@/components/estoque/upload-fotos-produto";
+import { PublicarAparelhoButton } from "@/components/estoque/publicar-aparelho-button";
+import { ApagarAparelhoButton } from "@/components/estoque/apagar-aparelho-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/utils";
 
@@ -20,7 +22,10 @@ export default async function AparelhoDetailPage({ params }: { params: Promise<{
           </h1>
           <p className="font-mono text-sm text-muted-foreground">IMEI {aparelho.imei}</p>
         </div>
-        <StatusAparelhoBadge status={aparelho.status} />
+        <div className="flex items-center gap-2">
+          <StatusAparelhoBadge status={aparelho.status} />
+          <PublicarAparelhoButton aparelhoId={aparelho.id} publicado={aparelho.disponivel_loja_virtual} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
@@ -42,6 +47,9 @@ export default async function AparelhoDetailPage({ params }: { params: Promise<{
               <Info label="Condição" value={aparelho.condicao} />
               <Info label="Entrada" value={formatDate(aparelho.data_entrada)} />
               <Info label="Peças substituídas" value={aparelho.pecas_substituidas?.length ? aparelho.pecas_substituidas.join(", ") : null} />
+            </div>
+            <div className="border-t border-border pt-3">
+              <ApagarAparelhoButton aparelhoId={aparelho.id} />
             </div>
           </CardContent>
         </Card>

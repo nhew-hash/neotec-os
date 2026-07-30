@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Upload, X, Star, Loader2 } from "lucide-react";
-import { uploadFotoProdutoAction, removerFotoProdutoAction } from "@/services/fotos-produto/fotos-produto.actions";
+import { uploadFotoProdutoAction, removerFotoProdutoAction, reordenarFotosProdutoAction } from "@/services/fotos-produto/fotos-produto.actions";
 
 interface UploadFotosProdutoProps {
   tabela: "produtos" | "aparelhos" | "catalogo_lacrados_modelos";
@@ -49,6 +49,18 @@ export function UploadFotosProduto({ tabela, itemId, fotosIniciais }: UploadFoto
     }
   }
 
+  async function handleDefinirCapa(url: string) {
+    setErro(null);
+    const fotosAntes = fotos;
+    const novasFotos = [url, ...fotos.filter((f) => f !== url)];
+    setFotos(novasFotos); // otimista
+    const result = await reordenarFotosProdutoAction(tabela, itemId, novasFotos);
+    if (!result.success) {
+      setFotos(fotosAntes); // desfaz se der erro
+      setErro(result.error);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs font-medium text-muted-foreground">Fotos reais — a primeira é a capa mostrada na loja</p>
@@ -58,10 +70,18 @@ export function UploadFotosProduto({ tabela, itemId, fotosIniciais }: UploadFoto
           <div key={url} className="group relative h-20 w-20 overflow-hidden rounded-lg border border-border">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={url} alt="" className="h-full w-full object-cover" />
-            {i === 0 && (
+            {i === 0 ? (
               <span className="absolute left-1 top-1 flex items-center gap-0.5 rounded-full bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold text-white">
                 <Star className="h-2.5 w-2.5 fill-current" />Capa
               </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleDefinirCapa(url)}
+                className="absolute left-1 top-1 flex items-center gap-0.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
+              >
+                <Star className="h-2.5 w-2.5" />Definir capa
+              </button>
             )}
             <button
               type="button"
