@@ -1,10 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { processarFollowupsDeVenda } from "@/services/ia/followup-vendas.service";
+import { processarRetiradasAgendadas } from "@/services/estoque/estoque.actions";
 
 /**
  * Chamada pelo Vercel Cron (ver vercel.json) — nunca pelo navegador.
  * Autenticada pelo header que a própria Vercel envia quando CRON_SECRET
  * está configurada (não é uma rota pública, mesmo sem sessão de usuário).
+ *
+ * Também processa retiradas agendadas da loja (Fase 148) — junto
+ * nessa mesma rota diária, pra não precisar de um segundo cron no
+ * plano gratuito da Vercel (limite de 2, e não vale a pena gastar o
+ * segundo com algo que também pode rodar 1x por dia).
  */
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -16,7 +22,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const resultado = await processarFollowupsDeVenda();
-    return NextResponse.json({ ok: true, ...resultado });
+    const retiradas = await processarRetiradasAgendadas();
+    return NextResponse.json({ ok: true, ...resultado, retiradas });
   } catch (err) {
     console.error("Falha ao processar follow-ups de venda:", err);
     return NextResponse.json(

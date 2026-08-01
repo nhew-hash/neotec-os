@@ -166,6 +166,7 @@ export interface Produto {
   selos_manuais: string[];
   fotos: string[];
   mostrar_trade_in: boolean;
+  retirar_em: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -205,6 +206,7 @@ export interface Aparelho {
   preco_liquido_desejado: number | null;
   fotos: string[];
   mostrar_trade_in: boolean;
+  retirar_em: string | null;
   data_entrada: string;
   updated_at: string;
 }
@@ -1069,6 +1071,7 @@ export interface ConfiguracaoPrecificacao {
   modo_juros: "repassar_juros" | "embutir_juros";
   desconto_pix_percentual: number;
   cashback_percentual_padrao: number;
+  whatsapp_notificacao_staff: string | null;
   gateway_referencia: string;
   updated_at: string;
 }

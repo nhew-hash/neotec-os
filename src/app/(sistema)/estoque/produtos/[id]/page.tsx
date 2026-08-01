@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { buscarProdutoPorId } from "@/services/estoque/estoque.service";
 import { UploadFotosProduto } from "@/components/estoque/upload-fotos-produto";
 import { ToggleTradeIn } from "@/components/estoque/toggle-trade-in";
+import { RetirarDaLojaButton } from "@/components/estoque/retirar-da-loja-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/utils";
@@ -19,6 +20,7 @@ export default async function ProdutoDetailPage({ params }: { params: Promise<{ 
           <p className="text-sm text-muted-foreground">{produto.marca} {produto.modelo}</p>
         </div>
         <Badge variant={produto.visivel_loja ? "success" : "secondary"}>{produto.visivel_loja ? "Publicado" : "Não publicado"}</Badge>
+        <RetirarDaLojaButton tipo="produto" itemId={produto.id} publicadoAgora={produto.visivel_loja} retirarEmAtual={produto.retirar_em} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">

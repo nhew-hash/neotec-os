@@ -10,7 +10,7 @@ function revalidar() {
 }
 
 export async function atualizarConfigPrecificacaoAction(
-  input: Partial<Pick<ConfiguracaoPrecificacao, "modo_juros" | "desconto_pix_percentual" | "cashback_percentual_padrao">>
+  input: Partial<Pick<ConfiguracaoPrecificacao, "modo_juros" | "desconto_pix_percentual" | "cashback_percentual_padrao" | "whatsapp_notificacao_staff">>
 ): Promise<ActionResult> {
   try {
     await atualizarConfigPrecificacao(input);

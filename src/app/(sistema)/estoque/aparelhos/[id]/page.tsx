@@ -5,6 +5,7 @@ import { StatusAparelhoBadge } from "@/components/estoque/status-badge";
 import { UploadFotosProduto } from "@/components/estoque/upload-fotos-produto";
 import { PublicarAparelhoButton } from "@/components/estoque/publicar-aparelho-button";
 import { ApagarAparelhoButton } from "@/components/estoque/apagar-aparelho-button";
+import { RetirarDaLojaButton } from "@/components/estoque/retirar-da-loja-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/utils";
 
@@ -25,6 +26,7 @@ export default async function AparelhoDetailPage({ params }: { params: Promise<{
         <div className="flex items-center gap-2">
           <StatusAparelhoBadge status={aparelho.status} />
           <PublicarAparelhoButton aparelhoId={aparelho.id} publicado={aparelho.disponivel_loja_virtual} />
+          <RetirarDaLojaButton tipo="aparelho" itemId={aparelho.id} publicadoAgora={aparelho.disponivel_loja_virtual} retirarEmAtual={aparelho.retirar_em} />
         </div>
       </div>
 

@@ -216,3 +216,105 @@ export async function apagarAparelhoAction(id: string): Promise<ActionResult> {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao apagar aparelho" };
   }
 }
+
+/** Processa retiradas agendadas — chamado pelo cron diário. Despublica sozinho todo item cuja data de retirada já chegou. */
+export async function processarRetiradasAgendadas(): Promise<{ produtos: number; aparelhos: number }> {
+  const supabase = await createClient();
+  const agora = new Date().toISOString();
+
+  const { data: produtosRetirados } = await supabase
+    .from("produtos")
+    .update({ visivel_loja: false, retirar_em: null })
+    .lte("retirar_em", agora)
+    .not("retirar_em", "is", null)
+    .select("id");
+
+  const { data: aparelhosRetirados } = await supabase
+    .from("aparelhos")
+    .update({ disponivel_loja_virtual: false, retirar_em: null })
+    .lte("retirar_em", agora)
+    .not("retirar_em", "is", null)
+    .select("id");
+
+  return { produtos: produtosRetirados?.length ?? 0, aparelhos: aparelhosRetirados?.length ?? 0 };
+}
+
+/** Agenda ou cancela a retirada de um produto — usado pelos botões "Retirar agora" (imediato, chama diretamente a action de despublicar) e "Retirar em 1 dia útil" (agenda, cron processa depois). */
+export async function agendarRetiradaProdutoAction(produtoId: string, diasUteis: number | null): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const retirarEm = diasUteis == null ? null : calcularDataDiasUteis(diasUteis);
+    const { error } = await supabase.from("produtos").update({ retirar_em: retirarEm }).eq("id", produtoId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/estoque");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao agendar" };
+  }
+}
+
+export async function agendarRetiradaAparelhoAction(aparelhoId: string, diasUteis: number | null): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const retirarEm = diasUteis == null ? null : calcularDataDiasUteis(diasUteis);
+    const { error } = await supabase.from("aparelhos").update({ retirar_em: retirarEm }).eq("id", aparelhoId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/estoque");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao agendar" };
+  }
+}
+
+/** Soma dias ÚTEIS (pula sábado e domingo) a partir de agora — "1 dia útil" numa sexta vira segunda, não sábado. */
+function calcularDataDiasUteis(dias: number): string {
+  const data = new Date();
+  let restantes = dias;
+  while (restantes > 0) {
+    data.setDate(data.getDate() + 1);
+    const diaSemana = data.getDay(); // 0=domingo, 6=sábado
+    if (diaSemana !== 0 && diaSemana !== 6) restantes--;
+  }
+  return data.toISOString();
+}
+
+/** Retirar da loja AGORA — despublica na hora, cancela qualquer retirada agendada que existisse. */
+export async function retirarProdutoDaLojaAction(produtoId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("produtos").update({ visivel_loja: false, retirar_em: null }).eq("id", produtoId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/estoque");
+    revalidatePath("/loja", "layout");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao retirar" };
+  }
+}
+
+export async function retirarAparelhoDaLojaAction(aparelhoId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("aparelhos").update({ disponivel_loja_virtual: false, retirar_em: null }).eq("id", aparelhoId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/estoque");
+    revalidatePath("/loja", "layout");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao retirar" };
+  }
+}
+
+/** Corrige categoria manualmente — útil quando a IA classificou errado (Central de Cadastro pode errar categoria nova, tipo "jbl" vs "acessorio"). */
+export async function atualizarCategoriaProdutoAction(produtoId: string, categoria: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("produtos").update({ categoria }).eq("id", produtoId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/estoque");
+    revalidatePath("/loja", "layout");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar categoria" };
+  }
+}

@@ -14,11 +14,12 @@ export function PrecificacaoPanel({ config: configInicial, taxas: taxasIniciais 
   const [modoJuros, setModoJuros] = useState(configInicial.modo_juros);
   const [descontoPix, setDescontoPix] = useState(configInicial.desconto_pix_percentual);
   const [cashbackPercentual, setCashbackPercentual] = useState(configInicial.cashback_percentual_padrao);
+  const [whatsappStaff, setWhatsappStaff] = useState(configInicial.whatsapp_notificacao_staff ?? "");
   const [taxas, setTaxas] = useState(taxasIniciais);
   const [simuladorPreco, setSimuladorPreco] = useState(7400);
   const [simuladorCusto, setSimuladorCusto] = useState(5000);
 
-  function salvarConfig(input: Partial<Pick<ConfiguracaoPrecificacao, "modo_juros" | "desconto_pix_percentual" | "cashback_percentual_padrao">>) {
+  function salvarConfig(input: Partial<Pick<ConfiguracaoPrecificacao, "modo_juros" | "desconto_pix_percentual" | "cashback_percentual_padrao" | "whatsapp_notificacao_staff">>) {
     atualizarConfigPrecificacaoAction(input).then(() => router.refresh());
   }
 
@@ -74,6 +75,21 @@ export function PrecificacaoPanel({ config: configInicial, taxas: taxasIniciais 
             <div className="flex items-center gap-2">
               <Input type="number" step="0.1" value={cashbackPercentual} onChange={(e) => setCashbackPercentual(Number(e.target.value) || 0)} onBlur={(e) => salvarConfig({ cashback_percentual_padrao: Number(e.target.value) || 0 })} className="w-24" />
               <span className="text-sm text-muted-foreground">% que o cliente recebe de volta em saldo, em toda compra (padrão — dá pra sobrescrever por produto)</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Notificação de pedido e trade-in</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Input
+                type="tel" placeholder="41999999999" value={whatsappStaff}
+                onChange={(e) => setWhatsappStaff(e.target.value)}
+                onBlur={(e) => salvarConfig({ whatsapp_notificacao_staff: e.target.value.trim() || null })}
+                className="w-48"
+              />
+              <span className="text-sm text-muted-foreground">Número (com DDD, sem +55) que recebe aviso automático no WhatsApp toda vez que entrar pedido novo ou solicitação de trade-in. Deixa vazio pra desligar.</span>
             </div>
           </CardContent>
         </Card>

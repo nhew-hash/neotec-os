@@ -185,6 +185,23 @@ export class PaymentService {
         p_origem_tipo: "venda", p_origem_id: venda.id, p_usuario_id: null,
       });
 
+      // Avisa a equipe por WhatsApp que entrou pedido novo — melhor
+      // esforço, nunca derruba a aprovação do pagamento se falhar.
+      try {
+        const { data: config } = await supabase.from("configuracoes_precificacao").select("whatsapp_notificacao_staff").limit(1).maybeSingle();
+        if (config?.whatsapp_notificacao_staff) {
+          const { getActiveProvider } = await import("@/services/whatsapp/providers/provider-resolver");
+          const { paraFormatoInternacionalBR } = await import("@/utils/telefone");
+          const provider = await getActiveProvider();
+          await provider.enviarTexto(
+            paraFormatoInternacionalBR(config.whatsapp_notificacao_staff),
+            `🛒 *Novo pedido* aprovado na loja!\n\n*Cliente:* ${pedido.nome_contato}\n*Telefone:* ${pedido.telefone_contato}\n*Valor:* ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(pedido.valor_total)}`
+          );
+        }
+      } catch (erroWhatsapp) {
+        console.error("Falha ao notificar staff sobre pedido novo (não bloqueia a venda):", erroWhatsapp);
+      }
+
       // Cashback — checkout online nunca creditava isso antes, só o
       // PDV manual fazia. Pedido sem cliente vinculado (guest
       // checkout) simplesmente não tem pra quem creditar, segue sem erro.

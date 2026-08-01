@@ -3,11 +3,14 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Smartphone, Sparkles as SparklesIcon, Package } from "lucide-react";
+import { Smartphone, Sparkles as SparklesIcon, Package, Pencil, Check, X } from "lucide-react";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatCurrency } from "@/utils";
+import { atualizarCategoriaProdutoAction } from "@/services/estoque/estoque.actions";
+
+const CATEGORIAS_DISPONIVEIS = ["iphone", "android", "apple_watch", "ipad", "mac", "acessorio", "tablet", "jbl", "videogame"];
 
 export interface ItemLojaVirtual {
   tipo: "seminovo" | "lacrado" | "produto";
@@ -17,6 +20,7 @@ export interface ItemLojaVirtual {
   preco: number | null;
   href: string;
   hrefAdmin: string;
+  produtoId: string | null; // null pra lacrado — não tem categoria editável
 }
 
 const LABEL_TIPO: Record<ItemLojaVirtual["tipo"], { label: string; icon: typeof Smartphone; cor: string }> = {
@@ -33,6 +37,45 @@ function labelCategoriaAdmin(categoria: string): string {
   // Categoria nova que a IA criou (ex: "jbl", "videogame") — capitaliza
   // e mostra do jeito que foi salva, sem precisar cadastrar rótulo antes.
   return conhecidas[categoria] ?? categoria.charAt(0).toUpperCase() + categoria.slice(1).replace(/_/g, " ");
+}
+
+/** Corrige categoria direto na tabela — útil quando a IA classificou errado (Fase 149, pedido explícito pra corrigir sem precisar abrir o item). */
+function EditorCategoriaInline({ produtoId, categoriaAtual }: { produtoId: string; categoriaAtual: string }) {
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState(categoriaAtual);
+  const [categoriaExibida, setCategoriaExibida] = useState(categoriaAtual);
+  const [salvando, setSalvando] = useState(false);
+
+  async function handleSalvar() {
+    setSalvando(true);
+    const result = await atualizarCategoriaProdutoAction(produtoId, valor);
+    setSalvando(false);
+    if (result.success) {
+      setCategoriaExibida(valor);
+      setEditando(false);
+    }
+  }
+
+  if (editando) {
+    return (
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <select value={valor} onChange={(e) => setValor(e.target.value)} className="rounded border border-border bg-white px-1.5 py-0.5 text-xs">
+          {CATEGORIAS_DISPONIVEIS.map((c) => (
+            <option key={c} value={c}>{labelCategoriaAdmin(c)}</option>
+          ))}
+          {!CATEGORIAS_DISPONIVEIS.includes(categoriaExibida) && <option value={categoriaExibida}>{labelCategoriaAdmin(categoriaExibida)}</option>}
+        </select>
+        <button type="button" onClick={handleSalvar} disabled={salvando} className="text-success hover:opacity-70"><Check className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={() => { setEditando(false); setValor(categoriaExibida); }} className="text-muted-foreground hover:opacity-70"><X className="h-3.5 w-3.5" /></button>
+      </div>
+    );
+  }
+
+  return (
+    <button type="button" onClick={(e) => { e.stopPropagation(); setEditando(true); }} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+      {labelCategoriaAdmin(categoriaExibida)}<Pencil className="h-2.5 w-2.5" />
+    </button>
+  );
 }
 
 /** Abas de categoria calculadas a partir do que EXISTE de verdade nos dados — categoria nova (JBL, videogame, o que vier) aparece sozinha, nunca precisa editar essa tela quando surge uma categoria nova. */
@@ -71,6 +114,7 @@ export function LojaVirtualTabelaCliente({ itens }: { itens: ItemLojaVirtual[] }
             <TableRow>
               <TableHead>Tipo</TableHead>
               <TableHead>Nome</TableHead>
+              <TableHead>Categoria</TableHead>
               <TableHead>Detalhe</TableHead>
               <TableHead>Preço</TableHead>
               <TableHead></TableHead>
@@ -83,6 +127,13 @@ export function LojaVirtualTabelaCliente({ itens }: { itens: ItemLojaVirtual[] }
                 <TableRow key={i} className="cursor-pointer hover:bg-secondary/50" onClick={() => router.push(item.hrefAdmin)}>
                   <TableCell><Badge className={tipo.cor}><tipo.icon className="h-3 w-3" />{tipo.label}</Badge></TableCell>
                   <TableCell className="font-medium text-foreground">{item.nome}</TableCell>
+                  <TableCell>
+                    {item.produtoId ? (
+                      <EditorCategoriaInline produtoId={item.produtoId} categoriaAtual={item.categoria} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{labelCategoriaAdmin(item.categoria)}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{item.detalhe}</TableCell>
                   <TableCell>{item.preco ? formatCurrency(item.preco) : "—"}</TableCell>
                   <TableCell>

@@ -13,7 +13,7 @@ async function buscarItensLojaVirtual(): Promise<ItemLojaVirtual[]> {
   const [{ data: aparelhos }, { data: modelos }, { data: produtosGenericos }] = await Promise.all([
     supabase
       .from("aparelhos")
-      .select("id, cor, memoria, preco_venda, produto:produtos!inner(nome, slug, categoria)")
+      .select("id, cor, memoria, preco_venda, produto:produtos!inner(id, nome, slug, categoria)")
       .eq("disponivel_loja_virtual", true)
       .eq("status", "disponivel"),
     supabase
@@ -32,7 +32,7 @@ async function buscarItensLojaVirtual(): Promise<ItemLojaVirtual[]> {
   ]);
 
   const itensSeminovo: ItemLojaVirtual[] = (aparelhos ?? []).map((a) => {
-    const produto = a.produto as unknown as { nome: string; slug: string | null; categoria: string };
+    const produto = a.produto as unknown as { id: string; nome: string; slug: string | null; categoria: string };
     return {
       tipo: "seminovo",
       categoria: produto?.categoria ?? "iphone",
@@ -41,6 +41,7 @@ async function buscarItensLojaVirtual(): Promise<ItemLojaVirtual[]> {
       preco: a.preco_venda,
       href: produto?.slug ? `/loja/produto/${produto.slug}` : "#",
       hrefAdmin: `/estoque/aparelhos/${a.id}`,
+      produtoId: produto?.id ?? null,
     };
   });
 
@@ -55,6 +56,7 @@ async function buscarItensLojaVirtual(): Promise<ItemLojaVirtual[]> {
         preco: v.preco_venda,
         href: `/loja/lacrados/${m.nome.toLowerCase().replace(/\s+/g, "-")}`,
         hrefAdmin: `/estoque/lacrados`,
+        produtoId: null,
       }))
   );
 
@@ -66,6 +68,7 @@ async function buscarItensLojaVirtual(): Promise<ItemLojaVirtual[]> {
     preco: p.preco_venda,
     href: p.slug ? `/loja/produto/${p.slug}` : "#",
     hrefAdmin: `/estoque/produtos/${p.id}`,
+    produtoId: p.id,
   }));
 
   return [...itensSeminovo, ...itensLacrado, ...itensGenericos];
