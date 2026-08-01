@@ -193,10 +193,13 @@ export class PaymentService {
           const { getActiveProvider } = await import("@/services/whatsapp/providers/provider-resolver");
           const { paraFormatoInternacionalBR } = await import("@/utils/telefone");
           const provider = await getActiveProvider();
-          await provider.enviarTexto(
+          const resultadoEnvio = await provider.enviarTexto(
             paraFormatoInternacionalBR(config.whatsapp_notificacao_staff),
             `🛒 *Novo pedido* aprovado na loja!\n\n*Cliente:* ${pedido.nome_contato}\n*Telefone:* ${pedido.telefone_contato}\n*Valor:* ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(pedido.valor_total)}`
           );
+          if (!resultadoEnvio.enviado) {
+            console.error("WhatsApp de pedido novo não foi entregue:", resultadoEnvio.motivo);
+          }
         }
       } catch (erroWhatsapp) {
         console.error("Falha ao notificar staff sobre pedido novo (não bloqueia a venda):", erroWhatsapp);

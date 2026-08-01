@@ -96,10 +96,11 @@ export async function criarOSAction(formData: FormData): Promise<ActionResult<{ 
         const { getActiveProvider } = await import("@/services/whatsapp/providers/provider-resolver");
         const { paraFormatoInternacionalBR } = await import("@/utils/telefone");
         const provider = await getActiveProvider();
-        await provider.enviarTexto(
+        const resultadoEnvio = await provider.enviarTexto(
           paraFormatoInternacionalBR(cliente.whatsapp),
           `Olá, ${cliente.nome.split(" ")[0]}! Sua OS *${os.numero_os}* foi aberta na Neotec.\n\nDefeito relatado: ${parsed.data.defeito}\n\nAcompanhe pelo link: ${process.env.NEXT_PUBLIC_SITE_URL ?? "https://neotecbrasil.com"}/consultar-os?numero=${os.numero_os}`
         );
+        if (!resultadoEnvio.enviado) console.error("WhatsApp de abertura de OS não foi entregue:", resultadoEnvio.motivo);
       }
     } catch (erroWhatsapp) {
       console.error("Falha ao enviar WhatsApp de abertura de OS (não bloqueia a criação):", erroWhatsapp);

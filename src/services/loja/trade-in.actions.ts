@@ -40,10 +40,13 @@ export async function criarTradeInAction(input: {
         const { getActiveProvider } = await import("@/services/whatsapp/providers/provider-resolver");
         const { paraFormatoInternacionalBR } = await import("@/utils/telefone");
         const provider = await getActiveProvider();
-        await provider.enviarTexto(
+        const resultadoEnvio = await provider.enviarTexto(
           paraFormatoInternacionalBR(config.whatsapp_notificacao_staff),
           `📲 *Novo trade-in* na loja!\n\n*Cliente:* ${input.nomeContato}\n*Telefone:* ${input.telefoneContato}\n*Aparelho:* ${input.modeloAparelho}${input.armazenamento ? ` (${input.armazenamento})` : ""}${input.condicaoRelatada ? `\n*Condição relatada:* ${input.condicaoRelatada}` : ""}`
         );
+        if (!resultadoEnvio.enviado) {
+          console.error("WhatsApp de trade-in não foi entregue:", resultadoEnvio.motivo);
+        }
       }
     } catch (erroWhatsapp) {
       console.error("Falha ao notificar staff sobre trade-in (não bloqueia a submissão):", erroWhatsapp);

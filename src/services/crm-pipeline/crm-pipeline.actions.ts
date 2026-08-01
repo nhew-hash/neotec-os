@@ -43,10 +43,11 @@ export async function moverCardEtapaAction(cardId: string, etapaId: string): Pro
         const { getActiveProvider } = await import("@/services/whatsapp/providers/provider-resolver");
         const { paraFormatoInternacionalBR } = await import("@/utils/telefone");
         const provider = await getActiveProvider();
-        await provider.enviarTexto(
+        const resultadoEnvio = await provider.enviarTexto(
           paraFormatoInternacionalBR(cliente.whatsapp),
           `Olá, ${cliente.nome.split(" ")[0]}! Seu atendimento na Neotec avançou pra etapa: *${etapa.nome}*.`
         );
+        if (!resultadoEnvio.enviado) console.error("WhatsApp de mudança de etapa não foi entregue:", resultadoEnvio.motivo);
       }
     } catch (erroWhatsapp) {
       console.error("Falha ao enviar WhatsApp de mudança de etapa (não bloqueia a movimentação):", erroWhatsapp);
