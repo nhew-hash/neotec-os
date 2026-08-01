@@ -30,7 +30,7 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
   const temTextoSobreposto = Boolean(slide.titulo || slide.subtitulo || (slide.texto_botao && slide.link_botao));
 
   return (
-    <section className="relative flex aspect-[16/10] min-h-[420px] items-center overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white px-4 py-24 text-center sm:aspect-[16/5] sm:min-h-0 sm:py-32">
+    <section className="relative flex aspect-[4/5] items-center overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white px-4 py-16 text-center sm:aspect-[16/5] sm:py-32">
       {temImagem ? (
         <>
           {slide.imagem_desktop_url && (
