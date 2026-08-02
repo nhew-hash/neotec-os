@@ -209,21 +209,34 @@ export async function preverSubstituicaoAction(itens: ItemParaSubstituicao[]): P
     const supabase = await createClient();
     const chavesNovaLista = new Set(itens.map((i) => chaveIdentidade(i.modelo, i.memoria, i.cor)));
 
-    const { data: aparelhosAtuais } = await supabase
-      .from("aparelhos")
-      .select("id, cor, memoria, produto:produtos!inner(nome)")
-      .eq("origem_entrada", "fornecedor")
-      .eq("status", "disponivel");
+    // Escopo por tipo — CRÍTICO: se a lista colada é só de um tipo
+    // (ex: só lacrado), nunca mexe no outro tipo. Sem isso, colar uma
+    // lista só de lacrado apagaria TODO o estoque seminovo (nada nele
+    // bateria com a lista, então tudo pareceria "removido").
+    const temSeminovoNaLista = itens.some((i) => i.destino === "seminovo");
+    const temLacradoNaLista = itens.some((i) => i.destino === "lacrado");
 
-    const seminovosParaApagar = (aparelhosAtuais ?? []).filter((a) => {
-      const nomeModelo = (a.produto as unknown as { nome: string })?.nome ?? "";
-      return !chavesNovaLista.has(chaveIdentidade(nomeModelo, a.memoria, a.cor));
-    }).length;
+    let seminovosParaApagar = 0;
+    if (temSeminovoNaLista) {
+      const { data: aparelhosAtuais } = await supabase
+        .from("aparelhos")
+        .select("id, cor, memoria, produto:produtos!inner(nome)")
+        .eq("origem_entrada", "fornecedor")
+        .eq("status", "disponivel");
 
-    const catalogo = await listarLacradosComVariantes();
-    const lacradosParaZerar = catalogo
-      .flatMap((m) => m.variantes.map((v) => ({ modelo: m.nome, memoria: v.armazenamento, cor: v.cor, quantidade: v.quantidade })))
-      .filter((v) => v.quantidade > 0 && !chavesNovaLista.has(chaveIdentidade(v.modelo, v.memoria, v.cor))).length;
+      seminovosParaApagar = (aparelhosAtuais ?? []).filter((a) => {
+        const nomeModelo = (a.produto as unknown as { nome: string })?.nome ?? "";
+        return !chavesNovaLista.has(chaveIdentidade(nomeModelo, a.memoria, a.cor));
+      }).length;
+    }
+
+    let lacradosParaZerar = 0;
+    if (temLacradoNaLista) {
+      const catalogo = await listarLacradosComVariantes();
+      lacradosParaZerar = catalogo
+        .flatMap((m) => m.variantes.map((v) => ({ modelo: m.nome, memoria: v.armazenamento, cor: v.cor, quantidade: v.quantidade })))
+        .filter((v) => v.quantidade > 0 && !chavesNovaLista.has(chaveIdentidade(v.modelo, v.memoria, v.cor))).length;
+    }
 
     return { success: true, data: { seminovosParaApagar, lacradosParaZerar } };
   } catch (err) {
@@ -241,30 +254,41 @@ export async function substituirListaFornecedorAction(itens: ItemParaSubstituica
     const supabase = await createClient();
     const chavesNovaLista = new Set(itens.map((i) => chaveIdentidade(i.modelo, i.memoria, i.cor)));
 
-    const { data: aparelhosAtuais } = await supabase
-      .from("aparelhos")
-      .select("id, cor, memoria, produto:produtos!inner(nome)")
-      .eq("origem_entrada", "fornecedor")
-      .eq("status", "disponivel");
+    // Mesmo escopo por tipo da prévia — nunca mexe num tipo que não
+    // está presente na lista colada.
+    const temSeminovoNaLista = itens.some((i) => i.destino === "seminovo");
+    const temLacradoNaLista = itens.some((i) => i.destino === "lacrado");
 
-    const idsParaApagar = (aparelhosAtuais ?? [])
-      .filter((a) => {
-        const nomeModelo = (a.produto as unknown as { nome: string })?.nome ?? "";
-        return !chavesNovaLista.has(chaveIdentidade(nomeModelo, a.memoria, a.cor));
-      })
-      .map((a) => a.id);
+    let idsParaApagar: string[] = [];
+    if (temSeminovoNaLista) {
+      const { data: aparelhosAtuais } = await supabase
+        .from("aparelhos")
+        .select("id, cor, memoria, produto:produtos!inner(nome)")
+        .eq("origem_entrada", "fornecedor")
+        .eq("status", "disponivel");
 
-    if (idsParaApagar.length > 0) {
-      await supabase.from("aparelhos").delete().in("id", idsParaApagar);
+      idsParaApagar = (aparelhosAtuais ?? [])
+        .filter((a) => {
+          const nomeModelo = (a.produto as unknown as { nome: string })?.nome ?? "";
+          return !chavesNovaLista.has(chaveIdentidade(nomeModelo, a.memoria, a.cor));
+        })
+        .map((a) => a.id);
+
+      if (idsParaApagar.length > 0) {
+        await supabase.from("aparelhos").delete().in("id", idsParaApagar);
+      }
     }
 
-    const catalogo = await listarLacradosComVariantes();
-    const variantesParaZerar = catalogo
-      .flatMap((m) => m.variantes.map((v) => ({ id: v.id, modelo: m.nome, memoria: v.armazenamento, cor: v.cor, quantidade: v.quantidade })))
-      .filter((v) => v.quantidade > 0 && !chavesNovaLista.has(chaveIdentidade(v.modelo, v.memoria, v.cor)));
+    let variantesParaZerar: { id: string }[] = [];
+    if (temLacradoNaLista) {
+      const catalogo = await listarLacradosComVariantes();
+      variantesParaZerar = catalogo
+        .flatMap((m) => m.variantes.map((v) => ({ id: v.id, modelo: m.nome, memoria: v.armazenamento, cor: v.cor, quantidade: v.quantidade })))
+        .filter((v) => v.quantidade > 0 && !chavesNovaLista.has(chaveIdentidade(v.modelo, v.memoria, v.cor)));
 
-    for (const v of variantesParaZerar) {
-      await supabase.from("catalogo_lacrados_variantes").update({ quantidade: 0 }).eq("id", v.id);
+      for (const v of variantesParaZerar) {
+        await supabase.from("catalogo_lacrados_variantes").update({ quantidade: 0 }).eq("id", v.id);
+      }
     }
 
     revalidatePath("/estoque");

@@ -8,7 +8,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatCurrency } from "@/utils";
-import { atualizarCategoriaProdutoAction } from "@/services/estoque/estoque.actions";
+import { atualizarCategoriaProdutoAction, despublicarTudoLojaVirtualAction } from "@/services/estoque/estoque.actions";
 
 const CATEGORIAS_DISPONIVEIS = ["iphone", "android", "apple_watch", "ipad", "mac", "acessorio", "tablet", "jbl", "videogame"];
 
@@ -81,6 +81,20 @@ function EditorCategoriaInline({ produtoId, categoriaAtual }: { produtoId: strin
 /** Abas de categoria calculadas a partir do que EXISTE de verdade nos dados — categoria nova (JBL, videogame, o que vier) aparece sozinha, nunca precisa editar essa tela quando surge uma categoria nova. */
 export function LojaVirtualTabelaCliente({ itens }: { itens: ItemLojaVirtual[] }) {
   const router = useRouter();
+  const [confirmandoDespublicar, setConfirmandoDespublicar] = useState(false);
+  const [despublicando, setDespublicando] = useState(false);
+  const [resultadoDespublicar, setResultadoDespublicar] = useState<string | null>(null);
+
+  async function handleDespublicarTudo() {
+    setDespublicando(true);
+    const result = await despublicarTudoLojaVirtualAction();
+    setDespublicando(false);
+    setConfirmandoDespublicar(false);
+    if (result.success) {
+      setResultadoDespublicar(`Despublicado: ${result.data.aparelhos} aparelho(s), ${result.data.produtos} produto(s), ${result.data.lacrados} variante(s) de lacrado.`);
+    }
+  }
+
   const categorias = useMemo(() => {
     const contagem = new Map<string, number>();
     for (const item of itens) contagem.set(item.categoria, (contagem.get(item.categoria) ?? 0) + 1);
@@ -100,7 +114,26 @@ export function LojaVirtualTabelaCliente({ itens }: { itens: ItemLojaVirtual[] }
   }
 
   return (
-    <Tabs value={abaAtiva} onValueChange={setAbaAtiva}>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        {resultadoDespublicar ? (
+          <p className="text-xs text-success">{resultadoDespublicar}</p>
+        ) : confirmandoDespublicar ? (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-medium text-danger">Despublicar TUDO da loja virtual? (item cadastrado em Estoque Física não é afetado)</span>
+            <button type="button" onClick={handleDespublicarTudo} disabled={despublicando} className="rounded bg-danger px-2 py-1 font-medium text-white hover:opacity-90">
+              {despublicando ? "Despublicando..." : "Confirmar"}
+            </button>
+            <button type="button" onClick={() => setConfirmandoDespublicar(false)} className="text-muted-foreground hover:text-foreground">Cancelar</button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirmandoDespublicar(true)} className="text-xs font-medium text-danger hover:underline">
+            Despublicar tudo da loja virtual
+          </button>
+        )}
+      </div>
+
+      <Tabs value={abaAtiva} onValueChange={setAbaAtiva}>
       <TabsList className="flex-wrap">
         <TabsTrigger value="todas">Todas ({itens.length})</TabsTrigger>
         {categorias.map(([categoria, total]) => (
@@ -148,5 +181,6 @@ export function LojaVirtualTabelaCliente({ itens }: { itens: ItemLojaVirtual[] }
         </Table>
       </TabsContent>
     </Tabs>
+    </div>
   );
 }

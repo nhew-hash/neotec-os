@@ -318,3 +318,42 @@ export async function atualizarCategoriaProdutoAction(produtoId: string, categor
     return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar categoria" };
   }
 }
+
+/**
+ * Despublica TUDO da Loja Virtual de uma vez — reversível (só
+ * desmarca disponivel_loja_virtual/visivel_loja, nunca apaga
+ * registro). Nunca mexe em item que já não estava publicado (Estoque
+ * Física fica intocado).
+ */
+export async function despublicarTudoLojaVirtualAction(): Promise<ActionResult<{ aparelhos: number; produtos: number; lacrados: number }>> {
+  try {
+    const supabase = await createClient();
+
+    const { data: aparelhosDespublicados } = await supabase
+      .from("aparelhos").update({ disponivel_loja_virtual: false })
+      .eq("disponivel_loja_virtual", true).select("id");
+
+    const { data: produtosDespublicados } = await supabase
+      .from("produtos").update({ visivel_loja: false })
+      .eq("visivel_loja", true).select("id");
+
+    const { data: lacradosZerados } = await supabase
+      .from("catalogo_lacrados_variantes").update({ quantidade: 0 })
+      .gt("quantidade", 0).select("id");
+
+    revalidatePath("/estoque");
+    revalidatePath("/estoque/lacrados");
+    revalidatePath("/loja", "layout");
+
+    return {
+      success: true,
+      data: {
+        aparelhos: aparelhosDespublicados?.length ?? 0,
+        produtos: produtosDespublicados?.length ?? 0,
+        lacrados: lacradosZerados?.length ?? 0,
+      },
+    };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao despublicar" };
+  }
+}
