@@ -16,8 +16,8 @@ export function LojaHeader() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <div className="flex items-center gap-8">
           <Link href="/loja" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-white">N</div>
-            <span className="font-display text-lg font-semibold tracking-tight text-foreground">Neotec</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-neotec.png" alt="Neotec" className="h-8 w-auto object-contain" />
           </Link>
 
           <nav className="hidden items-center gap-6 lg:flex">
