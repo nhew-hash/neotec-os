@@ -17,6 +17,8 @@ export interface ResultadoBuscaPreco {
   preco: number;
   fornecedorOuOrigem: string;
   dataReferencia: string;
+  /** Parcelamento calculado pelo mesmo motor de preço já usado no site — só preenchido pra fonte "estoque"/"lacrados" (preço real cadastrado, cotação de fornecedor não tem esse cálculo). */
+  parcelamento: string | null;
 }
 
 async function buscarNoEstoque(termo: string): Promise<ResultadoBuscaPreco[]> {
@@ -40,6 +42,7 @@ async function buscarNoEstoque(termo: string): Promise<ResultadoBuscaPreco[]> {
       preco: Number(a.preco_venda),
       fornecedorOuOrigem: "Estoque da loja",
       dataReferencia: "hoje",
+      parcelamento: null,
     }));
 }
 
@@ -79,6 +82,7 @@ async function buscarEmLacrados(termo: string): Promise<ResultadoBuscaPreco[]> {
       preco: Number(v.preco_venda),
       fornecedorOuOrigem: "Catálogo de lacrados",
       dataReferencia: "hoje",
+      parcelamento: null,
     };
   });
 }
@@ -106,6 +110,7 @@ async function buscarEmProdutosGenericos(termo: string): Promise<ResultadoBuscaP
     preco: Number(p.preco_venda),
     fornecedorOuOrigem: "Estoque da loja",
     dataReferencia: "hoje",
+    parcelamento: null,
   }));
 }
 
@@ -132,6 +137,7 @@ async function buscarEmCotacoes(termo: string, filtroCategoria: (categoria: stri
         preco: Number(item.preco),
         fornecedorOuOrigem: cotacao.fornecedor,
         dataReferencia: cotacao.data_cotacao,
+        parcelamento: null,
       };
     });
 }
@@ -178,7 +184,7 @@ export async function buscarPrecoParaAtendimento(termo: string): Promise<Resulta
       const buscador = BUSCADORES[fonte];
       if (!buscador) continue;
       const resultados = await buscador(termoTentativa);
-      if (resultados.length > 0) return resultados;
+      if (resultados.length > 0) return enriquecerComParcelamento(resultados);
     }
   }
 
@@ -191,9 +197,37 @@ export async function buscarPrecoParaAtendimento(termo: string): Promise<Resulta
       const buscador = BUSCADORES[fonte];
       if (!buscador) continue;
       const resultados = await buscador(palavraComNumero);
-      if (resultados.length > 0) return resultados;
+      if (resultados.length > 0) return enriquecerComParcelamento(resultados);
     }
   }
 
   return [];
+}
+
+/**
+ * Calcula parcelamento pelo mesmo motor de preço já usado no site
+ * (Pricing Engine) — a Iara passa a citar "em até Nx de RX" com dado
+ * real, não só o valor à vista. Só faz sentido pra preço cadastrado de
+ * verdade (estoque/lacrado), não pra cotação de fornecedor (ainda não
+ * é preço de venda formado).
+ */
+async function enriquecerComParcelamento(resultados: ResultadoBuscaPreco[]): Promise<ResultadoBuscaPreco[]> {
+  if (resultados[0]?.fonte !== "estoque" && resultados[0]?.fonte !== "lacrados") return resultados;
+
+  const { calcularDestaquePrecoLoja } = await import("@/services/precificacao/precificacao-publico.service");
+
+  return Promise.all(
+    resultados.map(async (r) => {
+      if (r.fonte !== "estoque" && r.fonte !== "lacrados") return r;
+      try {
+        const destaque = await calcularDestaquePrecoLoja(r.preco, null);
+        const parcelamento = destaque.maiorParcelaSemJuros
+          ? `em até ${destaque.maiorParcelaSemJuros}x de R$ ${destaque.valorDaMaiorParcelaSemJuros?.toFixed(2)} sem juros`
+          : null;
+        return { ...r, parcelamento };
+      } catch {
+        return r; // motor de preço falhou — segue sem parcelamento, não trava a resposta
+      }
+    })
+  );
 }

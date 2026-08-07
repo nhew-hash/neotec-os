@@ -4,6 +4,42 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 174] - IA agora cita parcelamento real e sempre frisa "valor do site"
+
+Confirmando sua pergunta: a busca ja cobria estoque (seminovo),
+produtos genericos, lacrados (catalogo mestre) e cotacoes de
+fornecedor - mas so trazia o preco a vista, nunca parcelamento.
+
+### Adicionado
+- Parcelamento calculado pelo MESMO motor de preco do site (Pricing
+  Engine) - a Iara agora pode dizer "R$ 2.999 a vista, ou em ate 10x
+  sem juros", com dado real, nao inventado.
+- Prompt reforcado: toda vez que citar preco, deixa explicito que e o
+  valor do site (neotecbrasil.com) - reforca confianca e direciona pro
+  fechamento la.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 173] - Log de diagnostico na comparacao de numero do vendedor
+
+Numero confirmado certo no banco (34933001898), e a logica de
+comparacao parece correta no codigo tambem. A Bridge (que formata o
+telefone antes de mandar pra ca) e um repositorio separado que nao
+tenho acesso pra revisar - entao, em vez de continuar tentando
+adivinhar o formato exato que ela manda, adicionei um log detalhado
+nesse ponto exato da comparacao.
+
+Na proxima vez que "ela trata como cliente" acontecer, procura no log
+do Vercel por "Comparacao vendedor" - vai mostrar o telefone bruto que
+chegou, o normalizado, o numero configurado, e se bateu ou nao. Isso
+da o dado real pra resolver de vez, em vez de eu ficar chutando.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 172] - IA de atendimento (Iara): busca de preco mais robusta + prompt atualizado
 
 ### Bug real achado

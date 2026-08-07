@@ -391,7 +391,9 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
   const { data: configIA } = await supabase.from("configuracoes_ia").select("numero_vendedor_perguntas").maybeSingle();
   if (configIA?.numero_vendedor_perguntas) {
     const telefoneLocalRecebido = paraFormatoLocalBR(msg.telefone);
-    if (telefoneLocalRecebido === configIA.numero_vendedor_perguntas.replace(/\D/g, "")) {
+    const numeroVendedorNormalizado = configIA.numero_vendedor_perguntas.replace(/\D/g, "");
+    console.log("Comparação vendedor:", { bruto: msg.telefone, normalizado: telefoneLocalRecebido, vendedorConfigurado: numeroVendedorNormalizado, bate: telefoneLocalRecebido === numeroVendedorNormalizado });
+    if (telefoneLocalRecebido === numeroVendedorNormalizado) {
       const { processarRespostaVendedor } = await import("@/services/ia/ia-pergunta-equipe.service");
       await processarRespostaVendedor(msg.conteudo);
       return;
