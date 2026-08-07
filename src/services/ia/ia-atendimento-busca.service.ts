@@ -157,16 +157,42 @@ const BUSCADORES: Record<string, (termo: string) => Promise<ResultadoBuscaPreco[
  * PRIMEIRA fonte que trouxer resultado — não soma nem mistura fontes
  * diferentes numa resposta só, pra não confundir o cliente com preços
  * de origens diferentes ao mesmo tempo.
+ *
+ * Estratégia progressiva: tenta o termo completo primeiro, mas se o
+ * cliente usou palavra a mais que não faz parte do nome do produto
+ * (ex: "iphone 13 cor preta" quando o produto se chama só "iPhone 13"),
+ * o "%termo completo%" nunca bate. Reduz uma palavra do final por vez
+ * até achar algo — sem isso, qualquer detalhe extra na frase do
+ * cliente derrubava a busca inteira e escalava pro vendedor à toa.
  */
 export async function buscarPrecoParaAtendimento(termo: string): Promise<ResultadoBuscaPreco[]> {
   const prioridade = await buscarPrioridadeBuscaPreco();
   const ordem = prioridade?.ordem ?? ["estoque", "seminovos", "lacrados", "fornecedores"];
 
-  for (const fonte of ordem) {
-    const buscador = BUSCADORES[fonte];
-    if (!buscador) continue;
-    const resultados = await buscador(termo);
-    if (resultados.length > 0) return resultados;
+  const palavras = termo.split(/\s+/).filter(Boolean);
+  // Tenta do termo mais completo (mais preciso) até o mais curto (mais
+  // abrangente) — nunca menos de 1 palavra, pra não virar busca vazia.
+  for (let tamanho = palavras.length; tamanho >= 1; tamanho--) {
+    const termoTentativa = palavras.slice(0, tamanho).join(" ");
+    for (const fonte of ordem) {
+      const buscador = BUSCADORES[fonte];
+      if (!buscador) continue;
+      const resultados = await buscador(termoTentativa);
+      if (resultados.length > 0) return resultados;
+    }
+  }
+
+  // Último recurso — a ordem das palavras do cliente pode não ajudar
+  // (ex: "tem o preto do 13?" em vez de "13 preto") — tenta a palavra
+  // que contém número, que costuma ser o modelo, isolada.
+  const palavraComNumero = palavras.find((p) => /\d/.test(p));
+  if (palavraComNumero) {
+    for (const fonte of ordem) {
+      const buscador = BUSCADORES[fonte];
+      if (!buscador) continue;
+      const resultados = await buscador(palavraComNumero);
+      if (resultados.length > 0) return resultados;
+    }
   }
 
   return [];

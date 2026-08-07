@@ -4,6 +4,42 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 172] - IA de atendimento (Iara): busca de preco mais robusta + prompt atualizado
+
+### Bug real achado
+A busca de preco juntava TODAS as palavras da mensagem do cliente num
+termo so (ex: "iphone 13 cor preta") e buscava isso como um bloco
+inteiro no banco. Se o cliente usava qualquer palavra que nao fazia
+parte do nome exato do produto, a busca inteira falhava - a IA achava
+que "nao encontrou preco" e escalava pro vendedor, mesmo quando o
+produto existia e tinha preco cadastrado. Isso explica boa parte do
+"toda hora me manda mensagem pra perguntar".
+
+### Corrigido
+Busca agora e progressiva: tenta o termo completo, e se nao achar, vai
+reduzindo uma palavra por vez ate achar algo. Fallback final tenta
+especificamente a palavra com numero (geralmente o modelo, tipo "13",
+"15 pro"), pra quando a ordem das palavras do cliente atrapalha.
+
+### Prompt atualizado
+`configuracoes_ia.prompt_sistema` atualizado com a versao completa e
+revisada da Iara (personalidade, regras de venda, fechamento,
+objecoes, transferencia pra humano, tudo).
+
+### Sobre "ela me trata como cliente"
+Revisei o codigo que decide se uma mensagem recebida e do vendedor
+(configuracoes_ia.numero_vendedor_perguntas) respondendo uma pergunta
+da IA, ou de um cliente novo - essa logica ja tem protecao correta no
+codigo (sempre separa certo, independente de ter pergunta pendente ou
+nao). Isso sugere que o numero configurado pode nao ser exatamente o
+mesmo que voce usa pra responder - mandei uma consulta de diagnostico
+(`diagnostico-numero-vendedor.sql`) pra confirmar qual numero esta
+cadastrado.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 171] - Logo com fallback automatico - nunca mais icone quebrado
 
 Nao consegui identificar com certeza a causa exata de por que a logo
