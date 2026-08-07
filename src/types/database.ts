@@ -207,6 +207,7 @@ export interface Aparelho {
   fotos: string[];
   mostrar_trade_in: boolean;
   retirar_em: string | null;
+  localizacao_estoque: "loja_fisica" | "fornecedor";
   data_entrada: string;
   updated_at: string;
 }

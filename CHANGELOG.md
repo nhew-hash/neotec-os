@@ -1,5 +1,68 @@
 # Changelog — Neotec OS
 
+Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
+
+# Changelog - Neotec OS
+
+## [Fase 163] - Central de Cadastro: aparelho nasce como "fornecedor" na localizacao
+
+Achado: a palavra "fornecedor" tinha dois significados diferentes no
+sistema agora - origem_entrada='fornecedor' (veio do Central de
+Cadastro) e localizacao_estoque='fornecedor' (fisicamente fora da
+cidade, Fase 160). Aparelho do Central de Cadastro nascia com
+localizacao_estoque='loja_fisica' por padrao, o que nao faz sentido
+(acabou de vir de lista de fornecedor, provavelmente ainda nao chegou
+fisicamente).
+
+Corrigido: agora nasce como "fornecedor" na localizacao. Como esses
+itens ja publicam direto na loja virtual (Fase 97), esse campo so fica
+visivel de verdade se um dia o item for despublicado - nesse caso, cai
+certo na aba "Fornecedor" em vez de "Loja Fisica" por engano.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 162] - Estoque Comercial: descoberta, nao precisou construir
+
+Ia adicionar um campo novo de quantidade em produtos + revincular no
+PDV, ate descobrir que isso JA EXISTIA (de uma fase anterior sem
+visibilidade completa nesta sessao): a aba "Estoque Comercial" ja
+esta la, `movimentos_estoque` ja registra entrada e saida, e uma view
+(`vw_produtos_saldo`) ja calcula o saldo real automaticamente em cima
+disso. Ja tinha alerta de estoque baixo, tudo funcionando.
+
+Revertido tudo que eu tinha comecado a criar (evitou duplicar/
+conflitar com o que ja funcionava). Nenhuma mudanca de codigo nesta
+fase - so a descoberta e a reversao segura.
+
+---
+
+## [Fase 161] - PDV: modo de venda + cadastro rapido de aparelho + comprovante
+
+### Modo de venda no PDV
+Dois botoes no topo: "Venda rapida" (esconde busca de aparelho -
+so produto/acessorio de giro rapido) e "Venda de aparelho" (mostra
+tudo, aparelho + produto juntos, exatamente como o carrinho ja
+suportava por baixo - so ficou mais claro visualmente qual e qual).
+
+### Cadastrar aparelho direto na venda
+Botao novo, so no modo "Venda de aparelho" - abre um formulario
+compacto (modelo, categoria, IMEI, cor, memoria, bateria, condicao,
+preco). Busca ou cria o produto automaticamente pelo nome, cria o
+aparelho, e adiciona direto no carrinho - sem precisar ir em Estoque
+cadastrar antes. Cadastro rapido nao pede custo (fica pra ajustar
+depois em Estoque se precisar do controle de lucro completo).
+
+### Comprovante de venda A4 conectado
+Pagina de detalhe da venda ganhou o botao "Comprovante A4" (o
+documento completo da Fase 158) - so aparece quando a venda tem
+aparelho.
+
+---
+
+# Changelog — Neotec OS
+
 Todas as mudanças relevantes do projeto, por fase de daenvolvimento.
 
 ## [Fase 102] — Upload de fotos reais em produtos e aparelhos

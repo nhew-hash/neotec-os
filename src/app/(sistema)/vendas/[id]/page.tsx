@@ -12,6 +12,7 @@ export default async function VendaDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const venda = await buscarVendaPorId(id);
   if (!venda) notFound();
+  const temAparelho = (venda.itens as { aparelho_id: string | null }[] | null)?.some((i) => i.aparelho_id) ?? false;
 
   return (
     <div className="flex flex-col gap-6">
@@ -31,6 +32,7 @@ export default async function VendaDetailPage({ params }: { params: Promise<{ id
             </a>
           </Button>
           <BotaoImprimir tipo="recibo" id={id} label="Recibo" />
+          {temAparelho && <BotaoImprimir tipo="comprovante_aparelho" id={id} label="Comprovante A4" />}
         </div>
       </div>
 

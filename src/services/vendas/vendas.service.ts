@@ -180,7 +180,7 @@ export async function buscarVendaPorId(id: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vw_vendas_seguro")
-    .select("*, cliente:clientes(id, nome, whatsapp)")
+    .select("*, cliente:clientes(id, nome, whatsapp), itens:venda_itens(aparelho_id)")
     .eq("id", id)
     .single();
 

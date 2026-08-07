@@ -62,11 +62,16 @@ export default async function EstoquePage() {
         <TabsContent value="aparelhos">
           <Tabs defaultValue="fisica">
             <TabsList>
-              <TabsTrigger value="fisica">Estoque Loja Física ({aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual).length})</TabsTrigger>
+              <TabsTrigger value="fisica">Loja Física ({aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual && a.localizacao_estoque === "loja_fisica").length})</TabsTrigger>
+              <TabsTrigger value="fornecedor">Fornecedor — fora da cidade ({aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual && a.localizacao_estoque === "fornecedor").length})</TabsTrigger>
               <TabsTrigger value="virtual">Publicados na Loja Virtual ({aparelhos.filter((a) => a.disponivel_loja_virtual).length})</TabsTrigger>
             </TabsList>
             <TabsContent value="fisica">
-              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual)} cargo={cargo} /></CardContent></Card>
+              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual && a.localizacao_estoque === "loja_fisica")} cargo={cargo} /></CardContent></Card>
+            </TabsContent>
+            <TabsContent value="fornecedor">
+              <p className="mb-3 text-xs text-muted-foreground">Aparelho com fornecedor fora da cidade — não dá pra entregar na hora, precisa de prazo de transferência.</p>
+              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual && a.localizacao_estoque === "fornecedor")} cargo={cargo} /></CardContent></Card>
             </TabsContent>
             <TabsContent value="virtual">
               <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.disponivel_loja_virtual)} cargo={cargo} /></CardContent></Card>

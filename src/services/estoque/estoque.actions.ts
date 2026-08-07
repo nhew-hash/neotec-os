@@ -357,3 +357,71 @@ export async function despublicarTudoLojaVirtualAction(): Promise<ActionResult<{
     return { success: false, error: err instanceof Error ? err.message : "Erro ao despublicar" };
   }
 }
+
+export async function atualizarLocalizacaoEstoqueAction(aparelhoId: string, localizacao: "loja_fisica" | "fornecedor"): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("aparelhos").update({ localizacao_estoque: localizacao }).eq("id", aparelhoId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/estoque");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar localização" };
+  }
+}
+
+/**
+ * Cadastro rápido de aparelho direto na tela de venda (PDV) — busca
+ * ou cria o produto (modelo) automaticamente pelo nome, depois cria
+ * o aparelho. Usado quando o cliente traz um aparelho que ainda não
+ * tinha sido cadastrado no sistema.
+ */
+export async function criarAparelhoRapidoVendaAction(input: {
+  modeloNome: string;
+  categoria: string;
+  imei: string;
+  cor?: string;
+  memoria?: string;
+  bateria?: number;
+  condicao: "novo" | "seminovo";
+  preco_venda: number;
+}): Promise<ActionResult<{ id: string; nome: string; imei: string; preco_venda: number }>> {
+  if (!input.modeloNome.trim()) return { success: false, error: "Informe o modelo do aparelho" };
+  if (!input.imei.trim()) return { success: false, error: "Informe o IMEI" };
+
+  try {
+    const supabase = await createClient();
+
+    // Busca produto existente com esse nome exato — evita duplicar
+    // "iPhone 13" toda vez que alguém vende um.
+    const { data: produtoExistente } = await supabase.from("produtos").select("id, nome").ilike("nome", input.modeloNome.trim()).maybeSingle();
+
+    let produtoId: string;
+    if (produtoExistente) {
+      produtoId = produtoExistente.id;
+    } else {
+      const { criarProduto } = await import("./estoque.service");
+      const novoProduto = await criarProduto({ nome: input.modeloNome.trim(), categoria: input.categoria as never });
+      produtoId = novoProduto.id;
+    }
+
+    const { criarAparelho } = await import("./estoque.service");
+    const aparelho = await criarAparelho({
+      produto_id: produtoId,
+      imei: input.imei.trim(),
+      cor: input.cor || undefined,
+      memoria: input.memoria || undefined,
+      bateria: input.bateria,
+      condicao: input.condicao,
+      custo: 0, // cadastro rápido na venda não pede custo — ajusta depois em Estoque se precisar
+      preco_venda: input.preco_venda,
+      origem_entrada: "cliente", // cadastrado na hora da venda, não veio de fornecedor
+    });
+
+    revalidatePath("/estoque");
+    revalidatePath("/vendas");
+    return { success: true, data: { id: aparelho.id, nome: input.modeloNome.trim(), imei: aparelho.imei, preco_venda: aparelho.preco_venda ?? input.preco_venda } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao cadastrar aparelho" };
+  }
+}

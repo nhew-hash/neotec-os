@@ -85,6 +85,7 @@ export async function aplicarSeminovoFornecedorAction(item: {
         produto_id: produto.id, imei: item.imei.trim() || null, memoria: item.memoria, cor: item.cor, bateria: item.bateria,
         condicao: "seminovo", custo: item.precoPago, preco_venda: item.precoVenda, observacoes: item.observacoes,
         origem_entrada: "fornecedor", status: "disponivel", disponivel_loja_virtual: true, // já publicado, como pedido
+        localizacao_estoque: "fornecedor", // veio de lista de fornecedor — assume que ainda não chegou fisicamente na loja, staff muda pra "loja_fisica" manual quando chegar
       })
       .select("id").single();
 

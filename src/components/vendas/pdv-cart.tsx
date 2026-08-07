@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Plus, Minus, Search, UserPlus, Smartphone, Package, X, Gift, ShieldCheck } from "lucide-react";
+import { Trash2, Plus, Minus, Search, UserPlus, Smartphone, Package, X, Gift, ShieldCheck, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { finalizarVendaPDVAction, buscarSaldoCashbackAction } from "@/services/vendas/pdv.actions";
 import { criarClienteAction } from "@/services/clientes/clientes.actions";
+import { criarAparelhoRapidoVendaAction } from "@/services/estoque/estoque.actions";
 import { formatCurrency, getInitials } from "@/utils";
 import type { PdvItemValues, PdvVendaValues } from "@/services/vendas/pdv.schema";
 import type { Cliente, Produto, Indicador } from "@/types";
@@ -55,6 +56,54 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
   const [cashbackSaldo, setCashbackSaldo] = useState<number>(0);
   const [cashbackUtilizado, setCashbackUtilizado] = useState<number>(0);
   const [cashbackConcedido, setCashbackConcedido] = useState<number>(0);
+
+  // Modo de venda — "rápida" esconde a busca de aparelho (só
+  // acessório/produto de giro rápido); "aparelho" mostra tudo,
+  // incluindo a opção de cadastrar um aparelho novo na hora.
+  const [modoVenda, setModoVenda] = useState<"rapida" | "aparelho">("rapida");
+  const [mostrarCadastroAparelho, setMostrarCadastroAparelho] = useState(false);
+  const [novoAparelhoModelo, setNovoAparelhoModelo] = useState("");
+  const [novoAparelhoCategoria, setNovoAparelhoCategoria] = useState("iphone");
+  const [novoAparelhoImei, setNovoAparelhoImei] = useState("");
+  const [novoAparelhoCor, setNovoAparelhoCor] = useState("");
+  const [novoAparelhoMemoria, setNovoAparelhoMemoria] = useState("");
+  const [novoAparelhoBateria, setNovoAparelhoBateria] = useState("");
+  const [novoAparelhoCondicao, setNovoAparelhoCondicao] = useState<"novo" | "seminovo">("seminovo");
+  const [novoAparelhoPreco, setNovoAparelhoPreco] = useState("");
+  const [cadastrandoAparelho, setCadastrandoAparelho] = useState(false);
+  const [erroCadastroAparelho, setErroCadastroAparelho] = useState<string | null>(null);
+
+  async function handleCadastrarAparelhoRapido() {
+    setErroCadastroAparelho(null);
+    if (!novoAparelhoModelo.trim()) return setErroCadastroAparelho("Informe o modelo");
+    if (!novoAparelhoImei.trim()) return setErroCadastroAparelho("Informe o IMEI");
+    if (!novoAparelhoPreco || Number(novoAparelhoPreco) <= 0) return setErroCadastroAparelho("Informe o preço de venda");
+
+    setCadastrandoAparelho(true);
+    const result = await criarAparelhoRapidoVendaAction({
+      modeloNome: novoAparelhoModelo.trim(),
+      categoria: novoAparelhoCategoria,
+      imei: novoAparelhoImei.trim(),
+      cor: novoAparelhoCor.trim() || undefined,
+      memoria: novoAparelhoMemoria.trim() || undefined,
+      bateria: novoAparelhoBateria ? Number(novoAparelhoBateria) : undefined,
+      condicao: novoAparelhoCondicao,
+      preco_venda: Number(novoAparelhoPreco),
+    });
+    setCadastrandoAparelho(false);
+
+    if (!result.success) return setErroCadastroAparelho(result.error);
+
+    // Adiciona direto no carrinho — não precisa buscar de novo na lista.
+    setItens((prev) => [
+      ...prev,
+      { tipo: "aparelho", id: result.data.id, nome: `${result.data.nome} — ${result.data.imei}`, quantidade: 1, valor: result.data.preco_venda },
+    ]);
+
+    setMostrarCadastroAparelho(false);
+    setNovoAparelhoModelo(""); setNovoAparelhoImei(""); setNovoAparelhoCor("");
+    setNovoAparelhoMemoria(""); setNovoAparelhoBateria(""); setNovoAparelhoPreco("");
+  }
 
   const temAparelho = itens.some((i) => i.tipo === "aparelho");
 
@@ -231,20 +280,88 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
           </CardContent>
         </Card>
 
+        {/* Modo de venda */}
+        <Card>
+          <CardContent className="flex items-center gap-2 p-3">
+            <button
+              type="button" onClick={() => setModoVenda("rapida")}
+              className={cn("flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors", modoVenda === "rapida" ? "bg-primary text-white" : "bg-secondary text-muted-foreground hover:text-foreground")}
+            >
+              Venda rápida (só acessório/produto)
+            </button>
+            <button
+              type="button" onClick={() => setModoVenda("aparelho")}
+              className={cn("flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors", modoVenda === "aparelho" ? "bg-primary text-white" : "bg-secondary text-muted-foreground hover:text-foreground")}
+            >
+              Venda de aparelho
+            </button>
+          </CardContent>
+        </Card>
+
         {/* Busca de itens */}
         <Card>
           <CardContent className="flex flex-col gap-3 p-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar aparelho ou produto (nome, IMEI, cor...)"
+                placeholder={modoVenda === "aparelho" ? "Buscar aparelho ou produto (nome, IMEI, cor...)" : "Buscar produto/acessório"}
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 className="pl-9"
               />
             </div>
 
-            {aparelhosDisponiveis.length > 0 && (
+            {modoVenda === "aparelho" && (
+              <button
+                type="button" onClick={() => setMostrarCadastroAparelho((v) => !v)}
+                className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-primary/40 py-2 text-xs font-medium text-primary hover:bg-primary/5"
+              >
+                <PackagePlus className="h-3.5 w-3.5" />
+                {mostrarCadastroAparelho ? "Cancelar cadastro" : "Cadastrar aparelho novo (não está na lista)"}
+              </button>
+            )}
+
+            {mostrarCadastroAparelho && modoVenda === "aparelho" && (
+              <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Input placeholder="Modelo (ex: iPhone 13)" value={novoAparelhoModelo} onChange={(e) => setNovoAparelhoModelo(e.target.value)} />
+                  <Select value={novoAparelhoCategoria} onValueChange={setNovoAparelhoCategoria}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="iphone">iPhone</SelectItem>
+                      <SelectItem value="android">Android</SelectItem>
+                      <SelectItem value="ipad">iPad</SelectItem>
+                      <SelectItem value="mac">Mac</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input placeholder="IMEI" value={novoAparelhoImei} onChange={(e) => setNovoAparelhoImei(e.target.value)} />
+                  <Select value={novoAparelhoCondicao} onValueChange={(v) => setNovoAparelhoCondicao(v as "novo" | "seminovo")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="seminovo">Seminovo</SelectItem>
+                      <SelectItem value="novo">Lacrado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Input placeholder="Cor" value={novoAparelhoCor} onChange={(e) => setNovoAparelhoCor(e.target.value)} />
+                  <Input placeholder="Memória (ex: 128GB)" value={novoAparelhoMemoria} onChange={(e) => setNovoAparelhoMemoria(e.target.value)} />
+                  {novoAparelhoCondicao === "seminovo" && (
+                    <Input placeholder="Bateria %" type="number" value={novoAparelhoBateria} onChange={(e) => setNovoAparelhoBateria(e.target.value)} />
+                  )}
+                </div>
+                <Input placeholder="Preço de venda (R$)" type="number" value={novoAparelhoPreco} onChange={(e) => setNovoAparelhoPreco(e.target.value)} />
+                {erroCadastroAparelho && <p className="text-xs text-danger">{erroCadastroAparelho}</p>}
+                <Button type="button" size="sm" onClick={handleCadastrarAparelhoRapido} disabled={cadastrandoAparelho}>
+                  {cadastrandoAparelho ? "Cadastrando..." : "Cadastrar e adicionar à venda"}
+                </Button>
+                <p className="text-[10px] text-muted-foreground">Cadastro rápido — sem custo/margem definidos. Ajusta depois em Estoque se precisar do controle de lucro completo.</p>
+              </div>
+            )}
+
+            {modoVenda === "aparelho" && aparelhosDisponiveis.length > 0 && (
               <div className="flex flex-col gap-1.5">
                 <p className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                   <Smartphone className="h-3 w-3" />Aparelhos disponíveis
