@@ -59,6 +59,27 @@ export async function perguntarParaEquipe(input: {
 export async function processarRespostaVendedor(respostaTexto: string): Promise<void> {
   const supabase = createAdminClient();
 
+  // Expira sozinho qualquer pergunta "aguardando" com mais de 3h — sem
+  // isso, uma pergunta antiga esquecida ficava pra sempre na fila, e a
+  // resposta do dono podia ir pra ela em vez da pergunta de verdade que
+  // ele está respondendo agora (fila é FIFO simples, pega sempre a
+  // mais antiga). Isso explica casos de "respondi e não chegou pro
+  // cliente certo" — a resposta ia pra uma pergunta velha e esquecida.
+  const tresHorasAtras = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+  const { data: expiradas } = await supabase
+    .from("ia_perguntas_equipe")
+    .update({ status: "expirada" })
+    .eq("status", "aguardando")
+    .lt("created_at", tresHorasAtras)
+    .select("conversa_cliente_id");
+
+  // Despausa a conversa desses clientes — sem isso, ficavam travados
+  // esperando uma resposta que nunca ia chegar (pergunta expirou sem
+  // ninguém responder), a IA nunca mais voltava a atender.
+  for (const exp of expiradas ?? []) {
+    await supabase.from("whatsapp_conversas").update({ ia_pausada: false }).eq("id", exp.conversa_cliente_id);
+  }
+
   const { data: pergunta } = await supabase
     .from("ia_perguntas_equipe")
     .select("*")
@@ -67,7 +88,7 @@ export async function processarRespostaVendedor(respostaTexto: string): Promise<
     .limit(1)
     .maybeSingle();
 
-  if (!pergunta) return; // vendedor mandou mensagem sem nenhuma pergunta pendente — ignora, não é resposta de nada
+  if (!pergunta) return; // vendedor mandou mensagem sem nenhuma pergunta pendente (recente) — ignora, não é resposta de nada
 
   await supabase
     .from("ia_perguntas_equipe")
@@ -106,4 +127,23 @@ export async function processarRespostaVendedor(respostaTexto: string): Promise<
   // Retoma o atendimento automático — o vendedor só respondeu uma
   // pergunta pontual, não "assumiu" a conversa inteira.
   await supabase.from("whatsapp_conversas").update({ ia_pausada: false }).eq("id", conversaCliente.id);
+}
+
+/** Chamado pelo cron diário — expira perguntas antigas sem depender do vendedor mandar mensagem nova (senão ficavam presas até isso acontecer). */
+export async function expirarPerguntasAntigas(): Promise<{ expiradas: number }> {
+  const supabase = createAdminClient();
+  const tresHorasAtras = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+
+  const { data: expiradas } = await supabase
+    .from("ia_perguntas_equipe")
+    .update({ status: "expirada" })
+    .eq("status", "aguardando")
+    .lt("created_at", tresHorasAtras)
+    .select("conversa_cliente_id");
+
+  for (const exp of expiradas ?? []) {
+    await supabase.from("whatsapp_conversas").update({ ia_pausada: false }).eq("id", exp.conversa_cliente_id);
+  }
+
+  return { expiradas: expiradas?.length ?? 0 };
 }

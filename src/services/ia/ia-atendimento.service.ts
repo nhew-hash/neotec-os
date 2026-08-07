@@ -84,7 +84,11 @@ export async function gerarRespostaAtendimento(input: {
   const precosEncontrados = termoBusca.length >= 2 ? await buscarPrecoParaAtendimento(termoBusca) : [];
 
   const contextoPreco = precosEncontrados.length > 0
-    ? `\nPREÇO ENCONTRADO (use exatamente estes dados, nunca outros — esse é o valor praticado no site neotecbrasil.com, sempre deixe isso claro pro cliente):\n${precosEncontrados
+    ? `\nPREÇO ENCONTRADO (use exatamente estes dados, nunca outros, nunca arredonde — esse é o valor praticado no site neotecbrasil.com, sempre deixe isso claro pro cliente):\n${
+        precosEncontrados.length > 1
+          ? `Esse modelo tem ${precosEncontrados.length} variantes de preço diferente — SEMPRE fale "a partir de R$ ${Math.min(...precosEncontrados.map((p) => p.preco)).toFixed(2)}" (o menor valor da lista abaixo), nunca cite um valor do meio da lista como se fosse o único ou o principal.\n`
+          : ""
+      }${precosEncontrados
         .map((p) => `- ${p.modelo} ${p.detalhes} — R$ ${p.preco.toFixed(2)} à vista${p.parcelamento ? `, ou ${p.parcelamento}` : ""} (fonte: ${p.fornecedorOuOrigem}, ${p.dataReferencia})`)
         .join("\n")}`
     : "\nNenhum preço encontrado nas fontes disponíveis pra essa pergunta.";

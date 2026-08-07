@@ -30,6 +30,7 @@ async function buscarNoEstoque(termo: string): Promise<ResultadoBuscaPreco[]> {
     .from("aparelhos")
     .select("imei, preco_venda, status, produto:produtos!inner(nome)")
     .eq("status", "disponivel")
+    .eq("disponivel_loja_virtual", true)
     .ilike("produto.nome", `%${termo}%`)
     .limit(5);
 
@@ -59,6 +60,7 @@ async function buscarEmLacrados(termo: string): Promise<ResultadoBuscaPreco[]> {
   const { data: modelos } = await supabase
     .from("catalogo_lacrados_modelos")
     .select("id, nome")
+    .eq("ativo", true)
     .ilike("nome", `%${termo}%`)
     .limit(3);
 
@@ -68,6 +70,7 @@ async function buscarEmLacrados(termo: string): Promise<ResultadoBuscaPreco[]> {
     .from("catalogo_lacrados_variantes")
     .select("cor, armazenamento, preco_venda, quantidade, modelo_id")
     .in("modelo_id", modelos.map((m) => m.id))
+    .eq("ativo", true)
     .gt("quantidade", 0)
     .not("preco_venda", "is", null)
     .order("preco_venda", { ascending: true })
@@ -101,6 +104,7 @@ async function buscarEmProdutosGenericos(termo: string): Promise<ResultadoBuscaP
     .ilike("nome", `%${termo}%`)
     .not("preco_venda", "is", null)
     .eq("status", "ativo")
+    .eq("visivel_loja", true)
     .limit(5);
 
   return (data ?? []).map((p) => ({

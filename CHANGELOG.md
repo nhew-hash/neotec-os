@@ -4,6 +4,42 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 175] - CRITICO: IA citava preco de item nao publicado + resposta ia pro cliente errado
+
+### Bug 1 (grave) - preco de item nao publicado
+A busca de preco da IA nunca checava se o item estava PUBLICADO na
+loja (`disponivel_loja_virtual`/`visivel_loja`) - so olhava se estava
+"disponivel" no estoque interno. Por isso um iPhone 11 que nem estava
+publicado no site pode ter side citado com um preco de teste/rascunho
+(R$700). Corrigido nos 3 lugares (aparelhos, produtos genericos,
+catalogo de lacrados) - agora so cita preco de item que o cliente
+realmente consegue ver e comprar no site.
+
+### Bug 2 - "a partir de" nao ficava claro
+Quando um modelo tem varias variantes de preco diferente (cores/
+armazenamento), o contexto so listava os precos sem instrucao clara -
+a IA podia citar qualquer um da lista como se fosse o principal.
+Corrigido: contexto agora calcula e destaca explicitamente "a partir
+de RX" (o menor valor) quando ha mais de uma variante.
+
+### Bug 3 (grave) - resposta do dono ia pro cliente errado
+Achado: o status "expirada" existe na tabela de perguntas desde a
+Fase 44, mas NUNCA foi usado - perguntas antigas ficavam acumulando
+pra sempre. A fila e FIFO simples (sempre pega a mais antiga) - se
+sobrava uma pergunta velha esquecida na fila, a resposta do dono pra
+uma pergunta NOVA podia ir pra essa pergunta antiga (e cliente
+errado), enquanto o cliente de verdade nunca recebia resposta nenhuma.
+
+Corrigido: perguntas com mais de 3h sem resposta expiram sozinhas
+(tanto quando o vendedor manda mensagem nova, quanto todo dia via
+cron) - e o cliente que ficou esperando uma pergunta expirada tem a
+conversa despausada automaticamente, pra IA voltar a atender em vez
+de deixar ele travado pra sempre.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 174] - IA agora cita parcelamento real e sempre frisa "valor do site"
 
 Confirmando sua pergunta: a busca ja cobria estoque (seminovo),
