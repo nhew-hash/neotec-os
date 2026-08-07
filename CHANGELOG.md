@@ -4,6 +4,26 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 169] - Catalogo de lacrado nunca mostrava foto - achado real
+
+### Causa
+A funcao que lista os modelos na GRADE do catalogo ainda buscava foto
+na coluna antiga `catalogo_lacrados_modelos.fotos` - coluna que ficou
+obsoleta desde a Fase 107, quando a vinculacao de foto passou pra
+nivel de VARIANTE (nao modelo). Por isso a grade nunca mostrava foto -
+buscava no lugar errado. A pagina de produto individual ja buscava
+certo (na variante), por isso funcionava la - e isso explica o "umas
+esta certo, outras nao" que voce descreveu.
+
+### Corrigido
+Grade agora busca foto de QUALQUER variante do modelo que ja tenha
+grupo de imagem vinculado - mesma logica de reserva ja usada na
+pagina de produto individual desde a Fase 147, aplicada aqui tambem.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 168] - "produto/null" corrigido, e protegido pra nunca mais acontecer
 
 ### Causa
