@@ -81,7 +81,7 @@ export default function EncontreSeuIphonePage() {
             {recomendacoes.map((r, i) => (
               <Link
                 key={i}
-                href={r.tipoLink === "lacrado" ? `/loja/lacrados/${r.slug}` : `/loja/produto/${r.slug}`}
+                href={!r.slug ? "#" : r.tipoLink === "lacrado" ? `/loja/lacrados/${r.slug}` : `/loja/produto/${r.slug}`}
                 className="flex items-center justify-between gap-4 rounded-2xl border border-black/[0.06] p-5 transition-colors hover:border-primary/30"
               >
                 <div>

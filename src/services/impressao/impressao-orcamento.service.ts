@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { renderizarTemplate } from "./templates-engine";
 import { buscarTemplateAtivo } from "./templates.service";
-import { gerarQrCodeDataUrl } from "./qrcode.service";
+import { gerarQrCodeDataUrl, urlConsultaPublicaOS } from "./qrcode.service";
 import { formatCurrency, formatDate, formatDateTime } from "@/utils";
 
 export async function montarHtmlImpressaoOrcamento(id: string, viaCliente: boolean): Promise<string | null> {
@@ -32,11 +32,11 @@ export async function montarHtmlImpressaoOrcamento(id: string, viaCliente: boole
     .join("");
 
   const qrCodeHtml = viaCliente
-    ? `<img src="${await gerarQrCodeDataUrl(`${process.env.NEXT_PUBLIC_SITE_URL ?? "https://neotecos.vercel.app"}/consultar-os`)}" alt="QR Code" style="width:80px;height:80px;" />`
+    ? `<img src="${await gerarQrCodeDataUrl(urlConsultaPublicaOS())}" alt="QR Code" style="width:80px;height:80px;" />`
     : "";
 
   return renderizarTemplate(template.conteudo_html, {
-    loja_nome: "NEOTEC ARAGUARI",
+    loja_nome: "NEOTEC TECNOLOGIA E ACESSÓRIOS LTDA",
     numero_documento: orcamento.id.slice(0, 8).toUpperCase(),
     data_emissao: formatDateTime(orcamento.data_criacao),
     cliente_nome: orcamento.cliente.nome,

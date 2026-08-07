@@ -4,6 +4,113 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 168] - "produto/null" corrigido, e protegido pra nunca mais acontecer
+
+### Causa
+O SQL de insercao do estoque comercial (33 acessorios) nao gerou
+slug - ficou null, e o link da loja virou literalmente
+"/loja/produto/null".
+
+### Corrigido em 3 frentes
+1. **Dados existentes** - os 33 produtos ja inseridos ganham slug
+   automatico (nome + pedaco do ID, mesmo padrao ja usado no resto do
+   sistema).
+2. **Gatilho no banco** - agora QUALQUER produto criado sem slug
+   (SQL direto, formulario, importacao, qualquer caminho futuro)
+   ganha um automatico na hora - nao depende mais do codigo da
+   aplicacao lembrar de gerar.
+3. **7 pontos no codigo protegidos** - nenhum link de produto na loja
+   monta a URL sem checar se o slug existe primeiro (produto-card,
+   busca, comparar, vistos recentes, encontre-seu-iphone).
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 167] - iPad nunca mais vira lacrado, nem aparece em iPhone Lacrado
+
+### Causa
+iPad foi classificado como "lacrado" por engano (regra ja dizia pra
+nao fazer isso, mas a IA nem sempre segue) - e como lacrado usa marca
+"Apple" igual iPhone, ele foi parar dentro da area "iPhone Lacrado" na
+loja (o filtro so olhava marca, nao o nome do modelo).
+
+### Corrigido
+- Trava deterministica no codigo: iPad nunca pode virar "lacrado",
+  sempre corrige pra "generico" - nao depende so da IA acertar.
+- Area "iPhone Lacrado" na loja agora filtra por marca=Apple E nome
+  contendo "iPhone" - protege contra qualquer outro item Apple
+  (iPad, e qualquer coisa futura) aparecer ali por engano.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 166] - Lucro agora vale pra generico tambem (Apple Watch, JBL, PS5...)
+
+Achado com o exemplo real da lista de Apple Watch: item classificado
+como "generico" (unico, sem variante tipo iPhone) nunca tinha lucro
+calculado - a regra so cobria seminovo e lacrado ate a Fase 130.
+
+### Corrigido
+- Regra de lucro agora vale pra qualquer destino (seminovo, lacrado,
+  generico) - Apple Watch, JBL, PS5, acessorio Apple, tudo passa a
+  ter preco sugerido com margem.
+- Tela de revisao mostra o campo editavel com lucro pra todo item
+  agora, nao so seminovo/lacrado.
+- Mesmo bug ja corrigido antes pra lacrado (Fase 130) tambem existia
+  pra generico - o botao de aplicar salvava o preco PAGO cru, ignorando
+  a margem. Corrigido, agora usa o preco editavel de verdade.
+- Codigo morto removido (`{true ? ... : ...}`) que sobrou da mudanca.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 165] - IA de cadastro: preco diferente por cor tambem em lacrado
+
+A regra ja existia pra seminovo (com bateria %), mas faltava exemplo
+especifico pra lacrado - lista real trazida como exemplo:
+"17 256g preto/branco/azul a 5050, verde a 4899" (preco diferente por
+grupo de cor, sem bateria envolvida). Adicionado exemplo direto no
+prompt, mais uma nota sobre espacamento inconsistente ("pro256g" sem
+espaco) nao confundir a leitura de modelo/memoria.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 164] - Revisao profissional de TODOS os documentos de impressao
+
+Pedido explicito de revisar tudo, nao so o que ja tinha mexido.
+
+### Bugs reais achados e corrigidos
+- Orcamento (A4) e Venda (cupom) usavam `{{itens}}` (escapado) em vez
+  de `{{{itens}}}` (HTML cru) - a lista de itens formatada nunca
+  funcionou direito, apareceria com tags visiveis tipo texto cru.
+- Dominio errado (`neotecos.vercel.app`) ainda estava espalhado em 4
+  lugares dentro de orcamento.service.ts e venda.service.ts (o mesmo
+  bug ja corrigido em outros lugares nas Fases 133/135, mas esses dois
+  arquivos tinham logica de QR duplicada em vez de reusar o helper
+  correto - agora reusam).
+- Nome da empresa inconsistente ("NEOTEC ARAGUARI" em 4 lugares vs o
+  nome fiscal completo usado no comprovante) - padronizado em todos.
+
+### Profissionalizado
+CNPJ real adicionado em TODOS os documentos que ainda nao tinham (OS
+cupom, orcamento A4, venda cupom, recibo cupom) - so o comprovante de
+aparelho (Fase 158) tinha isso ate agora.
+
+### Documentos NAO alterados (cupom termico e assim mesmo por design)
+Os cupons continuam compactos/monoespacados (Courier New, 280px) -
+isso e proposital, papel termico de 80mm nao comporta letterhead
+completo. "Profissional" ali significa dado correto e completo, nao
+virar A4.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 163] - Central de Cadastro: aparelho nasce como "fornecedor" na localizacao
 
 Achado: a palavra "fornecedor" tinha dois significados diferentes no

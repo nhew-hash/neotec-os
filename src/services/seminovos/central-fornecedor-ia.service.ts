@@ -39,6 +39,16 @@ e nem sempre segue exatamente a mesma ordem dentro da mesma linha. Exemplos:
 - "15 PRO MAX 256G🩶92% 85%⚫️ 4099" → 2 itens (256G, 92% titânio / 85% preto, todos 4099) — repare que aqui a cor do primeiro item vem ANTES do %, e o segundo vem DEPOIS
 - "13 128G 💚 83% 88% 84% 90%⚫️1699 ⚪️ 86% 1749" → aqui os preços SÃO diferentes por cor (1699 pro grupo preto/verde, 1749 pro branco) — quando isso acontecer, associe cada bateria ao preço mais próximo dela no texto, não assuma sempre o mesmo preço pra tudo.
 
+O MESMO padrão de preço diferente por cor acontece em LACRADO também
+(sem bateria, só cor+preço). Exemplo real:
+- "17 256g⚫️⚪️🔵 5050💚4899" → 4 itens, todos "17" 256GB lacrado: preto/branco/azul a 5050, e verde a 4899 (preço diferente, associado à cor mais próxima dele no texto — o 💚 vem logo antes do 4899, então é desse grupo).
+- "16 128g⚪️⚫️🔵4399💚4099" → mesma lógica: branco/preto/azul a 4399, verde a 4099.
+
+Espaçamento no texto original é inconsistente (às vezes falta espaço
+entre palavras, tipo "pro256g" em vez de "pro 256g") — não deixa isso
+confundir a leitura do modelo/memória, o modelo continua sendo "17
+Pro" e a memória "256GB" mesmo colado.
+
 REGRA DE "NFC", EDIÇÃO ESPECIAL, E SPECS DE RAM (importante — evita erro de formato):
 - "NFC" NUNCA vira campo separado nem item novo — é só texto dentro de "observacoes" (ex: "com NFC"). O item continua sendo UM SÓ, igual seria sem o NFC.
 - Edição especial (ex: "Homem de Ferro", "Iron Man", qualquer nome de edição limitada) NUNCA vira "cor" nem item novo — é texto em "observacoes" (ex: "Edição Homem de Ferro").
@@ -164,6 +174,14 @@ export async function classificarItensFornecedor(texto: string): Promise<ItemFor
       const match = item.linhaOriginal.match(/(\d+)\s*%/);
       const bateriaExtraida = item.bateria ?? (match ? Number(match[1]) : null);
       return { ...item, destino: "seminovo" as const, bateria: bateriaExtraida };
+    }
+
+    // Caso 3: iPad NUNCA pode ser "lacrado" (mesmo sem %, mesmo que a
+    // IA erre) — segue catálogo próprio de generico, diferente de
+    // tablet Android. Sem essa trava, iPad lacrado ia parar dentro da
+    // área de "iPhone Lacrado" na loja (mesma marca "Apple").
+    if (item.destino === "lacrado" && /\bipad\b/i.test(item.modelo)) {
+      return { ...item, destino: "generico" as const };
     }
 
     return item;

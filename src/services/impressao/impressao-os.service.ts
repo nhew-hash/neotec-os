@@ -60,7 +60,7 @@ export async function montarHtmlImpressaoOS(id: string, formato: FormatoImpressa
     : "";
 
   return renderizarTemplate(template.conteudo_html, {
-    loja_nome: "NEOTEC ARAGUARI",
+    loja_nome: "NEOTEC TECNOLOGIA E ACESSÓRIOS LTDA",
     numero_documento: os.numero_os,
     data_emissao: formatDateTime(os.data_entrada),
     cliente_nome: os.cliente.nome,

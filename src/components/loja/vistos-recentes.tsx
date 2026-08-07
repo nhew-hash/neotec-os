@@ -31,7 +31,7 @@ export function VistosRecentesLista({ excluirId }: { excluirId?: string }) {
         {lista.map((item) => (
           <Link
             key={item.id}
-            href={`/loja/produto/${item.slug}`}
+            href={item.slug ? `/loja/produto/${item.slug}` : "#"}
             className="flex w-40 shrink-0 flex-col gap-1 rounded-xl border border-black/[0.06] p-3 transition-colors hover:border-primary/30"
           >
             <span className="line-clamp-2 text-xs font-medium text-foreground">{item.nome}</span>

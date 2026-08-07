@@ -40,7 +40,7 @@ async function aplicarItem(item: ItemComEstado): Promise<{ success: boolean; err
   if (item.destino === "lacrado") {
     return aplicarLacradoFornecedorAction({ modelo: item.modelo, memoria: item.memoria, cor: item.cor, preco: item.precoVendaEditavel });
   }
-  return aplicarGenericoFornecedorAction({ modelo: item.modelo, categoria: item.categoria, marca: item.marca, observacoes: item.observacoes, preco: item.preco });
+  return aplicarGenericoFornecedorAction({ modelo: item.modelo, categoria: item.categoria, marca: item.marca, observacoes: item.observacoes, preco: item.precoVendaEditavel });
 }
 
 function ItemCard({ item, index, onAtualizar }: { item: ItemComEstado; index: number; onAtualizar: (i: number, item: ItemComEstado) => void }) {
@@ -74,24 +74,20 @@ function ItemCard({ item, index, onAtualizar }: { item: ItemComEstado; index: nu
             <span className="text-xs text-muted-foreground">{[item.memoria, item.cor, item.bateria != null && `${item.bateria}%`].filter(Boolean).join(" · ")}</span>
           </div>
 
-          {item.destino === "seminovo" || item.destino === "lacrado" ? (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Pago: {formatCurrency(item.preco)}</span>
-              <span className="text-foreground">→</span>
-              <Input
-                type="number" value={item.precoVendaEditavel}
-                onChange={(e) => onAtualizar(index, { ...item, precoVendaEditavel: Number(e.target.value) || 0 })}
-                className="h-7 w-24 text-xs font-semibold"
-              />
-              {item.lucroSugerido != null ? (
-                <span className="text-success">lucro {formatCurrency(item.precoVendaEditavel - item.preco)}</span>
-              ) : (
-                <span className="flex items-center gap-1 text-warning">⚠️ sem regra de lucro aplicada — confere o preço</span>
-              )}
-            </div>
-          ) : (
-            <span className="text-sm font-semibold text-foreground">{formatCurrency(item.preco)}</span>
-          )}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Pago: {formatCurrency(item.preco)}</span>
+            <span className="text-foreground">→</span>
+            <Input
+              type="number" value={item.precoVendaEditavel}
+              onChange={(e) => onAtualizar(index, { ...item, precoVendaEditavel: Number(e.target.value) || 0 })}
+              className="h-7 w-24 text-xs font-semibold"
+            />
+            {item.lucroSugerido != null ? (
+              <span className="text-success">lucro {formatCurrency(item.precoVendaEditavel - item.preco)}</span>
+            ) : (
+              <span className="flex items-center gap-1 text-warning">⚠️ sem regra de lucro aplicada — confere o preço</span>
+            )}
+          </div>
         </div>
 
         {item.observacoes && <p className="text-xs text-muted-foreground">{item.observacoes}</p>}

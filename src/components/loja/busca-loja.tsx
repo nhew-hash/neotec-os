@@ -75,7 +75,7 @@ export function BuscaLoja() {
           {resultados.map((p) => (
             <Link
               key={p.id}
-              href={`/loja/produto/${p.slug}`}
+              href={p.slug ? `/loja/produto/${p.slug}` : "#"}
               onClick={fechar}
               className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-secondary"
             >

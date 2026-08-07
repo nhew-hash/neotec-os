@@ -65,7 +65,7 @@ export default function CompararPage() {
               {precoMinimo(p) != null && precoMinimo(p) !== Infinity && (
                 <span className="text-base font-bold text-foreground">a partir de {formatCurrency(precoMinimo(p)!)}</span>
               )}
-              <Link href={`/loja/produto/${p.slug}`} className="text-xs font-medium text-primary hover:underline">Ver produto</Link>
+              <Link href={p.slug ? `/loja/produto/${p.slug}` : "#"} className="text-xs font-medium text-primary hover:underline">Ver produto</Link>
             </div>
           ))}
 

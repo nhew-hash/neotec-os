@@ -49,7 +49,7 @@ export function ProdutoCard({ produto, maisVendido, ultimasUnidades }: ProdutoCa
         </button>
       )}
 
-      <Link href={`/loja/produto/${produto.slug}`} className="flex flex-col">
+      <Link href={produto.slug ? `/loja/produto/${produto.slug}` : "#"} className="flex flex-col">
         <div className="flex aspect-square items-center justify-center overflow-hidden bg-white">
           {produto.fotos?.[0] ? (
             // eslint-disable-next-line @next/next/no-img-element

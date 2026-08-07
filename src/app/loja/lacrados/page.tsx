@@ -3,7 +3,7 @@ import { LacradosListaCliente } from "@/components/loja/lacrados-lista-cliente";
 
 export default async function LacradosListaPage() {
   const todos = await listarLacradosModelosPublico();
-  const modelosApple = todos.filter((m) => m.marca?.toLowerCase() === "apple");
+  const modelosApple = todos.filter((m) => m.marca?.toLowerCase() === "apple" && /iphone/i.test(m.nome));
 
   return (
     <LacradosListaCliente

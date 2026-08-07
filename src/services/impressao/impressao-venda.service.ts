@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { renderizarTemplate } from "./templates-engine";
 import { buscarTemplateAtivo } from "./templates.service";
-import { gerarQrCodeDataUrl } from "./qrcode.service";
+import { gerarQrCodeDataUrl, urlConsultaPublicaOS } from "./qrcode.service";
 import { formatCurrency, formatDateTime } from "@/utils";
+
+const NOME_FANTASIA = "NEOTEC TECNOLOGIA E ACESSÓRIOS LTDA";
 
 async function montarItensVendaHtml(vendaId: string): Promise<string> {
   const supabase = await createClient();
@@ -33,11 +35,11 @@ export async function montarHtmlImpressaoVenda(id: string, viaCliente: boolean):
   if (!venda || !template) return null;
 
   const qrCodeHtml = viaCliente
-    ? `<img src="${await gerarQrCodeDataUrl(`${process.env.NEXT_PUBLIC_SITE_URL ?? "https://neotecos.vercel.app"}/consultar-os`)}" alt="QR Code" style="width:100px;height:100px;margin:0 auto;display:block;" />`
+    ? `<img src="${await gerarQrCodeDataUrl(urlConsultaPublicaOS())}" alt="QR Code" style="width:100px;height:100px;margin:0 auto;display:block;" />`
     : "";
 
   return renderizarTemplate(template.conteudo_html, {
-    loja_nome: "NEOTEC ARAGUARI",
+    loja_nome: NOME_FANTASIA,
     numero_documento: venda.id.slice(0, 8).toUpperCase(),
     data_emissao: formatDateTime(venda.data_venda),
     itens: itensHtml || "Nenhum item",
@@ -67,11 +69,11 @@ export async function montarHtmlImpressaoRecibo(vendaId: string, viaCliente: boo
   }
 
   const qrCodeHtml = viaCliente
-    ? `<img src="${await gerarQrCodeDataUrl(`${process.env.NEXT_PUBLIC_SITE_URL ?? "https://neotecos.vercel.app"}/consultar-os`)}" alt="QR Code" style="width:100px;height:100px;margin:0 auto;display:block;" />`
+    ? `<img src="${await gerarQrCodeDataUrl(urlConsultaPublicaOS())}" alt="QR Code" style="width:100px;height:100px;margin:0 auto;display:block;" />`
     : "";
 
   return renderizarTemplate(template.conteudo_html, {
-    loja_nome: "NEOTEC ARAGUARI",
+    loja_nome: NOME_FANTASIA,
     cliente_nome: venda.cliente?.nome ?? "Cliente balcão",
     data_emissao: formatDateTime(venda.data_venda),
     responsavel: nomeResponsavel,
