@@ -1,14 +1,23 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { MessageCircle, MapPin } from "lucide-react";
 import { CATEGORIAS_LOJA } from "./categorias";
 
 export function LojaFooter() {
+  const [logoFalhou, setLogoFalhou] = useState(false);
+
   return (
     <footer className="mt-20 border-t border-black/[0.06] bg-[#FAFBFC]">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 px-4 py-12 sm:grid-cols-4">
         <div className="col-span-2 sm:col-span-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-neotec.png" alt="Neotec" className="mb-3 h-7 w-auto object-contain" />
+          {logoFalhou ? (
+            <span className="mb-3 block font-display text-base font-semibold tracking-tight text-foreground">Neotec</span>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/logo-neotec.png" alt="Neotec" className="mb-3 h-7 w-auto object-contain" onError={() => setLogoFalhou(true)} />
+          )}
           <p className="text-sm text-muted-foreground">Assistência técnica e loja especializada em produtos Apple, em Araguari.</p>
         </div>
         <div>

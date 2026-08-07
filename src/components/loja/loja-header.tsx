@@ -10,14 +10,27 @@ import { BuscaLoja } from "./busca-loja";
 export function LojaHeader() {
   const { totalItens } = useCarrinho();
   const [menuAberto, setMenuAberto] = useState(false);
+  const [logoFalhou, setLogoFalhou] = useState(false);
 
   return (
     <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <div className="flex items-center gap-8">
           <Link href="/loja" className="flex shrink-0 items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-neotec.png" alt="Neotec" className="h-9 w-auto shrink-0 object-contain sm:h-8" />
+            {logoFalhou ? (
+              <>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-display text-sm font-bold text-white">N</div>
+                <span className="font-display text-lg font-semibold tracking-tight text-foreground">Neotec</span>
+              </>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src="/logo-neotec.png"
+                alt="Neotec"
+                className="h-9 w-auto shrink-0 object-contain sm:h-8"
+                onError={() => setLogoFalhou(true)}
+              />
+            )}
           </Link>
 
           <nav className="hidden items-center gap-6 lg:flex">

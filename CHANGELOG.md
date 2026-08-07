@@ -4,6 +4,31 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 171] - Logo com fallback automatico - nunca mais icone quebrado
+
+Nao consegui identificar com certeza a causa exata de por que a logo
+falha em carregar especificamente no mobile (testado em 2 aparelhos
+diferentes, mesmo em navegacao anonima, mesmo digitando o dominio
+direto - nao achei nada no codigo, config, CSP ou service worker que
+explicasse isso).
+
+### Solucao aplicada
+Em vez de continuar so tentando diagnosticar as cegas, tornei a UI
+resiliente: se a imagem falhar por qualquer motivo, o cabecalho e
+rodape caem automaticamente pro texto "Neotec" (o visual original,
+antes da logo em imagem) - nunca mais mostra icone de imagem quebrada,
+seja qual for a causa real do carregamento falhar.
+
+### Ainda em aberto
+A causa raiz do carregamento falhar no mobile continua sem explicacao
+clara. Se sobrar tempo, vale investigar mais fundo (talvez com acesso
+a print de tela ou ferramenta de inspecao remota) - mas o fallback ja
+garante que o site nao fica com aparencia quebrada enquanto isso.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 170] - Logo protegida contra encolhimento no mobile
 
 Achado: a logo nao tinha protecao contra ser espremida pelo layout
