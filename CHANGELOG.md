@@ -4,6 +4,19 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 170] - Logo protegida contra encolhimento no mobile
+
+Achado: a logo nao tinha protecao contra ser espremida pelo layout
+flex do cabecalho no mobile (varios icones competindo por espaco -
+menu, busca, carrinho, usuario). Adicionado `shrink-0` na logo e no
+link que a envolve - nunca mais encolhe, nao importa quanto espaco
+sobrar. Altura tambem ajustada pra ficar mais legivel no mobile (36px
+no celular, 32px a partir de tablet/desktop).
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 169] - Catalogo de lacrado nunca mostrava foto - achado real
 
 ### Causa
