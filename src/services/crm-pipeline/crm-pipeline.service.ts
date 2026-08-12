@@ -167,3 +167,53 @@ export async function concluirFollowup(id: string): Promise<void> {
   const { error } = await supabase.from("crm_followups").update({ status: "concluido" }).eq("id", id);
   if (error) throw new Error(`Não foi possível concluir o follow-up: ${error.message}`);
 }
+
+/**
+ * Chamado pelo cron diário — gera follow-up automático pra cards
+ * parados tempo demais na mesma etapa, sem que ninguém tenha mexido.
+ * Nunca duplica: se já existe um follow-up pendente pra esse card, não
+ * cria outro. Nunca mexe em card perdido (já não é mais uma
+ * oportunidade ativa).
+ */
+export async function gerarFollowupsAutomaticos(): Promise<{ criados: number }> {
+  const supabase = await createClient();
+
+  const { data: etapas } = await supabase.from("crm_etapas").select("id, nome, dias_para_alerta").not("dias_para_alerta", "is", null);
+  if (!etapas || etapas.length === 0) return { criados: 0 };
+
+  let criados = 0;
+
+  for (const etapa of etapas) {
+    const limiteData = new Date();
+    limiteData.setDate(limiteData.getDate() - (etapa.dias_para_alerta ?? 999));
+
+    const { data: cardsParados } = await supabase
+      .from("crm_cards")
+      .select("id, titulo, cliente_id")
+      .eq("etapa_id", etapa.id)
+      .eq("perdido", false)
+      .lt("entrou_etapa_em", limiteData.toISOString());
+
+    for (const card of cardsParados ?? []) {
+      const { data: followupExistente } = await supabase
+        .from("crm_followups")
+        .select("id")
+        .eq("card_id", card.id)
+        .eq("status", "pendente")
+        .limit(1)
+        .maybeSingle();
+
+      if (followupExistente) continue; // já tem lembrete pendente, não duplica
+
+      await supabase.from("crm_followups").insert({
+        card_id: card.id,
+        data_agendada: new Date().toISOString(),
+        motivo: `⏰ Parado em "${etapa.nome}" há mais de ${etapa.dias_para_alerta} dia(s) — dar uma olhada`,
+        status: "pendente",
+      });
+      criados++;
+    }
+  }
+
+  return { criados };
+}

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { processarFollowupsDeVenda } from "@/services/ia/followup-vendas.service";
 import { processarRetiradasAgendadas } from "@/services/estoque/estoque.actions";
 import { expirarPerguntasAntigas } from "@/services/ia/ia-pergunta-equipe.service";
+import { gerarFollowupsAutomaticos } from "@/services/crm-pipeline/crm-pipeline.service";
 
 /**
  * Chamada pelo Vercel Cron (ver vercel.json) — nunca pelo navegador.
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest) {
     const resultado = await processarFollowupsDeVenda();
     const retiradas = await processarRetiradasAgendadas();
     const perguntasExpiradas = await expirarPerguntasAntigas();
-    return NextResponse.json({ ok: true, ...resultado, retiradas, perguntasExpiradas });
+    const followupsAutomaticos = await gerarFollowupsAutomaticos();
+    return NextResponse.json({ ok: true, ...resultado, retiradas, perguntasExpiradas, followupsAutomaticos });
   } catch (err) {
     console.error("Falha ao processar follow-ups de venda:", err);
     return NextResponse.json(

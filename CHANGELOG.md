@@ -4,6 +4,30 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 180] - Follow-up automatico
+
+Card parado numa etapa por tempo demais sem ninguem mexer agora gera
+um lembrete sozinho, rodando junto no cron diario que ja existia.
+
+### Limites por etapa (ajustaveis direto no banco por enquanto)
+- Lead: 2 dias
+- Em atendimento: 3 dias
+- Em negociacao: 2 dias
+- Orcamento: 3 dias
+- Venda feita, Pos-venda, Oportunidades futuras, Atendimento encerrado:
+  sem alerta automatico (nao faz sentido cobrar resposta rapida nessas)
+
+### Protecoes
+- Nunca duplica - se ja tem um follow-up pendente pro card, nao cria
+  outro.
+- Nunca mexe em card marcado como perdido.
+- Mensagem do follow-up ja diz onde o card esta parado e ha quantos
+  dias, direto no motivo.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 178-179] - "Atendimento encerrado" no CRM Venda + follow-ups unificados
 
 ### Atendimento encerrado em Venda
