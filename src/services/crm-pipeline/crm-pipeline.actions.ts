@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { crmCardSchema, crmFollowupSchema } from "./crm-pipeline.schema";
 import { criarCard, moverCardEtapa, criarFollowup, concluirFollowup } from "./crm-pipeline.service";
-import type { ActionResult } from "@/types";
+import type { ActionResult, CrmEtapa } from "@/types";
 
 export async function criarCardAction(formData: FormData): Promise<ActionResult> {
   const parsed = crmCardSchema.safeParse({
@@ -161,5 +161,16 @@ export async function moverParaCrmAssistenciaAction(cardId: string, clienteId: s
     return { success: true, data: { osId: os.id, numeroOS: os.numero_os } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao mover pra assistência" };
+  }
+}
+
+/** Wrapper de listarEtapas como Server Action — permite chamar do client component sem importar o .service diretamente (que tem código de servidor e quebra o build se importado de client component). */
+export async function listarEtapasAction(): Promise<ActionResult<CrmEtapa[]>> {
+  try {
+    const { listarEtapas } = await import("./crm-pipeline.service");
+    const etapas = await listarEtapas();
+    return { success: true, data: etapas };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao carregar etapas" };
   }
 }

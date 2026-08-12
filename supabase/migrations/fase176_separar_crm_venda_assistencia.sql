@@ -17,15 +17,18 @@ do $$
 declare
   v_etapa_lead_id uuid;
 begin
-  -- Cria a etapa "Lead" nova ANTES de apagar as antigas, pra ter pra
-  -- onde migrar os cards existentes sem perder nenhum.
-  insert into crm_etapas (nome, ordem, cor, tipo) values ('Lead', 1, '#8A90A0', 'venda')
+  -- Ordem temporária bem alta (9999) pra nunca colidir com o "ordem=1"
+  -- que já existe (a etapa "Lead" original do funil misturado antigo)
+  -- — só normaliza pra 1 depois de apagar as etapas velhas.
+  insert into crm_etapas (nome, ordem, cor, tipo) values ('Lead', 9999, '#8A90A0', 'venda')
   returning id into v_etapa_lead_id;
 
   update crm_cards set etapa_id = v_etapa_lead_id
   where etapa_id in (select id from crm_etapas where id != v_etapa_lead_id);
 
   delete from crm_etapas where id != v_etapa_lead_id;
+
+  update crm_etapas set ordem = 1 where id = v_etapa_lead_id;
 end $$;
 
 -- Reinsere o funil de venda completo (a etapa Lead já existe da

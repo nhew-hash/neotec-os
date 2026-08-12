@@ -6,7 +6,7 @@ import { Wrench, Receipt, StickyNote, ChevronDown, Kanban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { criarFollowupAction, moverCardEtapaAction } from "@/services/crm-pipeline/crm-pipeline.actions";
+import { criarFollowupAction, moverCardEtapaAction, listarEtapasAction } from "@/services/crm-pipeline/crm-pipeline.actions";
 import type { CrmEtapa } from "@/types";
 
 interface AcoesRapidasProps {
@@ -32,8 +32,8 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
 
   useEffect(() => {
     if (!expandido || !cardId || etapas.length > 0) return;
-    import("@/services/crm-pipeline/crm-pipeline.service").then(({ listarEtapas }) => {
-      listarEtapas().then(setEtapas);
+    listarEtapasAction().then((result) => {
+      if (result.success) setEtapas(result.data);
     });
   }, [expandido, cardId, etapas.length]);
 

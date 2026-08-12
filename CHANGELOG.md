@@ -4,6 +4,22 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 176.2] - Corrigido: mesmo bug de import client/server, dessa vez via import dinamico
+
+`acoes-rapidas.tsx` (client component) importava dinamicamente
+`crm-pipeline.service.ts` (que tem `next/headers`) pra buscar as
+etapas do CRM. Mesmo sendo import dinamico, o bundler ainda precisa
+empacotar o modulo pro cliente saber o que carregar - mesma classe de
+erro da Fase 143, só que dessa vez via `import()` em vez de import
+estatico no topo do arquivo.
+
+Corrigido com uma Server Action nova (`listarEtapasAction`) - o client
+component chama ela em vez de importar o service diretamente.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 176] - CRM separado em Venda + Assistencia, e mais 6 melhorias
 
 Escopo grande pedido de uma vez - construido tudo sem parar.
