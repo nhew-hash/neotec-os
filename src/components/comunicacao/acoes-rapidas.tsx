@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Wrench, Receipt, StickyNote, ChevronDown } from "lucide-react";
+import { Wrench, Receipt, StickyNote, ChevronDown, Kanban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { criarFollowupAction } from "@/services/crm-pipeline/crm-pipeline.actions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { criarFollowupAction, moverCardEtapaAction } from "@/services/crm-pipeline/crm-pipeline.actions";
+import type { CrmEtapa } from "@/types";
 
 interface AcoesRapidasProps {
   clienteId: string | null;
@@ -25,6 +27,15 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
   const [observacao, setObservacao] = useState("");
   const [isPending, startTransition] = useTransition();
   const [mensagem, setMensagem] = useState<string | null>(null);
+  const [etapas, setEtapas] = useState<CrmEtapa[]>([]);
+  const [movendoEtapa, setMovendoEtapa] = useState(false);
+
+  useEffect(() => {
+    if (!expandido || !cardId || etapas.length > 0) return;
+    import("@/services/crm-pipeline/crm-pipeline.service").then(({ listarEtapas }) => {
+      listarEtapas().then(setEtapas);
+    });
+  }, [expandido, cardId, etapas.length]);
 
   function handleSalvarObservacao() {
     if (!cardId || !observacao.trim()) return;
@@ -40,6 +51,14 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
         setMostrarObservacao(false);
       }
     });
+  }
+
+  async function handleMoverEtapa(etapaId: string) {
+    if (!cardId) return;
+    setMovendoEtapa(true);
+    await moverCardEtapaAction(cardId, etapaId);
+    setMovendoEtapa(false);
+    setMensagem("Etapa do CRM atualizada.");
   }
 
   return (
@@ -77,6 +96,18 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
               <StickyNote className="h-3.5 w-3.5" />Adicionar observação
             </Button>
           </div>
+
+          {cardId && etapas.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Kanban className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <Select disabled={movendoEtapa} onValueChange={handleMoverEtapa}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Mudar etapa no CRM" /></SelectTrigger>
+                <SelectContent>
+                  {etapas.map((etapa) => <SelectItem key={etapa.id} value={etapa.id}>{etapa.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {mostrarObservacao && (
             <div className="flex flex-col gap-2">

@@ -10,6 +10,7 @@ export const STATUS_OS_OPTIONS: { value: StatusOS; label: string; descricaoProxi
   { value: "teste", label: "Teste", descricaoProximoPasso: "Testar antes de liberar", tone: "warning" },
   { value: "pronto", label: "Pronto", descricaoProximoPasso: "Avisar o cliente pra retirada", tone: "success" },
   { value: "entregue", label: "Entregue", descricaoProximoPasso: "Concluído", tone: "neutral" },
+  { value: "atendimento_encerrado", label: "Atendimento encerrado", descricaoProximoPasso: "Finalizado por completo", tone: "success" },
 ];
 
 export const STATUS_OS_LABEL: Record<StatusOS, string> = Object.fromEntries(

@@ -168,7 +168,32 @@ function CardItem({ card, etapas }: { card: CardComRelacoes; etapas: CrmEtapa[] 
           {etapas.map((etapa) => <SelectItem key={etapa.id} value={etapa.id}>{etapa.nome}</SelectItem>)}
         </SelectContent>
       </Select>
+
+      {!card.convertido_em_os_id && <BotaoMoverParaAssistencia cardId={card.id} clienteId={card.cliente.id} />}
     </div>
+  );
+}
+
+function BotaoMoverParaAssistencia({ cardId, clienteId }: { cardId: string; clienteId: string }) {
+  const [movendo, setMovendo] = useState(false);
+  const [movido, setMovido] = useState(false);
+
+  async function handleMover() {
+    const defeito = window.prompt("Qual o defeito relatado pelo cliente?");
+    if (defeito == null) return; // cancelou
+    setMovendo(true);
+    const { moverParaCrmAssistenciaAction } = await import("@/services/crm-pipeline/crm-pipeline.actions");
+    await moverParaCrmAssistenciaAction(cardId, clienteId, defeito);
+    setMovendo(false);
+    setMovido(true);
+  }
+
+  if (movido) return <p className="text-center text-[10px] text-success">OS criada — abre em Assistência</p>;
+
+  return (
+    <button type="button" onClick={handleMover} disabled={movendo} className="w-full rounded-md border border-warning/30 py-1 text-[10px] font-medium text-warning hover:bg-warning/5">
+      {movendo ? "Movendo..." : "Na verdade é assistência →"}
+    </button>
   );
 }
 

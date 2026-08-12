@@ -119,3 +119,47 @@ export async function reabrirCardAction(cardId: string): Promise<{ success: true
     return { success: false, error: err instanceof Error ? err.message : "Erro ao reabrir" };
   }
 }
+
+/** Botão "na verdade é venda" — cria um card no CRM de venda a partir de uma OS, e marca a OS com o vínculo. Nunca apaga a OS, só cria o card irmão. */
+export async function moverParaCrmVendaAction(osId: string, clienteId: string): Promise<ActionResult<{ cardId: string }>> {
+  try {
+    const supabase = await createClient();
+
+    const { data: primeiraEtapa } = await supabase.from("crm_etapas").select("id").eq("tipo", "venda").order("ordem").limit(1).maybeSingle();
+    if (!primeiraEtapa) throw new Error("Nenhuma etapa de venda configurada");
+
+    const { data: os } = await supabase.from("ordens_servico").select("numero_os").eq("id", osId).maybeSingle();
+
+    const { data: card, error } = await supabase
+      .from("crm_cards")
+      .insert({ cliente_id: clienteId, etapa_id: primeiraEtapa.id, titulo: `Venda — a partir da OS ${os?.numero_os ?? ""}` })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+
+    await supabase.from("ordens_servico").update({ gerou_card_venda_id: card.id }).eq("id", osId);
+
+    revalidatePath("/crm");
+    revalidatePath("/assistencia");
+    return { success: true, data: { cardId: card.id } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao mover pra venda" };
+  }
+}
+
+/** Botão "na verdade é assistência" — cria uma OS a partir de um card do CRM de venda, e marca o card com o vínculo. Nunca apaga o card, só cria a OS irmã. */
+export async function moverParaCrmAssistenciaAction(cardId: string, clienteId: string, defeitoRelatado: string): Promise<ActionResult<{ osId: string; numeroOS: string }>> {
+  try {
+    const { criarOrdemServico } = await import("@/services/assistencia/assistencia.service");
+    const os = await criarOrdemServico({ cliente_id: clienteId, defeito: defeitoRelatado || "A definir" });
+
+    const supabase = await createClient();
+    await supabase.from("crm_cards").update({ convertido_em_os_id: os.id }).eq("id", cardId);
+
+    revalidatePath("/crm");
+    revalidatePath("/assistencia");
+    return { success: true, data: { osId: os.id, numeroOS: os.numero_os } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao mover pra assistência" };
+  }
+}

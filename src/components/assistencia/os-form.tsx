@@ -156,6 +156,23 @@ export function OrdemServicoForm({ clientes, aparelhos, clienteIdInicial, indica
           </FormItem>
         )} />
 
+        <FormField control={form.control} name="origem_cliente" render={({ field }) => (
+          <FormItem>
+            <FormLabel>De onde o cliente veio</FormLabel>
+            <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <FormControl><SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger></FormControl>
+              <SelectContent>
+                <SelectItem value="indicacao">Indicação</SelectItem>
+                <SelectItem value="porta_de_loja">Porta de loja</SelectItem>
+                <SelectItem value="instagram">Instagram</SelectItem>
+                <SelectItem value="anuncio">Anúncio</SelectItem>
+                <SelectItem value="cliente_antigo">Cliente antigo</SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )} />
+
         <FormField control={form.control} name="diagnostico_inicial" render={({ field }) => (
           <FormItem>
             <FormLabel>Diagnóstico inicial (opcional)</FormLabel>

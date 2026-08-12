@@ -17,6 +17,7 @@ export async function criarOSAction(formData: FormData): Promise<ActionResult<{ 
     aparelho_id: String(formData.get("aparelho_id") ?? ""),
     aparelho_descricao: String(formData.get("aparelho_descricao") ?? ""),
     defeito: String(formData.get("defeito") ?? ""),
+    origem_cliente: String(formData.get("origem_cliente") ?? "") || undefined,
     diagnostico_inicial: String(formData.get("diagnostico_inicial") ?? ""),
     garantia_dias: String(formData.get("garantia_dias") ?? ""),
     prazo: String(formData.get("prazo") ?? ""),
@@ -58,6 +59,7 @@ export async function criarOSAction(formData: FormData): Promise<ActionResult<{ 
       aparelho_id: parsed.data.aparelho_id,
       aparelho_descricao: parsed.data.aparelho_descricao,
       defeito: parsed.data.defeito,
+      origem_cliente: parsed.data.origem_cliente,
       diagnostico_inicial: parsed.data.diagnostico_inicial,
       garantia_dias: parsed.data.garantia_dias,
       prazo: parsed.data.prazo,
@@ -204,5 +206,22 @@ export async function salvarChecklistOSAction(
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar checklist" };
+  }
+}
+
+/** Finaliza o atendimento — registra forma de pagamento e valor, marca como encerrado. Impressão é disparada pela tela, não aqui (ação só grava o dado). */
+export async function finalizarAtendimentoOSAction(osId: string, formaPagamento: string, valorCobrado: number): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("ordens_servico")
+      .update({ status: "atendimento_encerrado", forma_pagamento: formaPagamento, valor_cobrado: valorCobrado })
+      .eq("id", osId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/assistencia");
+    revalidatePath("/crm");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao finalizar atendimento" };
   }
 }

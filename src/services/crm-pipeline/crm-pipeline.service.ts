@@ -5,7 +5,7 @@ import type { CrmEtapa, CrmCard, CrmTag, CrmFollowup, Cliente } from "@/types";
 
 export async function listarEtapas(): Promise<CrmEtapa[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("crm_etapas").select("*").eq("ativa", true).order("ordem");
+  const { data, error } = await supabase.from("crm_etapas").select("*").eq("ativa", true).eq("tipo", "venda").order("ordem");
   if (error) throw new Error(`Não foi possível carregar as etapas: ${error.message}`);
   return data ?? [];
 }

@@ -34,6 +34,7 @@ export const ordemServicoSchema = z
     prazo: z.string().optional().or(z.literal("")),
     urgente: z.boolean().default(false),
     indicador_id: z.string().optional().or(z.literal("")),
+    origem_cliente: z.enum(["indicacao", "porta_de_loja", "instagram", "anuncio", "cliente_antigo"]).optional(),
     // Checklist de recebimento, preenchido na mesma tela — decisão do
     // dono do produto: capturar tudo (inclusive a senha) no momento em
     // que o aparelho chega, não numa etapa separada depois.

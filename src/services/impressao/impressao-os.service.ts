@@ -59,6 +59,18 @@ export async function montarHtmlImpressaoOS(id: string, formato: FormatoImpressa
     ? `<img src="${await gerarQrCodeDataUrl(urlConsultaPublicaOS())}" alt="QR Code" style="width:80px;height:80px;" />`
     : "";
 
+  const ORIGEM_LABEL: Record<string, string> = {
+    indicacao: "Indicação", porta_de_loja: "Porta de loja", instagram: "Instagram",
+    anuncio: "Anúncio", cliente_antigo: "Cliente antigo",
+  };
+
+  const blocoPagamento = os.forma_pagamento
+    ? `<div style="background:#f0fdf4; border-radius:6px; padding:10px 12px; margin-bottom:12px; font-size:12px;">
+        <strong>Pagamento:</strong> ${os.forma_pagamento === "pix" ? "Pix" : os.forma_pagamento === "cartao_credito" ? "Cartão de crédito" : os.forma_pagamento === "cartao_debito" ? "Cartão de débito" : "Dinheiro"}
+        ${os.valor_cobrado ? ` — R$ ${Number(os.valor_cobrado).toFixed(2)}` : ""}
+      </div>`
+    : "";
+
   return renderizarTemplate(template.conteudo_html, {
     loja_nome: "NEOTEC TECNOLOGIA E ACESSÓRIOS LTDA",
     numero_documento: os.numero_os,
@@ -74,6 +86,8 @@ export async function montarHtmlImpressaoOS(id: string, formato: FormatoImpressa
     checklist: montarBlocoChecklist(itensChecklist),
     observacoes: checklistRecebimento?.observacoes ?? "—",
     garantia: os.garantia_dias ? `${os.garantia_dias} dias após a entrega` : "Sem garantia definida",
+    origem_cliente: os.origem_cliente ? ORIGEM_LABEL[os.origem_cliente] ?? "—" : "—",
+    bloco_pagamento: blocoPagamento,
     qr_code: qrCodeHtml,
     assinatura_cliente: assinaturaCliente,
     assinatura_tecnico: assinaturaTecnico,

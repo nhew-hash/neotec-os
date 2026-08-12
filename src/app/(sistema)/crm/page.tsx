@@ -3,7 +3,9 @@ import { CalendarClock, BarChart3 } from "lucide-react";
 import { listarEtapas, listarCards, listarFollowupsPendentes } from "@/services/crm-pipeline/crm-pipeline.service";
 import { listarRetornosPendentes } from "@/services/crm/crm.service";
 import { listarClientes } from "@/services/clientes/clientes.service";
+import { listarOrdensServico } from "@/services/assistencia/assistencia.service";
 import { PipelineKanban } from "@/components/crm/pipeline-kanban";
+import { AssistenciaKanban } from "@/components/crm/assistencia-kanban";
 import { NovaOportunidadeButton, FollowupsPanel } from "@/components/crm/pipeline-sidebar";
 import { CrmRealtimeListener } from "@/components/crm/crm-realtime-listener";
 import { contarFollowupsUrgentes } from "@/utils/followups";
@@ -11,8 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default async function CrmPage() {
-  const [etapas, cards, followups, retornos, clientes] = await Promise.all([
-    listarEtapas(), listarCards(), listarFollowupsPendentes(), listarRetornosPendentes(), listarClientes(),
+  const [etapas, cards, followups, retornos, clientes, ordensServico] = await Promise.all([
+    listarEtapas(), listarCards(), listarFollowupsPendentes(), listarRetornosPendentes(), listarClientes(), listarOrdensServico(),
   ]);
 
   const urgentes = contarFollowupsUrgentes(followups, retornos);
@@ -40,7 +42,8 @@ export default async function CrmPage() {
 
       <Tabs defaultValue="pipeline">
         <TabsList>
-          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          <TabsTrigger value="pipeline">Venda</TabsTrigger>
+          <TabsTrigger value="assistencia">Assistência</TabsTrigger>
           <TabsTrigger value="followups" className="gap-1.5">
             Follow-ups pendentes
             {urgentes > 0 && (
@@ -53,6 +56,10 @@ export default async function CrmPage() {
 
         <TabsContent value="pipeline">
           <PipelineKanban etapas={etapas} cards={cards} />
+        </TabsContent>
+
+        <TabsContent value="assistencia">
+          <AssistenciaKanban ordens={ordensServico} />
         </TabsContent>
 
         <TabsContent value="followups">

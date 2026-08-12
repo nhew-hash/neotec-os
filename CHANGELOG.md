@@ -4,6 +4,52 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 176] - CRM separado em Venda + Assistencia, e mais 6 melhorias
+
+Escopo grande pedido de uma vez - construido tudo sem parar.
+
+### 1. CRM separado
+Antes: um funil so, misturando 13 etapas de venda E assistencia
+juntas. Agora: dois boards separados na mesma tela de Relacionamento
+(abas "Venda" e "Assistencia").
+- **Venda** (crm_etapas, tipo=venda): Lead, Em atendimento, Em
+  negociacao, Orcamento, Venda feita, Pos-venda, Oportunidades futuras.
+- **Assistencia**: reaproveita o status_os que ja existia (nao
+  duplicou sistema) - "OS Criada" (rotulo novo pro status "recebido")
+  ate "Atendimento encerrado" (estagio novo).
+
+### 2. Botao de transferir entre os dois CRMs
+Card de venda tem "Na verdade e assistencia" (cria OS irma, pergunta o
+defeito). Card de assistencia tem "Na verdade e venda" (cria card de
+venda irmao). Nenhuma das duas apaga o original, so cria o vinculo.
+
+### 3. Finalizar atendimento (OS)
+Botao novo na tela de OS - pede forma de pagamento (Pix/Cartao
+credito/Cartao debito/Dinheiro) e valor cobrado, marca como
+"Atendimento encerrado", e ja dispara a impressao automatica do
+comprovante A4.
+
+### 4. Campo "de onde o cliente veio"
+Novo em OS (schema + form + banco): Indicacao, Porta de loja,
+Instagram, Anuncio, Cliente antigo.
+
+### 5. OS A4 melhorada
+CNPJ real, origem do cliente, e bloco de pagamento (so aparece quando
+o atendimento foi finalizado).
+
+### 6. Impressao de venda simplificada
+Antes tinha 4 opcoes confusas (Cupom, PDF, Recibo, Comprovante A4
+condicional). Agora sao exatamente 2, sempre visiveis: Comprovante A4
+e Cupom Fiscal.
+
+### 7. Editar CRM direto do Comunicacao -> Acoes Rapidas
+Seletor novo pra mudar a etapa do card sem sair da tela de
+conversa.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 175] - CRITICO: IA citava preco de item nao publicado + resposta ia pro cliente errado
 
 ### Bug 1 (grave) - preco de item nao publicado

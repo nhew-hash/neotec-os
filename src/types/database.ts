@@ -293,7 +293,8 @@ export type StatusOS =
   | "em_reparo"
   | "teste"
   | "pronto"
-  | "entregue";
+  | "entregue"
+  | "atendimento_encerrado";
 
 export interface OrdemServico {
   id: string;
@@ -312,6 +313,11 @@ export interface OrdemServico {
   prazo: string | null;
   urgente: boolean;
   indicador_id: string | null;
+  origem_cliente: "indicacao" | "porta_de_loja" | "instagram" | "anuncio" | "cliente_antigo" | null;
+  forma_pagamento: string | null;
+  valor_cobrado: number | null;
+  convertido_de_card_id: string | null;
+  gerou_card_venda_id: string | null;
   data_entrada: string;
   data_saida: string | null;
   updated_at: string;
@@ -481,6 +487,7 @@ export interface CrmCard {
   ultima_resposta_cliente_em: string | null;
   perdido: boolean;
   motivo_perda: string | null;
+  convertido_em_os_id: string | null;
   created_at: string;
   updated_at: string;
 }
