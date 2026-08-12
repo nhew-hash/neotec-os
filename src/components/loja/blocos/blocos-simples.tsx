@@ -27,12 +27,19 @@ export function BlocoBanner({ secao }: { secao: HomeSecao }) {
 export function BlocoCategorias() {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-16">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Link
+          href="/loja/lacrados"
+          className="animate-reveal-up flex flex-col items-center gap-2.5 rounded-2xl border border-black/[0.06] bg-[#FAFBFC] py-9 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:shadow-md"
+        >
+          <span className="text-3xl">✨</span>
+          <span className="text-sm font-medium text-foreground">iPhone Lacrado</span>
+        </Link>
         {CATEGORIAS_LOJA.map((c, i) => (
           <Link
             key={c.valor}
             href={`/loja/categoria/${c.valor}`}
-            style={{ animationDelay: `${i * 60}ms` }}
+            style={{ animationDelay: `${(i + 1) * 60}ms` }}
             className="animate-reveal-up flex flex-col items-center gap-2.5 rounded-2xl border border-black/[0.06] bg-[#FAFBFC] py-9 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:shadow-md"
           >
             <span className="text-3xl">{c.emoji}</span>

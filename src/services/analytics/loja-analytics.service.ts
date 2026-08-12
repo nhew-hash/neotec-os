@@ -105,11 +105,16 @@ export async function obterResumoLojaAnalytics(): Promise<ResumoLojaAnalytics> {
     supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "add_to_cart").gte("criado_em", mesInicio.toISOString()),
     supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "add_to_cart").gte("criado_em", mesAnteriorInicio.toISOString()).lt("criado_em", mesInicio.toISOString()),
 
-    supabase.from("vw_vendas_seguro").select("valor_total").gte("data_venda", hojeInicio.toISOString()),
-    supabase.from("vw_vendas_seguro").select("valor_total").gte("data_venda", ontemInicio.toISOString()).lt("data_venda", hojeInicio.toISOString()),
-    supabase.from("vw_vendas_seguro").select("valor_total").gte("data_venda", semanaInicio.toISOString()),
-    supabase.from("vw_vendas_seguro").select("valor_total").gte("data_venda", mesInicio.toISOString()),
-    supabase.from("vw_vendas_seguro").select("valor_total").gte("data_venda", mesAnteriorInicio.toISOString()).lt("data_venda", mesInicio.toISOString()),
+    // Vendas/faturamento usa `pedidos_loja` (não `vendas`) — `vendas`
+    // mistura PDV presencial com checkout online sem nenhuma forma de
+    // diferenciar (checkout online cria a venda sem guardar referência
+    // de volta pro pedido). `pedidos_loja` é especificamente do site,
+    // então é a fonte certa pro Analytics da Loja.
+    supabase.from("pedidos_loja").select("valor_total").eq("status", "concluido").gte("updated_at", hojeInicio.toISOString()),
+    supabase.from("pedidos_loja").select("valor_total").eq("status", "concluido").gte("updated_at", ontemInicio.toISOString()).lt("updated_at", hojeInicio.toISOString()),
+    supabase.from("pedidos_loja").select("valor_total").eq("status", "concluido").gte("updated_at", semanaInicio.toISOString()),
+    supabase.from("pedidos_loja").select("valor_total").eq("status", "concluido").gte("updated_at", mesInicio.toISOString()),
+    supabase.from("pedidos_loja").select("valor_total").eq("status", "concluido").gte("updated_at", mesAnteriorInicio.toISOString()).lt("updated_at", mesInicio.toISOString()),
   ]);
 
   const somar = (rows: { valor_total: number }[] | null) => (rows ?? []).reduce((acc, v) => acc + Number(v.valor_total ?? 0), 0);
@@ -162,7 +167,7 @@ export async function obterAtividadeRecente(limite = 15): Promise<AtividadeRecen
       .not("produto_id", "is", null)
       .order("criado_em", { ascending: false })
       .limit(limite),
-    supabase.from("vw_vendas_seguro").select("id, valor_total, data_venda").order("data_venda", { ascending: false }).limit(5),
+    supabase.from("pedidos_loja").select("id, valor_total, updated_at").eq("status", "concluido").order("updated_at", { ascending: false }).limit(5),
   ]);
 
   const itensEventos: AtividadeRecente[] = (eventos ?? []).map((e) => {
@@ -178,7 +183,7 @@ export async function obterAtividadeRecente(limite = 15): Promise<AtividadeRecen
   });
 
   const itensVendas: AtividadeRecente[] = (vendasRecentes ?? []).map((v) => ({
-    id: v.id, tipo: "venda" as const, descricao: "💰 Venda realizada", quando: v.data_venda,
+    id: v.id, tipo: "venda" as const, descricao: "💰 Venda realizada", quando: v.updated_at,
   }));
 
   return [...itensEventos, ...itensVendas].sort((a, b) => b.quando.localeCompare(a.quando)).slice(0, limite);
@@ -196,20 +201,15 @@ export async function obterProdutosDestaque(limite = 10): Promise<ProdutoDestaqu
     .not("produto_id", "is", null)
     .gte("criado_em", trintaDiasAtras.toISOString());
 
-  const { data: itensVendidosBrutos } = await supabase
-    .from("venda_itens")
-    .select("produto_id, quantidade, venda:vendas!inner(data_venda)")
-    .not("produto_id", "is", null);
+  // "Vendas" aqui usa pedido_loja_itens (só site) filtrado pelo pedido
+  // estar concluído — não venda_itens (que mistura PDV com site, mesmo
+  // problema já corrigido no resumo principal acima).
+  const { data: pedidosConcluidos } = await supabase.from("pedidos_loja").select("id").eq("status", "concluido").gte("updated_at", trintaDiasAtras.toISOString());
+  const idsPedidosConcluidos = (pedidosConcluidos ?? []).map((p) => p.id);
 
-  // Filtra os últimos 30 dias em memória — evita depender de filtro
-  // aninhado ("venda.data_venda") no PostgREST, que não é um padrão
-  // usado em nenhum outro lugar do projeto e pode se comportar de
-  // forma inesperada. venda_itens não é uma tabela gigante, filtrar
-  // aqui é seguro e simples de entender.
-  const itensVendidos = (itensVendidosBrutos ?? []).filter((item) => {
-    const venda = item.venda as unknown as { data_venda: string } | null;
-    return venda && new Date(venda.data_venda) >= trintaDiasAtras;
-  });
+  const { data: itensVendidos } = idsPedidosConcluidos.length > 0
+    ? await supabase.from("pedido_loja_itens").select("produto_id, quantidade").not("produto_id", "is", null).in("pedido_id", idsPedidosConcluidos)
+    : { data: [] };
 
   const mapa = new Map<string, ProdutoDestaque>();
 

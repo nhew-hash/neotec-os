@@ -4,6 +4,41 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 184] - Corrigido: venda do PDV contando como venda do site
+
+### Bug critico achado
+Analytics de Loja mostrava vendas que "o site nao fez" porque a
+consulta usava a tabela `vendas`, que mistura venda presencial (PDV) e
+venda online sem NENHUMA forma de diferenciar - o checkout online cria
+a venda mas nunca guarda referencia de volta pro pedido da loja.
+
+### Corrigido
+Todas as metricas de venda/faturamento (resumo principal, atividade
+recente, produtos em destaque) agora usam `pedidos_loja` (status
+concluido) em vez de `vendas` - essa tabela E especificamente do site,
+nao mistura com PDV. Numero deve bater certo agora com o que realmente
+vendeu pelo site.
+
+## [Fase 184] - iPhone Lacrado na home
+
+Bloco de categorias da pagina inicial nao mostrava "iPhone Lacrado"
+(so iPhone/Apple Watch/iPad/Mac/Acessorios) - a categoria lacrado tem
+rota propria (`/loja/lacrados`), diferente do padrao generico de
+categoria, entao nao entrava na lista automatica. Adicionado como
+primeiro item do bloco, com link certo pra rota dedicada.
+
+## [Fase 184] - Painel "ao vivo" de verdade
+
+Antes so 2 partes atualizavam sozinhas (online agora a cada 15s,
+atividade recente a cada 20s) - o resto (visitantes, visualizacoes,
+carrinhos, vendas, faturamento, produtos, origem) so carregava uma vez
+ao abrir a pagina. Agora a pagina inteira atualiza a cada 30s enquanto
+estiver aberta, sem precisar recarregar manual.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 183] - Analytics da Loja Virtual - V1 completa
 
 Construido do zero - nao existia NENHUM rastreamento de trafego antes

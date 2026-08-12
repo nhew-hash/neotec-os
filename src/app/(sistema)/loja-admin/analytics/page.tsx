@@ -9,6 +9,7 @@ import { AtividadeTempoReal } from "@/components/analytics-loja/atividade-tempo-
 import { ProdutosDestaqueTable } from "@/components/analytics-loja/produtos-destaque-table";
 import { FunilConversao } from "@/components/analytics-loja/funil-conversao";
 import { OrigemAcessos } from "@/components/analytics-loja/origem-acessos";
+import { AutoRefreshPainel } from "@/components/analytics-loja/auto-refresh-painel";
 import { formatCurrency } from "@/utils";
 
 /**
@@ -26,6 +27,7 @@ export default async function LojaAnalyticsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <AutoRefreshPainel />
       <div>
         <h1 className="font-display text-xl font-semibold text-foreground">Analytics da Loja</h1>
         <p className="text-sm text-muted-foreground">Movimento da loja virtual em tempo real</p>
