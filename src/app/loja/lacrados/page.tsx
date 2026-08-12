@@ -9,7 +9,7 @@ export default async function LacradosListaPage() {
     <LacradosListaCliente
       modelos={modelosApple}
       titulo="iPhone Lacrado"
-      descricao="Aparelhos novos, lacrados de fábrica, com nota fiscal e garantia Apple."
+      descricao="Aparelhos novos, lacrados de fábrica, com comprovante de compra e garantia Apple."
     />
   );
 }

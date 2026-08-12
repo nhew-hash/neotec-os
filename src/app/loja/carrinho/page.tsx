@@ -35,7 +35,7 @@ export default function CarrinhoPage() {
     const mensagem = `Olá! Quero fechar esse pedido (#${result.data.pedidoId.slice(0, 8)}):\n\n${listaItens}\n\nTotal: ${formatCurrency(total)}\n\nMeu nome: ${nome}`;
 
     limpar();
-    window.location.href = `https://wa.me/5534999999999?text=${encodeURIComponent(mensagem)}`;
+    window.location.href = `https://wa.me/5534988178338?text=${encodeURIComponent(mensagem)}`;
   }
 
   if (itens.length === 0) {

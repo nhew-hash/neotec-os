@@ -16,7 +16,7 @@ export default async function PedidoErroPage({ searchParams }: { searchParams: P
       </p>
       <div className="mt-6 flex gap-2">
         <Link href="/loja/carrinho" className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white">Tentar de novo</Link>
-        <a href="https://wa.me/5534999999999" target="_blank" rel="noopener noreferrer" className="rounded-full border border-black/[0.1] px-6 py-3 text-sm font-semibold text-foreground">Falar no WhatsApp</a>
+        <a href="https://wa.me/5534988178338" target="_blank" rel="noopener noreferrer" className="rounded-full border border-black/[0.1] px-6 py-3 text-sm font-semibold text-foreground">Falar no WhatsApp</a>
       </div>
     </div>
   );

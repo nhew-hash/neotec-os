@@ -12,7 +12,7 @@ import { LacradoPdpCliente } from "@/components/loja/lacrado-pdp-cliente";
  */
 const DESTAQUES_LACRADO = [
   { icon: ShieldCheck, texto: "Produto novo, lacrado de fábrica, com garantia Apple." },
-  { icon: FileText, texto: "Acompanha nota fiscal." },
+  { icon: FileText, texto: "Acompanha comprovante de compra." },
   { icon: Wallet, texto: "Parcelamento disponível." },
   { icon: MapPin, texto: "Retirada na loja em Araguari." },
   { icon: Truck, texto: "Ou entrega combinada pelo WhatsApp." },

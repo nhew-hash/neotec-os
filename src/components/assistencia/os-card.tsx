@@ -13,7 +13,7 @@ import type { OSComCliente } from "@/services/assistencia/assistencia.service";
 
 export function OSCard({ os }: { os: OSComCliente }) {
   const [isPending, startTransition] = useTransition();
-  const atrasada = os.prazo && new Date(os.prazo) < new Date() && os.status !== "entregue";
+  const atrasada = os.prazo && new Date(os.prazo) < new Date() && os.status !== "entregue" && os.status !== "atendimento_encerrado";
 
   function handleChangeStatus(status: string) {
     startTransition(() => {

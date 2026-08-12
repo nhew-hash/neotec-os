@@ -63,6 +63,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
       { label: "Catálogo de fotos", href: "/catalogo-fotos", icon: Camera, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Vendas", href: "/vendas", icon: ShoppingCart, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Central da Loja", href: "/loja-admin", icon: Store, cargos: ["admin", "gerente"] },
+      { label: "Analytics da Loja", href: "/loja-admin/analytics", icon: BarChart3, cargos: ["admin", "gerente"] },
       { label: "Pedidos da Loja", href: "/pedidos-loja", icon: Store, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Assistência", href: "/assistencia", icon: Wrench, cargos: ["admin", "gerente", "tecnico"] },
     ],

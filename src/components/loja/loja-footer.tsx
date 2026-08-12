@@ -30,7 +30,7 @@ export function LojaFooter() {
         </div>
         <div>
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contato</p>
-          <a href="https://wa.me/5534999999999" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm text-foreground/80 hover:text-primary">
+          <a href="https://wa.me/5534988178338" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm text-foreground/80 hover:text-primary">
             <MessageCircle className="h-3.5 w-3.5" />WhatsApp
           </a>
         </div>

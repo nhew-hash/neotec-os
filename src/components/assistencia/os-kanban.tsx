@@ -11,6 +11,7 @@ const COLUNAS: { status: StatusOS; titulo: string }[] = [
   { status: "teste", titulo: "Teste" },
   { status: "pronto", titulo: "Pronto" },
   { status: "entregue", titulo: "Entregue" },
+  { status: "atendimento_encerrado", titulo: "Atendimento encerrado" },
 ];
 
 export function OSKanban({ ordens }: { ordens: OSComCliente[] }) {

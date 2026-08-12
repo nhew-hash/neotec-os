@@ -52,6 +52,14 @@ export function CarrinhoProvider({ children }: { children: ReactNode }) {
       if (existente) {
         return prev.map((i) => (i === existente ? { ...i, quantidade: i.quantidade + 1 } : i));
       }
+      // Só rastreia na primeira vez que esse item entra no carrinho —
+      // clicar "+1" de novo no mesmo item não é um novo "add to cart"
+      // pro analytics, é só ajuste de quantidade.
+      void import("./loja-tracking-provider").then(({ rastrearAddToCart }) => {
+        if (novoItem.tipo === "produto") rastrearAddToCart({ produtoId: novoItem.id });
+        else if (novoItem.tipo === "aparelho") rastrearAddToCart({ aparelhoId: novoItem.id });
+        else rastrearAddToCart({}); // lacrado — sem FK direta pra produto/aparelho, conta o evento sem atribuição específica
+      });
       return [...prev, { ...novoItem, quantidade: 1 }];
     });
   }

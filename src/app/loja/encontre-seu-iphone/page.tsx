@@ -74,7 +74,7 @@ export default function EncontreSeuIphonePage() {
         {recomendacoes.length === 0 ? (
           <div className="rounded-2xl border border-black/[0.06] p-8 text-center">
             <p className="text-sm text-foreground">Não encontramos nenhum aparelho disponível dentro desse orçamento agora.</p>
-            <a href="https://wa.me/5534999999999" target="_blank" rel="noopener noreferrer" className="mt-4 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white">Falar no WhatsApp</a>
+            <a href="https://wa.me/5534988178338" target="_blank" rel="noopener noreferrer" className="mt-4 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white">Falar no WhatsApp</a>
           </div>
         ) : (
           <div className="flex flex-col gap-3">

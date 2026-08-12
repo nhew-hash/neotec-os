@@ -4,6 +4,129 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 183] - Analytics da Loja Virtual - V1 completa
+
+Construido do zero - nao existia NENHUM rastreamento de trafego antes
+(confirmado por busca completa no schema).
+
+### O que foi analisado antes de comecar (pedido explicito)
+- Tabelas existentes: nenhuma de trafego/visitante. Vendas e pedidos
+  ja existentes foram REAPROVEITADOS pro lado financeiro (nao duplica
+  dado).
+- Pagina `/analytics` ja existente (financeiro/lucro) - MANTIDA
+  intacta, nao foi tocada. O novo Analytics de Loja fica em rota
+  separada (`/loja-admin/analytics`), evita confusao entre os dois.
+
+### Infraestrutura nova (2 tabelas)
+- `loja_sessoes` - um visitante = uma sessao (UID gerado no navegador,
+  sem cookie cross-site, sem dado pessoal). Base pra "online agora",
+  visitantes por periodo, e origem.
+- `loja_eventos` - pageview e add_to_cart, vinculado a produto/
+  aparelho quando aplicavel.
+
+### Rastreamento client-side
+Provider novo no layout da loja - gera sessao, detecta origem
+(Instagram/Google/WhatsApp/Meta Ads/direto) so na primeira visita,
+manda pageview a cada navegacao, ping de presenca a cada 1 min. Nunca
+quebra a experiencia do cliente (falha silenciosa se der erro).
+Conectado tambem no carrinho existente (`carrinho-context.tsx`) - so
+dispara no PRIMEIRO add do item, nao a cada +1 de quantidade.
+
+### As 6 secoes pedidas, todas construidas
+Resumo principal (6 cards, com "online agora" e atividade recente
+atualizando sozinhos via polling), grafico de visitantes (hoje/7/30
+dias), atividade em tempo real, produtos mais acessados, funil de
+conversao, origem do acesso.
+
+### Comparacao com periodo anterior
+Cards de Hoje/Mes mostram variacao percentual (hoje vs ontem, mes vs
+mes anterior) - fica null (sem mostrar numero sem sentido) quando nao
+ha base de comparacao ainda.
+
+### Fora do escopo da V1 (conforme pedido)
+Sem IA, sem Meta/Google Ads avancado, sem ROAS, sem recuperacao de
+carrinho, sem localizacao detalhada, sem atribuicao avancada. Schema
+ja preparado pra crescer depois (campos como utm_campaign nao usados
+ainda, mas o desenho da tabela comporta).
+
+### Arquivos e tabelas alterados
+**Tabelas novas**: loja_sessoes, loja_eventos (+ enum
+tipo_evento_loja)
+**Arquivos novos**: 1 migracao, 1 rota de API, 1 provider de
+rastreamento, 1 service, 1 arquivo de actions, 7 componentes de UI, 1
+pagina
+**Arquivos existentes tocados**: layout da loja (monta o provider),
+carrinho-context (dispara evento de add_to_cart), menu de navegacao
+(link novo)
+**Nao tocado**: pagina de Analytics financeiro existente, nenhuma
+funcionalidade de venda/checkout/carrinho alterada em comportamento,
+so instrumentada.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 182] - Dashboard mais rapido - suspeito real do "this page couldn't"
+
+Rastreado: o erro no mobile ("this page couldn't") acontecia ao abrir
+o menu, e a URL na barra de enderecos era "/dashboard". A pagina do
+dashboard faz MUITAS consultas ao banco (13+ so no resumo, mais
+graficos, mais followups, mais whatsapp) - e parte delas rodava
+SEQUENCIAL (uma esperando a outra terminar) em vez de paralela,
+aumentando bastante o tempo total de carregamento. Numa conexao de
+celular mais lenta, isso pode estourar timeout, resultando exatamente
+nesse tipo de erro de navegador.
+
+### Corrigido
+Paralelizado tudo que dava - a consulta de integracao WhatsApp e a
+busca do usuario logado agora rodam junto com o resto, nao mais
+esperando em fila.
+
+### Tambem corrigido de passagem
+OS com status "atendimento_encerrado" (novo, Fase 176) estava sendo
+contada errado como "atrasada" nos indicadores do dashboard - o filtro
+so excluia "entregue", nao esse status novo.
+
+### Nivel de confianca
+Essa e minha melhor hipotese baseada no que consegui investigar sem
+acesso a um print de tela - reduz bastante o tempo de carregamento de
+qualquer forma, o que so ajuda. Se o erro persistir depois desse
+deploy, ainda preciso de um print pra ter certeza absoluta da causa.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 181] - Nota fiscal corrigida, telefone real em todo lugar, kanban de OS completo
+
+### "Nota fiscal" corrigida
+3 lugares na loja afirmavam "acompanha nota fiscal" (paginas de
+lacrados iPhone/Android) - trocado pra "comprovante de compra", que e
+o que realmente entregamos. Confirmado tambem que o selo "Nota Fiscal"
+(configuravel, Fase 69) - mandei consulta separada pra voce confirmar
+se esta ativo.
+
+### Telefone real em 4 lugares
+Achado um numero PLACEHOLDER/fake (5534999999999) hardcoded em 4
+arquivos da loja (rodape, pagina de erro de pedido, encontre-seu-
+iphone, carrinho) - nunca redirecionava pra voce de verdade. Trocado
+pelo numero real (5534988178338) nos 4.
+
+### Kanban de OS - coluna faltando
+"Atendimento encerrado" (status novo da Fase 176) nao aparecia em
+nenhuma coluna do kanban de OS - adicionado.
+
+### Ainda investigando - erro na aba OS do mobile
+Nao consegui reproduzir/confirmar a causa exata do erro que voce
+descreveu (aba 3, cargo tecnico, nao deixa acessar). Revisei o kanban
+e o card de OS, nao achei um crash claro no codigo. Preciso de mais
+detalhe (a mensagem de erro exata, ou um print) pra continuar a
+investigacao com precisao em vez de ficar tentando adivinhar.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 180] - Follow-up automatico
 
 Card parado numa etapa por tempo demais sem ninguem mexer agora gera

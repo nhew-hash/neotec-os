@@ -9,7 +9,7 @@ export default async function AndroidListaPage() {
     <LacradosListaCliente
       modelos={modelosAndroid}
       titulo="Android"
-      descricao="Aparelhos novos, lacrados de fábrica, com nota fiscal e garantia."
+      descricao="Aparelhos novos, lacrados de fábrica, com comprovante de compra e garantia."
     />
   );
 }

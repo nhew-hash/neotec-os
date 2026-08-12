@@ -30,19 +30,18 @@ const ACOES = [
 ];
 
 export default async function DashboardPage() {
-  const resumo = await obterResumoOperacional();
-  const integracaoWhatsapp = await buscarIntegracaoWhatsapp();
   const supabase = await createClient();
 
-  const [vendasPorPeriodo, origemClientes, funilCRM, desempenhoEquipe, followups, naoLidas, configIA] = await Promise.all([
+  const [resumo, integracaoWhatsapp, vendasPorPeriodo, origemClientes, funilCRM, desempenhoEquipe, followups, naoLidas, configIA, { data: { user } }] = await Promise.all([
+    obterResumoOperacional(), buscarIntegracaoWhatsapp(),
     obterVendasPorPeriodo(), obterOrigemClientes(), obterFunilCRM(), obterDesempenhoEquipe(),
     listarFollowupsPendentes(), contarConversasNaoLidas(),
     supabase.from("configuracoes_ia").select("ativo, atendimento_automatico_ativo").maybeSingle().then((r) => r.data),
+    supabase.auth.getUser(),
   ]);
   const followupsAtrasados = categorizarFollowups(followups).filter((i) => i.categoria === "atrasado").length;
   const totalLeads = funilCRM.reduce((acc, e) => acc + e.quantidade, 0);
 
-  const { data: { user } } = await supabase.auth.getUser();
   const { data: perfil } = await supabase
     .from("usuarios").select("cargo").eq("id", user?.id ?? "").single<{ cargo: CargoUsuario }>();
   const cargo = perfil?.cargo ?? "vendedor";
