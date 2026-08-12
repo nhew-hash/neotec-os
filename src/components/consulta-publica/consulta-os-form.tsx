@@ -23,6 +23,7 @@ const STATUS_INFO: Record<StatusOS, { emoji: string; label: string }> = {
   teste: { emoji: "🧪", label: "Em testes finais" },
   pronto: { emoji: "✅", label: "Pronto para retirada" },
   entregue: { emoji: "📦", label: "Entregue" },
+  atendimento_encerrado: { emoji: "✅", label: "Atendimento encerrado" },
 };
 
 export function ConsultaOSForm({ numeroInicial }: { numeroInicial?: string }) {
