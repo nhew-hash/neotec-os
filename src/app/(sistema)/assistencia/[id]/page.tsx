@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Clock, ShieldCheck, Smartphone } from "lucide-react";
 import { BotaoImprimir } from "@/components/impressao/botao-imprimir";
 import { FinalizarAtendimentoButton } from "@/components/assistencia/finalizar-atendimento-button";
+import { ReabrirAtendimentoButton } from "@/components/assistencia/reabrir-atendimento-button";
 import { AssinaturaDigitalPanel } from "@/components/impressao/assinatura-digital-panel";
 import { buscarOSPorId, listarPecasPorOS, listarChecklistsPorOS } from "@/services/assistencia/assistencia.service";
 import { listarProdutos } from "@/services/estoque/estoque.service";
@@ -46,7 +47,11 @@ export default async function OSDetailPage({ params }: { params: Promise<{ id: s
 
         <div className="flex flex-col items-start gap-3 sm:items-end">
           <StatusOSControl osId={os.id} statusAtual={os.status} />
-          {os.status !== "atendimento_encerrado" && <FinalizarAtendimentoButton osId={os.id} />}
+          {os.status !== "atendimento_encerrado" ? (
+            <FinalizarAtendimentoButton osId={os.id} garantiaAtual={os.garantia_dias} />
+          ) : (
+            <ReabrirAtendimentoButton osId={os.id} />
+          )}
           <div className="flex items-center gap-2">
             <BotaoImprimir tipo="os" id={id} formato="a4" label="A4" />
             <BotaoImprimir tipo="os" id={id} formato="cupom" label="Cupom" />

@@ -210,12 +210,12 @@ export async function salvarChecklistOSAction(
 }
 
 /** Finaliza o atendimento — registra forma de pagamento e valor, marca como encerrado. Impressão é disparada pela tela, não aqui (ação só grava o dado). */
-export async function finalizarAtendimentoOSAction(osId: string, formaPagamento: string, valorCobrado: number): Promise<ActionResult> {
+export async function finalizarAtendimentoOSAction(osId: string, formaPagamento: string, valorCobrado: number, garantiaDias: number): Promise<ActionResult> {
   try {
     const supabase = await createClient();
     const { error } = await supabase
       .from("ordens_servico")
-      .update({ status: "atendimento_encerrado", forma_pagamento: formaPagamento, valor_cobrado: valorCobrado })
+      .update({ status: "atendimento_encerrado", forma_pagamento: formaPagamento, valor_cobrado: valorCobrado, garantia_dias: garantiaDias })
       .eq("id", osId);
     if (error) throw new Error(error.message);
     revalidatePath("/assistencia");
@@ -223,5 +223,22 @@ export async function finalizarAtendimentoOSAction(osId: string, formaPagamento:
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao finalizar atendimento" };
+  }
+}
+
+/** Reabrir atendimento — pra quando o cliente volta com o mesmo problema dentro da garantia. Volta pro status "recebido", limpa pagamento/garantia anterior (o novo ciclo define de novo ao finalizar de novo). */
+export async function reabrirAtendimentoOSAction(osId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("ordens_servico")
+      .update({ status: "recebido", forma_pagamento: null, valor_cobrado: null })
+      .eq("id", osId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/assistencia");
+    revalidatePath("/crm");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao reabrir atendimento" };
   }
 }

@@ -15,11 +15,17 @@ export const crmEtapaSchema = z.object({
 });
 export type CrmEtapaFormValues = z.infer<typeof crmEtapaSchema>;
 
-export const crmFollowupSchema = z.object({
-  card_id: z.string().uuid(),
-  data_agendada: z.string().min(1, "Informe a data"),
-  motivo: z.string().trim().min(2, "Descreva o motivo"),
-});
+export const crmFollowupSchema = z
+  .object({
+    card_id: z.string().uuid().optional().or(z.literal("")),
+    cliente_id: z.string().uuid().optional().or(z.literal("")),
+    data_agendada: z.string().min(1, "Informe a data"),
+    motivo: z.string().trim().min(2, "Descreva o motivo"),
+  })
+  .refine((data) => Boolean(data.card_id) || Boolean(data.cliente_id), {
+    message: "Vincule esse follow-up a um card ou a um cliente",
+    path: ["card_id"],
+  });
 export type CrmFollowupFormValues = z.infer<typeof crmFollowupSchema>;
 
 export const crmTagSchema = z.object({

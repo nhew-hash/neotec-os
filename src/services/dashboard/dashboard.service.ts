@@ -92,7 +92,7 @@ export async function obterResumoOperacional(): Promise<ResumoOperacional> {
   ] = await Promise.all([
     supabase.from("clientes").select("*", { count: "exact", head: true }),
     supabase.from("clientes").select("*", { count: "exact", head: true }).gte("data_cadastro", hojeInicio.toISOString()),
-    supabase.from("retornos").select("*", { count: "exact", head: true }).eq("status", "pendente").gte("data_retorno", hojeInicio.toISOString()),
+    supabase.from("crm_followups").select("*", { count: "exact", head: true }).eq("status", "pendente").gte("data_agendada", hojeInicio.toISOString()),
     supabase.from("vw_aparelhos_seguro").select("*", { count: "exact", head: true }).eq("status", "disponivel"),
     supabase.from("ordens_servico").select("*", { count: "exact", head: true }).in("status", ["em_reparo", "diagnostico", "teste"]),
     supabase.from("ordens_servico").select("*", { count: "exact", head: true }).eq("status", "aguardando_aprovacao"),

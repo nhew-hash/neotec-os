@@ -10,7 +10,6 @@ import {
   obterVendasPorPeriodo, obterOrigemClientes, obterFunilCRM, obterDesempenhoEquipe,
 } from "@/services/dashboard/dashboard-graficos.service";
 import { listarFollowupsPendentes } from "@/services/crm-pipeline/crm-pipeline.service";
-import { listarRetornosPendentes } from "@/services/crm/crm.service";
 import { categorizarFollowups } from "@/utils/followups";
 import { ActionButton } from "@/components/dashboard/action-button";
 import { IndicadorCard } from "@/components/dashboard/indicador-card";
@@ -35,12 +34,12 @@ export default async function DashboardPage() {
   const integracaoWhatsapp = await buscarIntegracaoWhatsapp();
   const supabase = await createClient();
 
-  const [vendasPorPeriodo, origemClientes, funilCRM, desempenhoEquipe, followups, retornos, naoLidas, configIA] = await Promise.all([
+  const [vendasPorPeriodo, origemClientes, funilCRM, desempenhoEquipe, followups, naoLidas, configIA] = await Promise.all([
     obterVendasPorPeriodo(), obterOrigemClientes(), obterFunilCRM(), obterDesempenhoEquipe(),
-    listarFollowupsPendentes(), listarRetornosPendentes(), contarConversasNaoLidas(),
+    listarFollowupsPendentes(), contarConversasNaoLidas(),
     supabase.from("configuracoes_ia").select("ativo, atendimento_automatico_ativo").maybeSingle().then((r) => r.data),
   ]);
-  const followupsAtrasados = categorizarFollowups(followups, retornos).filter((i) => i.categoria === "atrasado").length;
+  const followupsAtrasados = categorizarFollowups(followups).filter((i) => i.categoria === "atrasado").length;
   const totalLeads = funilCRM.reduce((acc, e) => acc + e.quantidade, 0);
 
   const { data: { user } } = await supabase.auth.getUser();

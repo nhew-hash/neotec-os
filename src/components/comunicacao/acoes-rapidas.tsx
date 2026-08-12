@@ -38,10 +38,11 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
   }, [expandido, cardId, etapas.length]);
 
   function handleSalvarObservacao() {
-    if (!cardId || !observacao.trim()) return;
+    if ((!cardId && !clienteId) || !observacao.trim()) return;
     startTransition(async () => {
       const formData = new FormData();
-      formData.set("card_id", cardId);
+      if (cardId) formData.set("card_id", cardId);
+      else if (clienteId) formData.set("cliente_id", clienteId);
       formData.set("data_agendada", new Date().toISOString());
       formData.set("motivo", `📝 ${observacao.trim()}`);
       const result = await criarFollowupAction(formData);
@@ -89,8 +90,8 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
             </Button>
             <Button
               variant="outline" size="sm"
-              disabled={!cardId}
-              title={!cardId ? "Essa conversa ainda não está vinculada a uma oportunidade no CRM" : undefined}
+              disabled={!cardId && !clienteId}
+              title={!cardId && !clienteId ? "Essa conversa ainda não está vinculada a um cliente" : undefined}
               onClick={() => setMostrarObservacao((v) => !v)}
             >
               <StickyNote className="h-3.5 w-3.5" />Adicionar observação

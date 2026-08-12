@@ -8,12 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { criarCardAction, concluirFollowupAction } from "@/services/crm-pipeline/crm-pipeline.actions";
-import { concluirRetornoAction } from "@/services/crm/crm.actions";
 import { formatDateTime } from "@/utils";
 import { cn } from "@/lib/utils";
 import { categorizarFollowups, type ItemFollowupUnificado } from "@/utils/followups";
 import type { Cliente, CrmEtapa, CrmFollowup, CrmCard } from "@/types";
-import type { RetornoComCliente } from "@/services/crm/crm.service";
 
 // ---- Nova oportunidade — botão de destaque + painel lateral ----
 
@@ -65,23 +63,19 @@ export function NovaOportunidadeButton({ clientes, etapas }: { clientes: Cliente
 // ---- Follow-ups — hoje / atrasados / próximos, com badge de urgência ----
 
 interface FollowupsPanelProps {
-  followups: (CrmFollowup & { card: Pick<CrmCard, "id" | "titulo"> })[];
-  retornos: RetornoComCliente[];
+  followups: (CrmFollowup & { card: Pick<CrmCard, "id" | "titulo"> | null; cliente: Pick<Cliente, "id" | "nome"> | null })[];
 }
 
-export function FollowupsPanel({ followups, retornos }: FollowupsPanelProps) {
+export function FollowupsPanel({ followups }: FollowupsPanelProps) {
   const [isPending, startTransition] = useTransition();
-  const itens = categorizarFollowups(followups, retornos);
+  const itens = categorizarFollowups(followups);
 
   const atrasados = itens.filter((i) => i.categoria === "atrasado");
   const hoje = itens.filter((i) => i.categoria === "hoje");
   const futuros = itens.filter((i) => i.categoria === "futuro");
 
   function handleConcluir(item: ItemFollowupUnificado) {
-    startTransition(() => {
-      if (item.tipo === "followup") void concluirFollowupAction(item.id);
-      else void concluirRetornoAction(item.id);
-    });
+    startTransition(() => { void concluirFollowupAction(item.id); });
   }
 
   function Grupo({ titulo, dados, destaque }: { titulo: string; dados: ItemFollowupUnificado[]; destaque?: boolean }) {

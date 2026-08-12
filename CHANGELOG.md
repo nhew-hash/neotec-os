@@ -4,6 +4,45 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 178-179] - "Atendimento encerrado" no CRM Venda + follow-ups unificados
+
+### Atendimento encerrado em Venda
+Etapa nova no funil de Venda, separada de "Venda feita" - venda feita
+= fechou a venda; atendimento encerrado = relacionamento com esse
+lead terminou de vez.
+
+### Follow-ups unificados
+Confirmado com voce: existiam DOIS sistemas paralelos misturados numa
+lista so (crm_followups vinculado a card, retornos vinculado direto
+ao cliente). Descoberta durante a investigacao: crm_followups ja
+aceitava os dois formatos (card OU cliente direto) - so a INTERFACE
+misturava tudo de forma confusa.
+
+Unificado: agora so existe crm_followups. Dados antigos de "retornos"
+foram migrados pra la. Telas atualizadas: painel de Follow-ups
+pendentes, Agenda de retornos, formulario de novo retorno, dashboard.
+Funcoes antigas do sistema de retornos ficaram marcadas como obsoletas
+no codigo (tabela retornos mantida no banco por seguranca de dados
+historicos, mas nada mais escreve nela).
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 177] - Garantia obrigatoria, reabrir por garantia, parcelas no cartao
+
+- **Garantia obrigatoria pra finalizar**: nao da mais pra finalizar
+  atendimento sem definir os dias de garantia.
+- **Reabrir atendimento**: botao novo, aparece quando o status ja e
+  "atendimento encerrado" - volta pro inicio do fluxo, limpa pagamento
+  anterior (novo ciclo define de novo ao finalizar de novo).
+- **Parcelas no cartao de credito**: ao escolher "Cartao de credito"
+  como forma de pagamento, aparece o campo de quantas vezes (1x a 12x).
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 176.2] - Corrigido: mesmo bug de import client/server, dessa vez via import dinamico
 
 `acoes-rapidas.tsx` (client component) importava dinamicamente

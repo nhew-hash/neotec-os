@@ -62,6 +62,7 @@ export async function moverCardEtapaAction(cardId: string, etapaId: string): Pro
 export async function criarFollowupAction(formData: FormData): Promise<ActionResult> {
   const parsed = crmFollowupSchema.safeParse({
     card_id: String(formData.get("card_id") ?? ""),
+    cliente_id: String(formData.get("cliente_id") ?? ""),
     data_agendada: String(formData.get("data_agendada") ?? ""),
     motivo: String(formData.get("motivo") ?? ""),
   });
@@ -72,7 +73,13 @@ export async function criarFollowupAction(formData: FormData): Promise<ActionRes
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Sessão expirada" };
 
-    await criarFollowup({ ...parsed.data, usuario_id: user.id });
+    await criarFollowup({
+      card_id: parsed.data.card_id || undefined,
+      cliente_id: parsed.data.cliente_id || undefined,
+      data_agendada: parsed.data.data_agendada,
+      motivo: parsed.data.motivo,
+      usuario_id: user.id,
+    });
     revalidatePath("/crm");
     return { success: true, data: undefined };
   } catch (err) {

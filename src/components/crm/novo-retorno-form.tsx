@@ -4,31 +4,32 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { retornoSchema, type RetornoFormValues } from "@/services/crm/crm.schema";
-import { criarRetornoAction } from "@/services/crm/crm.actions";
+import { crmFollowupSchema, type CrmFollowupFormValues } from "@/services/crm-pipeline/crm-pipeline.schema";
+import { criarFollowupAction } from "@/services/crm-pipeline/crm-pipeline.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import type { Cliente } from "@/types";
 
+/** Fase 179 — unificado com o sistema de follow-up do CRM (antes era uma tabela "retornos" à parte). Vincula pelo cliente direto, sem precisar escolher um card. */
 export function NovoRetornoForm({ clientes }: { clientes: Cliente[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
-  const form = useForm<RetornoFormValues>({
-    resolver: zodResolver(retornoSchema),
-    defaultValues: { cliente_id: "", data_retorno: "", motivo: "", observacao: "" },
+  const form = useForm<CrmFollowupFormValues>({
+    resolver: zodResolver(crmFollowupSchema),
+    defaultValues: { cliente_id: "", card_id: "", data_agendada: "", motivo: "" },
   });
 
-  function onSubmit(values: RetornoFormValues) {
+  function onSubmit(values: CrmFollowupFormValues) {
     setErro(null);
     const formData = new FormData();
     Object.entries(values).forEach(([key, value]) => formData.set(key, value ?? ""));
 
     startTransition(async () => {
-      const result = await criarRetornoAction(formData);
+      const result = await criarFollowupAction(formData);
       if (!result.success) {
         setErro(result.error);
         return;
@@ -68,7 +69,7 @@ export function NovoRetornoForm({ clientes }: { clientes: Cliente[] }) {
 
         <FormField
           control={form.control}
-          name="data_retorno"
+          name="data_agendada"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Data do retorno</FormLabel>

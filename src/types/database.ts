@@ -504,7 +504,8 @@ export type StatusFollowup = "pendente" | "concluido" | "cancelado";
 
 export interface CrmFollowup {
   id: string;
-  card_id: string;
+  card_id: string | null;
+  cliente_id: string | null;
   usuario_id: string | null;
   data_agendada: string;
   motivo: string;

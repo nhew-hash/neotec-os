@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { CalendarClock, BarChart3 } from "lucide-react";
 import { listarEtapas, listarCards, listarFollowupsPendentes } from "@/services/crm-pipeline/crm-pipeline.service";
-import { listarRetornosPendentes } from "@/services/crm/crm.service";
 import { listarClientes } from "@/services/clientes/clientes.service";
 import { listarOrdensServico } from "@/services/assistencia/assistencia.service";
 import { PipelineKanban } from "@/components/crm/pipeline-kanban";
@@ -13,11 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default async function CrmPage() {
-  const [etapas, cards, followups, retornos, clientes, ordensServico] = await Promise.all([
-    listarEtapas(), listarCards(), listarFollowupsPendentes(), listarRetornosPendentes(), listarClientes(), listarOrdensServico(),
+  const [etapas, cards, followups, clientes, ordensServico] = await Promise.all([
+    listarEtapas(), listarCards(), listarFollowupsPendentes(), listarClientes(), listarOrdensServico(),
   ]);
 
-  const urgentes = contarFollowupsUrgentes(followups, retornos);
+  const urgentes = contarFollowupsUrgentes(followups);
 
   return (
     <div className="flex flex-col gap-6">
@@ -64,7 +63,7 @@ export default async function CrmPage() {
 
         <TabsContent value="followups">
           <div className="max-w-xl">
-            <FollowupsPanel followups={followups} retornos={retornos} />
+            <FollowupsPanel followups={followups} />
           </div>
         </TabsContent>
       </Tabs>

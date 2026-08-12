@@ -13,6 +13,13 @@ export interface RetornoComCliente extends Retorno {
   cliente: Pick<Cliente, "id" | "nome" | "whatsapp">;
 }
 
+/**
+ * @deprecated Fase 179 — sistema de "retornos" foi unificado com
+ * crm_followups. Essas funções não são mais chamadas por nenhuma tela
+ * (a UI toda foi migrada). Mantidas só porque a tabela "retornos" em si
+ * ainda existe no banco (dados históricos) — não apagar sem migrar/
+ * conferir dados antigos primeiro.
+ */
 export async function listarRetornosPendentes(): Promise<RetornoComCliente[]> {
   const supabase = await createClient();
 

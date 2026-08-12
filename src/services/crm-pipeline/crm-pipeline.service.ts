@@ -125,23 +125,36 @@ export async function vincularTagAoCard(cardId: string, tagId: string): Promise<
 
 // ---- Follow-ups ----
 
-export async function listarFollowupsPendentes(): Promise<(CrmFollowup & { card: Pick<CrmCard, "id" | "titulo"> })[]> {
+export async function listarFollowupsPendentes(): Promise<(CrmFollowup & { card: Pick<CrmCard, "id" | "titulo"> | null; cliente: (Pick<Cliente, "id" | "nome"> & { whatsapp?: string }) | null })[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("crm_followups")
-    .select("*, card:crm_cards(id, titulo)")
+    .select("*, card:crm_cards(id, titulo, cliente:clientes(id, nome, whatsapp)), cliente:clientes(id, nome, whatsapp)")
     .eq("status", "pendente")
     .order("data_agendada");
 
   if (error) throw new Error(`Não foi possível carregar os follow-ups: ${error.message}`);
-  return (data ?? []) as unknown as (CrmFollowup & { card: Pick<CrmCard, "id" | "titulo"> })[];
+
+  // Normaliza — se o vínculo for só pelo card (followup mais antigo, de
+  // antes da Fase 179), pega o cliente de dentro do card. Nunca fica
+  // sem mostrar quem é o cliente, não importa qual dos dois caminhos
+  // foi usado pra criar o follow-up.
+  return (data ?? []).map((f) => {
+    const registro = f as unknown as { card: { id: string; titulo: string; cliente: { id: string; nome: string; whatsapp: string } | null } | null; cliente: { id: string; nome: string; whatsapp: string } | null };
+    return {
+      ...(f as unknown as CrmFollowup),
+      card: registro.card ? { id: registro.card.id, titulo: registro.card.titulo } : null,
+      cliente: registro.cliente ?? registro.card?.cliente ?? null,
+    };
+  });
 }
 
-export async function criarFollowup(input: { card_id: string; data_agendada: string; motivo: string; usuario_id: string }): Promise<CrmFollowup> {
+export async function criarFollowup(input: { card_id?: string; cliente_id?: string; data_agendada: string; motivo: string; usuario_id: string }): Promise<CrmFollowup> {
+  if (!input.card_id && !input.cliente_id) throw new Error("Informe um card ou um cliente pra vincular o follow-up");
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("crm_followups")
-    .insert({ card_id: input.card_id, data_agendada: input.data_agendada, motivo: input.motivo, usuario_id: input.usuario_id })
+    .insert({ card_id: input.card_id ?? null, cliente_id: input.cliente_id ?? null, data_agendada: input.data_agendada, motivo: input.motivo, usuario_id: input.usuario_id })
     .select("*")
     .single();
 
