@@ -29,4 +29,7 @@ export const CARGO_LABEL: Record<CargoUsuario, string> = {
   vendedor: "Vendedor",
   tecnico: "Técnico",
   caixa: "Caixa",
+  vendedor_prostec: "Vendedor Prostec",
+  investidor: "Investidor",
+  indicador: "Indicador",
 };

@@ -40,31 +40,38 @@ as $$
   select indicador_id from usuarios where id = auth.uid();
 $$;
 
+drop policy if exists "investidores_self_select" on investidores;
 create policy "investidores_self_select" on investidores for select
   using (id = current_user_investidor_id());
 
+drop policy if exists "investidor_movimentos_self_select" on investidor_movimentos;
 create policy "investidor_movimentos_self_select" on investidor_movimentos for select
   using (investidor_id = current_user_investidor_id());
 
+drop policy if exists "indicadores_self_select" on indicadores;
 create policy "indicadores_self_select" on indicadores for select
   using (id = current_user_indicador_id());
 
+drop policy if exists "indicador_movimentos_self_select" on indicador_movimentos;
 create policy "indicador_movimentos_self_select" on indicador_movimentos for select
   using (indicador_id = current_user_indicador_id());
 
+drop policy if exists "aparelhos_investidor_self_select" on aparelhos;
 create policy "aparelhos_investidor_self_select" on aparelhos for select
   using (investidor_id = current_user_investidor_id());
 
+drop policy if exists "vendas_indicador_self_select" on vendas;
 create policy "vendas_indicador_self_select" on vendas for select
   using (indicador_id = current_user_indicador_id());
 
+drop policy if exists "ordens_servico_indicador_self_select" on ordens_servico;
 create policy "ordens_servico_indicador_self_select" on ordens_servico for select
   using (indicador_id = current_user_indicador_id());
 
-create view vw_indicacoes_do_indicador as
+create or replace view vw_indicacoes_do_indicador as
 select
   'venda' as tipo, v.id as origem_id, v.indicador_id, cl.nome as cliente_nome,
-  v.valor_total as valor, v.status as status, v.data_venda as data
+  v.valor_total as valor, v.status::text as status, v.data_venda as data
 from vendas v
 join clientes cl on cl.id = v.cliente_id
 where v.indicador_id is not null

@@ -6,7 +6,7 @@
  * os nomes exportados abaixo para não quebrar os imports existentes.
  */
 
-export type CargoUsuario = "admin" | "gerente" | "vendedor" | "tecnico" | "caixa";
+export type CargoUsuario = "admin" | "gerente" | "vendedor" | "tecnico" | "caixa" | "vendedor_prostec" | "investidor" | "indicador";
 export type StatusUsuario = "ativo" | "inativo";
 
 export type OrigemCliente =
