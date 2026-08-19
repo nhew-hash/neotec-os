@@ -68,7 +68,7 @@ export default function EncontreSeuIphonePage() {
   if (recomendacoes) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-14">
-        <h1 className="mb-1 font-display text-2xl font-semibold text-foreground">Recomendações pra você</h1>
+        <h1 className="mb-1 font-display text-section-title text-foreground">Recomendações pra você</h1>
         <p className="mb-8 text-sm text-muted-foreground">Baseado no que você respondeu e no que temos disponível agora.</p>
 
         {recomendacoes.length === 0 ? (
@@ -116,7 +116,7 @@ export default function EncontreSeuIphonePage() {
 
       {etapa === 0 && (
         <>
-          <h1 className="font-display text-2xl font-semibold text-foreground">Quanto você quer gastar?</h1>
+          <h1 className="font-display text-section-title text-foreground">Quanto você quer gastar?</h1>
           <div className="mt-8 flex w-full flex-col gap-2.5">
             {FAIXAS_ORCAMENTO.map((f) => (
               <button
@@ -134,7 +134,7 @@ export default function EncontreSeuIphonePage() {
 
       {etapa === 1 && (
         <>
-          <h1 className="font-display text-2xl font-semibold text-foreground">O que é mais importante pra você?</h1>
+          <h1 className="font-display text-section-title text-foreground">O que é mais importante pra você?</h1>
           <div className="mt-8 grid w-full grid-cols-2 gap-2.5">
             {PRIORIDADES.map((p) => (
               <button
@@ -152,7 +152,7 @@ export default function EncontreSeuIphonePage() {
 
       {etapa === 2 && (
         <>
-          <h1 className="font-display text-2xl font-semibold text-foreground">Novo ou seminovo?</h1>
+          <h1 className="font-display text-section-title text-foreground">Novo ou seminovo?</h1>
           <div className="mt-8 flex w-full flex-col gap-2.5">
             {CONDICOES.map((c) => (
               <button

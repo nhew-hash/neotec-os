@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { HeroSlide } from "@/types";
 
 /**
@@ -10,7 +11,9 @@ import type { HeroSlide } from "@/types";
  * slide pode ter uma composição diferente pra tela cheia (retrato no
  * celular, paisagem no desktop), não é a mesma imagem redimensionada.
  * Sem imagem cadastrada, cai pro fundo com textura (mesmo tratamento
- * visual que a home já tinha antes do CMS existir).
+ * visual que a home já tinha antes do CMS existir) — nesse caso o
+ * bloco fica bem mais baixo (py-20, sem forçar aspect-ratio de foto),
+ * já que não tem imagem pra preencher o espaço todo.
  *
  * Navegação é só automática (troca sozinha a cada 6s) — sem setas nem
  * pontinhos, pedido explícito pra deixar mais limpo.
@@ -30,7 +33,11 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
   const temTextoSobreposto = Boolean(slide.titulo || slide.subtitulo || (slide.texto_botao && slide.link_botao));
 
   return (
-    <section className="relative flex aspect-[4/5] items-center overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white px-4 py-16 text-center sm:aspect-[16/5] sm:py-32">
+    <section
+      className={`relative flex items-center overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white px-4 text-center ${
+        temImagem ? "aspect-[4/5] py-16 sm:aspect-[16/5] sm:py-32" : "py-20"
+      }`}
+    >
       {temImagem ? (
         <>
           {slide.imagem_desktop_url && (
@@ -39,7 +46,7 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={slide.imagem_mobile_url ?? slide.imagem_desktop_url ?? ""} alt="" className="absolute inset-0 h-full w-full object-cover sm:hidden" />
-          {temTextoSobreposto && <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />}
+          {temTextoSobreposto && <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/25 to-transparent" />}
         </>
       ) : (
         <div
@@ -55,18 +62,17 @@ export function BlocoHero({ slides }: { slides: HeroSlide[] }) {
           </h1>
         )}
         {slide.subtitulo && (
-          <p className={`mx-auto mt-6 max-w-md text-[15px] leading-relaxed sm:text-lg ${temImagem ? "text-white/80" : "text-muted-foreground"}`}>
+          <p className={`mx-auto mt-6 max-w-md text-sm leading-relaxed sm:text-lg ${temImagem ? "text-white/80" : "text-muted-foreground"}`}>
             {slide.subtitulo}
           </p>
         )}
         {slide.texto_botao && slide.link_botao && (
           <div className="mt-10 flex items-center justify-center">
-            <Link
-              href={slide.link_botao}
-              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-9 py-4 text-sm font-semibold text-white shadow-xl shadow-primary/25 transition-transform hover:-translate-y-0.5"
-            >
-              {slide.texto_botao}<ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            <Button asChild size="xl" pill className="shadow-xl shadow-primary/25 transition-transform hover:-translate-y-0.5 hover:bg-primary">
+              <Link href={slide.link_botao}>
+                {slide.texto_botao}<ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
           </div>
         )}
       </div>

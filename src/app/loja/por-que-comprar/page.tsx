@@ -12,7 +12,7 @@ const COMPARATIVO = [
 export default function PorQueComprarPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-14">
-      <h1 className="mb-3 font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Por que comprar na Neotec?</h1>
+      <h1 className="mb-3 font-display text-section-title tracking-tight text-foreground sm:text-3xl">Por que comprar na Neotec?</h1>
       <p className="mb-10 text-sm leading-relaxed text-muted-foreground">
         Comparação honesta — sem exagero, só o que realmente muda na experiência de comprar um iPhone com a gente.
       </p>

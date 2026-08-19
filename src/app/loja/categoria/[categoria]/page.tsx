@@ -9,7 +9,7 @@ export default async function LojaCategoriaPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10">
-      <h1 className="mb-1 font-display text-2xl font-semibold text-foreground">{labelCategoria(categoria)}</h1>
+      <h1 className="mb-1 font-display text-section-title text-foreground">{labelCategoria(categoria)}</h1>
       <p className="mb-8 text-sm text-muted-foreground">{produtos.length} produto(s) disponível(is)</p>
 
       {produtos.length === 0 ? (

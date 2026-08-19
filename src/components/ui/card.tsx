@@ -1,12 +1,23 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  /**
+   * "default" (8px, rounded-card) é o raio do resto do sistema.
+   * "loose" (16-24px) é o raio maior já usado nos cards da loja — Fase
+   * 1 do padrão de design, pra loja poder usar o kit compartilhado sem
+   * perder a identidade visual mais arredondada dela.
+   */
+  radius?: "default" | "loose";
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, radius = "default", ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        "rounded-card border border-border bg-card text-card-foreground shadow-card transition-shadow",
+        "border border-border bg-card text-card-foreground shadow-card transition-shadow",
+        radius === "loose" ? "rounded-2xl sm:rounded-3xl" : "rounded-card",
         className
       )}
       {...props}

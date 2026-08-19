@@ -7,6 +7,9 @@ import { Trash2, Minus, Plus, MessageCircle, CreditCard } from "lucide-react";
 import { useCarrinho } from "@/components/loja/carrinho-context";
 import { criarPedidoLojaAction } from "@/services/loja/loja-pedido.actions";
 import { formatCurrency } from "@/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 
 export default function CarrinhoPage() {
   const router = useRouter();
@@ -46,8 +49,10 @@ export default function CarrinhoPage() {
   if (itens.length === 0) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center px-4 py-24 text-center">
-        <p className="text-[15px] text-foreground">Seu carrinho está vazio.</p>
-        <Link href="/loja" className="mt-4 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white">Ver produtos</Link>
+        <p className="text-sm text-foreground">Seu carrinho está vazio.</p>
+        <Button asChild size="lg" pill className="mt-4 hover:bg-primary">
+          <Link href="/loja">Ver produtos</Link>
+        </Button>
       </div>
     );
   }
@@ -57,65 +62,65 @@ export default function CarrinhoPage() {
       <div className="flex flex-col gap-3">
         <h1 className="font-display text-xl font-semibold text-foreground">Seu carrinho</h1>
         {itens.map((item) => (
-          <div key={`${item.tipo}-${item.id}`} className="flex items-center gap-3 rounded-2xl border border-black/[0.06] p-3">
+          <Card key={`${item.tipo}-${item.id}`} radius="loose" className="flex items-center gap-3 p-3">
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">{item.nome}</p>
               {item.detalhe && <p className="text-xs text-muted-foreground">{item.detalhe}</p>}
               <p className="mt-1 text-sm font-semibold text-foreground">{formatCurrency(item.valor)}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => atualizarQuantidade(item.tipo, item.id, item.quantidade - 1)} className="flex h-7 w-7 items-center justify-center rounded-full border border-black/[0.08] hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              <Button type="button" variant="outline" size="icon" pill className="h-7 w-7" onClick={() => atualizarQuantidade(item.tipo, item.id, item.quantidade - 1)}>
                 <Minus className="h-3 w-3" />
-              </button>
+              </Button>
               <span className="w-5 text-center text-sm">{item.quantidade}</span>
-              <button type="button" onClick={() => atualizarQuantidade(item.tipo, item.id, item.quantidade + 1)} className="flex h-7 w-7 items-center justify-center rounded-full border border-black/[0.08] hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              <Button type="button" variant="outline" size="icon" pill className="h-7 w-7" onClick={() => atualizarQuantidade(item.tipo, item.id, item.quantidade + 1)}>
                 <Plus className="h-3 w-3" />
-              </button>
+              </Button>
             </div>
-            <button type="button" onClick={() => remover(item.tipo, item.id)} className="text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            <Button type="button" variant="ghost" size="icon" pill className="h-8 w-8 text-danger hover:bg-danger/10 hover:text-danger" onClick={() => remover(item.tipo, item.id)}>
               <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
+            </Button>
+          </Card>
         ))}
       </div>
 
-      <div className="h-fit rounded-2xl border border-black/[0.06] bg-[#FAFBFC] p-5">
+      <Card radius="loose" className="h-fit bg-[#FAFBFC] p-5">
         <div className="mb-4 flex items-center justify-between border-b border-black/[0.06] pb-4">
           <span className="text-sm font-medium text-foreground">Total</span>
           <span className="font-display text-xl font-bold text-foreground">{formatCurrency(total)}</span>
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <input
+          <Input
             placeholder="Seu nome" value={nome} onChange={(e) => setNome(e.target.value)}
             aria-invalid={camposInvalidos.nome ? "true" : undefined}
-            className={`rounded-xl border px-3.5 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${camposInvalidos.nome ? "border-danger focus:border-danger" : "border-black/[0.08] focus:border-primary"}`}
+            className={`h-auto rounded-xl px-3.5 py-2.5 ${camposInvalidos.nome ? "border-danger focus:border-danger" : "focus:border-primary"}`}
           />
-          <input
+          <Input
             placeholder="WhatsApp (DDD + número)" value={telefone} onChange={(e) => setTelefone(e.target.value)}
             aria-invalid={camposInvalidos.telefone ? "true" : undefined}
-            className={`rounded-xl border px-3.5 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${camposInvalidos.telefone ? "border-danger focus:border-danger" : "border-black/[0.08] focus:border-primary"}`}
+            className={`h-auto rounded-xl px-3.5 py-2.5 ${camposInvalidos.telefone ? "border-danger focus:border-danger" : "focus:border-primary"}`}
           />
           {erro && <p className="text-xs text-danger">{erro}</p>}
 
-          <button
-            type="button"
+          <Button
+            type="button" variant="whatsapp" size="xl" pill
             onClick={handleFinalizarWhatsapp}
-            disabled={enviando}
-            className="mt-1 flex items-center justify-center gap-2 rounded-full bg-[#25D366] py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+            loading={enviando} loadingText="Enviando..."
+            className="mt-1 shadow-lg shadow-[#25D366]/20"
           >
-            <MessageCircle className="h-4 w-4" />{enviando ? "Enviando..." : "Finalizar pelo WhatsApp"}
-          </button>
+            <MessageCircle className="h-4 w-4" />Finalizar pelo WhatsApp
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            type="button" variant="outline" size="xl" pill
             onClick={() => router.push("/loja/checkout")}
-            className="flex items-center justify-center gap-2 rounded-full border border-primary py-3.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="border-primary text-primary hover:bg-primary/5 hover:text-primary"
           >
             <CreditCard className="h-4 w-4" />Pagar com Pix ou cartão
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

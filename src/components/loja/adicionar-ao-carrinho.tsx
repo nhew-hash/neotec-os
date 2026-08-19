@@ -7,6 +7,7 @@ import { useCarrinho } from "./carrinho-context";
 import { formatCurrency } from "@/utils";
 import { DestaquePrecoCliente } from "./destaque-preco-cliente";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
+import { Button } from "@/components/ui/button";
 
 const LABEL_CONDICAO: Record<string, string> = { novo: "Novo", seminovo: "Seminovo", usado: "Usado" };
 const LABEL_PECA: Record<string, string> = { tela: "Tela", bateria: "Bateria", carcaca: "Carcaça" };
@@ -75,12 +76,11 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Escolha a unidade</span>
           <div className="flex flex-col gap-2">
             {aparelhosDisponiveis.map((a) => (
-              <button
-                key={a.id}
-                type="button"
+              <Button
+                key={a.id} type="button" variant="outline"
                 onClick={() => handleSelecionarAparelho(a.id)}
-                className={`flex items-center justify-between rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                  aparelhoSelecionadoId === a.id ? "border-primary bg-primary/5" : "border-black/[0.08] hover:border-black/20"
+                className={`h-auto items-center justify-between rounded-xl p-3 text-left font-normal ${
+                  aparelhoSelecionadoId === a.id ? "border-primary bg-primary/5 hover:bg-primary/5" : "border-black/[0.08] hover:border-black/20"
                 }`}
               >
                 <div className="flex flex-col gap-0.5">
@@ -91,14 +91,14 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
                     </span>
                   )}
                   {a.pecas_substituidas.length > 0 ? (
-                    <span className="text-[11px] text-muted-foreground">Peças trocadas: {a.pecas_substituidas.map((p) => LABEL_PECA[p] ?? p).join(", ")}</span>
+                    <span className="text-xs text-muted-foreground">Peças trocadas: {a.pecas_substituidas.map((p) => LABEL_PECA[p] ?? p).join(", ")}</span>
                   ) : (
-                    a.condicao !== "novo" && <span className="text-[11px] text-muted-foreground">Nenhuma peça substituída</span>
+                    a.condicao !== "novo" && <span className="text-xs text-muted-foreground">Nenhuma peça substituída</span>
                   )}
-                  {a.observacoes && <span className="text-[11px] italic text-muted-foreground">{a.observacoes}</span>}
+                  {a.observacoes && <span className="text-xs italic text-muted-foreground">{a.observacoes}</span>}
                 </div>
                 {a.preco_venda != null && <span className="text-sm font-semibold text-foreground">{formatCurrency(a.preco_venda)}</span>}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -107,20 +107,20 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
       {!disponivel ? (
         <p className="rounded-xl bg-secondary py-3.5 text-center text-sm text-muted-foreground">Sem unidades disponíveis no momento</p>
       ) : (
-        <button
-          type="button"
+        <Button
+          type="button" size="xl" pill
           onClick={handleAdicionar}
-          className="flex items-center justify-center gap-2 rounded-full bg-primary py-4 text-base font-semibold text-white shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="shadow-lg shadow-primary/20 hover:opacity-90 hover:bg-primary"
         >
           {adicionado ? <Check className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
           {adicionado ? "Adicionado!" : "Adicionar ao carrinho"}
-        </button>
+        </Button>
       )}
 
       {adicionado && (
-        <button type="button" onClick={() => router.push("/loja/carrinho")} className="text-center text-sm font-medium text-primary hover:underline">
+        <Button type="button" variant="link" size="sm" onClick={() => router.push("/loja/carrinho")} className="h-auto p-0 font-medium">
           Ver carrinho →
-        </button>
+        </Button>
       )}
 
       <div className="flex flex-col gap-2.5 rounded-2xl bg-[#FAFBFC] p-4">

@@ -30,7 +30,7 @@ export function BadgesProduto({ selosManuais, maisVendido, ultimasUnidades }: Ba
   return (
     <div className="flex flex-wrap gap-1.5">
       {badges.map((b, i) => (
-        <span key={i} className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${b.cor}`}>{b.label}</span>
+        <span key={i} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${b.cor}`}>{b.label}</span>
       ))}
     </div>
   );

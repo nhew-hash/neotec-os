@@ -14,10 +14,12 @@ export function BlocoBanner({ secao }: { secao: HomeSecao }) {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-14">
       <div className="flex flex-col items-center gap-4 rounded-3xl bg-[#FAFBFC] px-8 py-14 text-center">
-        <h3 className="font-display text-2xl font-semibold text-foreground">{c.titulo}</h3>
+        <h3 className="font-display text-section-title text-foreground">{c.titulo}</h3>
         {c.subtitulo && <p className="max-w-md text-sm text-muted-foreground">{c.subtitulo}</p>}
         {c.link && c.texto_botao && (
-          <Link href={c.link} className="mt-2 rounded-full bg-primary px-7 py-3.5 text-sm font-semibold text-white">{c.texto_botao}</Link>
+          <Button asChild size="lg" pill className="mt-2 hover:bg-primary">
+            <Link href={c.link}>{c.texto_botao}</Link>
+          </Button>
         )}
       </div>
     </section>
@@ -61,9 +63,9 @@ export function BlocoTradeIn({ secao }: { secao: HomeSecao }) {
           <h3 className="font-display text-3xl font-semibold tracking-tight text-white">{c.titulo ?? "Seu aparelho atual pode valer mais do que você imagina"}</h3>
           {c.descricao && <p className="mt-3 max-w-md text-sm text-white/55">{c.descricao}</p>}
         </div>
-        <Link href="/loja/trade-in" className="shrink-0 rounded-full bg-white px-8 py-4 text-sm font-semibold text-[#0B0D12] transition-transform hover:-translate-y-0.5">
-          {c.texto_botao ?? "Avaliar meu aparelho"}
-        </Link>
+        <Button asChild size="lg" pill className="shrink-0 bg-white text-[#0B0D12] transition-transform hover:-translate-y-0.5 hover:bg-white">
+          <Link href="/loja/trade-in">{c.texto_botao ?? "Avaliar meu aparelho"}</Link>
+        </Button>
       </div>
     </section>
   );
@@ -101,7 +103,7 @@ export function BlocoAvaliacoes({ secao }: { secao: HomeSecao }) {
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-16">
-      <h2 className="mb-8 font-display text-2xl font-semibold tracking-tight text-foreground">{c.titulo ?? "O que dizem nossos clientes"}</h2>
+      <h2 className="mb-8 font-display text-section-title tracking-tight text-foreground">{c.titulo ?? "O que dizem nossos clientes"}</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {itens.map((item, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-2xl border border-black/[0.06] p-5">
@@ -123,7 +125,7 @@ export function BlocoVideo({ secao }: { secao: HomeSecao }) {
 
   return (
     <section className="mx-auto w-full max-w-4xl px-4 py-16">
-      {c.titulo && <h2 className="mb-6 font-display text-2xl font-semibold tracking-tight text-foreground">{c.titulo}</h2>}
+      {c.titulo && <h2 className="mb-6 font-display text-section-title tracking-tight text-foreground">{c.titulo}</h2>}
       <div className="aspect-video overflow-hidden rounded-2xl">
         <iframe src={c.url_video} className="h-full w-full" allowFullScreen title={c.titulo ?? "Vídeo"} />
       </div>
@@ -158,7 +160,7 @@ export function BlocoTexto({ secao }: { secao: HomeSecao }) {
 
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-16">
-      {c.titulo && <h2 className="mb-4 font-display text-2xl font-semibold tracking-tight text-foreground">{c.titulo}</h2>}
+      {c.titulo && <h2 className="mb-4 font-display text-section-title tracking-tight text-foreground">{c.titulo}</h2>}
       <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{c.corpo}</p>
     </section>
   );

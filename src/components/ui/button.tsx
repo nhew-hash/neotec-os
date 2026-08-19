@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -13,6 +14,9 @@ const buttonVariants = cva(
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         success:
           "bg-success text-white hover:bg-success/90",
+        // Fase 1 do padrão de design da loja — botão de finalizar pelo
+        // WhatsApp (cor oficial da marca), usado no carrinho.
+        whatsapp: "bg-[#25D366] text-white hover:opacity-90",
         outline:
           "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary:
@@ -24,6 +28,9 @@ const buttonVariants = cva(
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
+        // Equivalente ao py-4 usado nos CTAs grandes da loja (checkout,
+        // adicionar ao carrinho) — altura maior que "lg".
+        xl: "h-14 px-8 text-base",
         icon: "h-10 w-10",
       },
     },
@@ -38,17 +45,26 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /** Aplica rounded-full por cima do variant/size — os CTAs redondos da loja. */
+  pill?: boolean;
+  /** Mostra spinner, desabilita automaticamente, opcionalmente troca o texto enquanto carrega. */
+  loading?: boolean;
+  loadingText?: React.ReactNode;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, pill, loading, loadingText, disabled, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant, size, className }), pill && "rounded-full")}
         ref={ref}
+        disabled={disabled || loading}
         {...props}
-      />
+      >
+        {loading && <Loader2 className="animate-spin" />}
+        {loading && loadingText != null ? loadingText : children}
+      </Comp>
     );
   }
 );

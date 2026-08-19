@@ -47,7 +47,7 @@ export default function TradeInPage() {
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <Repeat className="h-6 w-6" />
         </div>
-        <h1 className="font-display text-2xl font-semibold text-foreground">Troque seu aparelho usado</h1>
+        <h1 className="font-display text-section-title text-foreground">Troque seu aparelho usado</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Conta pra gente sobre o seu aparelho — nossa equipe avalia e te chama no WhatsApp com uma proposta pra usar de entrada.
         </p>

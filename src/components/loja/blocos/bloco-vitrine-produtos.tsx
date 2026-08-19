@@ -14,7 +14,7 @@ export async function BlocoVitrineProdutos({ secao }: { secao: HomeSecao }) {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-20">
       <div className="mb-8 flex items-end justify-between">
-        <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground">{c.titulo ?? "Destaques"}</h2>
+        <h2 className="font-display text-section-title tracking-tight text-foreground">{c.titulo ?? "Destaques"}</h2>
         <Link href="/loja/categoria/iphone" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
           Ver tudo<ArrowRight className="h-3.5 w-3.5" />
         </Link>

@@ -5,6 +5,13 @@ const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
+      fontSize: {
+        // Escala tipográfica da loja (Fase 0 do padrão de design) — nome
+        // próprio em vez de sobrescrever text-2xl, pra não afetar o
+        // painel administrativo (que também usa text-2xl em 6 lugares
+        // fora da loja).
+        "section-title": ["28px", { lineHeight: "1.25", fontWeight: "600" }],
+      },
       colors: {
         // ---- Tokens exigidos pelo shadcn/ui (lidos via CSS variables) ----
         border: "hsl(var(--border))",

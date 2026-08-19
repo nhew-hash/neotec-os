@@ -51,7 +51,7 @@ export default function CompararPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <h1 className="mb-8 font-display text-2xl font-semibold text-foreground">Comparar aparelhos</h1>
+      <h1 className="mb-8 font-display text-section-title text-foreground">Comparar aparelhos</h1>
 
       <div className="overflow-x-auto">
         <div className="grid min-w-[600px] gap-4" style={{ gridTemplateColumns: `160px repeat(${produtos.length}, 1fr)` }}>

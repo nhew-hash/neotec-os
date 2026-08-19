@@ -4,6 +4,46 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 192] - Loja migrada pro kit compartilhado + padrao de design documentado
+
+Prompt final de 3 fases, todas concluidas. So tratamento visual - nenhum
+texto, rota ou logica de negocio mudou (confirmado com grep antes de
+empacotar). Props do CardPaymentBrick/PixPagamento intactas.
+
+### FASE 0 - Padrao definido
+Token `text-section-title` (28px) criado no Tailwind config, aplicado
+nos 17 titulos de secao reais da loja. Nao sobrescrevi `text-2xl`
+global de proposito - afetaria 6 lugares do painel administrativo
+fora da loja, que nao fazia parte do escopo.
+
+### FASE 1 - Kit estendido e loja inteira migrada
+**Button**: variant `whatsapp`, size `xl`, prop `pill`, prop `loading`
+(spinner + disabled automatico + loadingText opcional).
+**Card**: prop `radius="loose"` (o raio maior ja usado na loja).
+
+Migrados: loja-header, produto-card, adicionar-ao-carrinho, bloco-hero,
+blocos-simples, carrinho/page.tsx, checkout/page.tsx (por ultimo, com
+cuidado extra - fluxo de pagamento real).
+
+### FASE 2 - Correcoes pontuais
+- #1 hierarquia do nome do produto (text-sm -> text-base)
+- #2 hero sem imagem mais baixo (py-20 em vez de aspect-ratio forcado)
+- #3 espacamento do resumo do pedido (grupos com py-2 consistente,
+  Total isolado com borda+padding maior)
+- #5/#6 todo text-[Npx] arbitrario trocado pela escala (text-xs/text-sm)
+  em produto-card, adicionar-ao-carrinho, badges-e-economia, bloco-hero,
+  carrinho, checkout
+- #10 overlay do hero mais escuro (via-black/10 -> via-black/25)
+
+### Confirmacao final
+Nenhum <button>/<input> manual restante nos arquivos migrados, exceto
+o checkbox de cashback no checkout (Checkbox nao fazia parte do escopo
+do kit pedido na Fase 1).
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 191] - 5 correcoes visuais (contraste + estados) na loja
 
 Todas aplicadas so no tratamento visual - nenhum texto, rota ou logica

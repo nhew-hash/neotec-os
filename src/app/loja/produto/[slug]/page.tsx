@@ -35,7 +35,7 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
           <>
             <div>
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{labelCategoria(produto.categoria)}</span>
-              <h1 className="mt-1 font-display text-2xl font-semibold text-foreground sm:text-3xl">{produto.nome}</h1>
+              <h1 className="mt-1 font-display text-section-title text-foreground sm:text-3xl">{produto.nome}</h1>
             </div>
 
             <BadgesProduto selosManuais={produto.selos_manuais} maisVendido={maisVendido} ultimasUnidades={ultimasUnidades} />
