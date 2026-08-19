@@ -15,10 +15,15 @@ export default function CarrinhoPage() {
   const [telefone, setTelefone] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [camposInvalidos, setCamposInvalidos] = useState<{ nome?: boolean; telefone?: boolean }>({});
 
   async function handleFinalizarWhatsapp() {
     setErro(null);
-    if (!nome.trim() || !telefone.trim()) return setErro("Informe seu nome e WhatsApp pra gente confirmar o pedido");
+    if (!nome.trim() || !telefone.trim()) {
+      setCamposInvalidos({ nome: !nome.trim(), telefone: !telefone.trim() });
+      return setErro("Informe seu nome e WhatsApp pra gente confirmar o pedido");
+    }
+    setCamposInvalidos({});
 
     setEnviando(true);
     const result = await criarPedidoLojaAction({
@@ -59,15 +64,15 @@ export default function CarrinhoPage() {
               <p className="mt-1 text-sm font-semibold text-foreground">{formatCurrency(item.valor)}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => atualizarQuantidade(item.tipo, item.id, item.quantidade - 1)} className="flex h-7 w-7 items-center justify-center rounded-full border border-black/[0.08] hover:bg-secondary">
+              <button type="button" onClick={() => atualizarQuantidade(item.tipo, item.id, item.quantidade - 1)} className="flex h-7 w-7 items-center justify-center rounded-full border border-black/[0.08] hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                 <Minus className="h-3 w-3" />
               </button>
               <span className="w-5 text-center text-sm">{item.quantidade}</span>
-              <button type="button" onClick={() => atualizarQuantidade(item.tipo, item.id, item.quantidade + 1)} className="flex h-7 w-7 items-center justify-center rounded-full border border-black/[0.08] hover:bg-secondary">
+              <button type="button" onClick={() => atualizarQuantidade(item.tipo, item.id, item.quantidade + 1)} className="flex h-7 w-7 items-center justify-center rounded-full border border-black/[0.08] hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                 <Plus className="h-3 w-3" />
               </button>
             </div>
-            <button type="button" onClick={() => remover(item.tipo, item.id)} className="text-danger">
+            <button type="button" onClick={() => remover(item.tipo, item.id)} className="text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
@@ -81,15 +86,23 @@ export default function CarrinhoPage() {
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <input placeholder="Seu nome" value={nome} onChange={(e) => setNome(e.target.value)} className="rounded-xl border border-black/[0.08] px-3.5 py-2.5 text-sm outline-none focus:border-primary" />
-          <input placeholder="WhatsApp (DDD + número)" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="rounded-xl border border-black/[0.08] px-3.5 py-2.5 text-sm outline-none focus:border-primary" />
+          <input
+            placeholder="Seu nome" value={nome} onChange={(e) => setNome(e.target.value)}
+            aria-invalid={camposInvalidos.nome ? "true" : undefined}
+            className={`rounded-xl border px-3.5 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${camposInvalidos.nome ? "border-danger focus:border-danger" : "border-black/[0.08] focus:border-primary"}`}
+          />
+          <input
+            placeholder="WhatsApp (DDD + número)" value={telefone} onChange={(e) => setTelefone(e.target.value)}
+            aria-invalid={camposInvalidos.telefone ? "true" : undefined}
+            className={`rounded-xl border px-3.5 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${camposInvalidos.telefone ? "border-danger focus:border-danger" : "border-black/[0.08] focus:border-primary"}`}
+          />
           {erro && <p className="text-xs text-danger">{erro}</p>}
 
           <button
             type="button"
             onClick={handleFinalizarWhatsapp}
             disabled={enviando}
-            className="mt-1 flex items-center justify-center gap-2 rounded-full bg-[#25D366] py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="mt-1 flex items-center justify-center gap-2 rounded-full bg-[#25D366] py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#25D366]/20 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
           >
             <MessageCircle className="h-4 w-4" />{enviando ? "Enviando..." : "Finalizar pelo WhatsApp"}
           </button>
@@ -97,7 +110,7 @@ export default function CarrinhoPage() {
           <button
             type="button"
             onClick={() => router.push("/loja/checkout")}
-            className="flex items-center justify-center gap-2 rounded-full border border-primary py-3.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/5"
+            className="flex items-center justify-center gap-2 rounded-full border border-primary py-3.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <CreditCard className="h-4 w-4" />Pagar com Pix ou cartão
           </button>

@@ -14,6 +14,7 @@ import {
   Tags,
   UserCheck,
   Rocket,
+  UserCog,
   Camera,
   Store,
   Sparkles,
@@ -84,6 +85,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
     label: "Sistema",
     items: [
       { label: "Configurações", href: "/configuracoes", icon: Settings, cargos: ["admin"] },
+      { label: "Equipe", href: "/configuracoes/equipe", icon: UserCog, cargos: ["admin"] },
     ],
   },
 ];

@@ -48,7 +48,7 @@ export function PrecoComEconomia({ precoAtual, precoAntigo, tamanho = "grande" }
           {formatCurrency(precoAtual)}
         </span>
         {temEconomia && tamanho === "grande" && (
-          <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">
+          <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success-text">
             Economize {formatCurrency(precoAntigo! - precoAtual)}
           </span>
         )}
@@ -62,7 +62,7 @@ export function AvisoDescontoPix({ percentual, valor }: { percentual: number; va
   const valorComDesconto = valor * (1 - percentual / 100);
 
   return (
-    <p className="flex items-center gap-1.5 text-xs font-medium text-success">
+    <p className="flex items-center gap-1.5 text-xs font-medium text-success-text">
       💚 Economize {percentual}% pagando no Pix — {formatCurrency(valorComDesconto)}
     </p>
   );
@@ -74,7 +74,7 @@ export function AvisoEstoque({ quantidade, limiteEstoqueBaixo }: { quantidade: n
     return <p className="flex w-fit items-center gap-1 rounded-full bg-danger/10 px-3 py-1 text-xs font-medium text-danger">🔥 Restam apenas {quantidade} unidade{quantidade > 1 ? "s" : ""}</p>;
   }
   return (
-    <span className="flex w-fit items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-medium text-success">
+    <span className="flex w-fit items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-medium text-success-text">
       <span className="h-1.5 w-1.5 rounded-full bg-success" />Disponível
     </span>
   );

@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { listarEmpresasProstec } from "@/services/prostec/prostec.service";
+import { NovaEmpresaForm } from "@/components/prostec/nova-empresa-form";
 
 export default async function EmpresasProstecPage() {
   const empresas = await listarEmpresasProstec();
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="font-display text-xl font-semibold text-foreground">Empresas prospectadas</h1>
-        <p className="text-sm text-muted-foreground">{empresas.length} empresa(s) no total</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-xl font-semibold text-foreground">Empresas prospectadas</h1>
+          <p className="text-sm text-muted-foreground">{empresas.length} empresa(s) no total</p>
+        </div>
       </div>
+
+      <NovaEmpresaForm />
 
       <div className="rounded-2xl border border-black/[0.06] bg-white shadow-sm">
         <table className="w-full text-sm">

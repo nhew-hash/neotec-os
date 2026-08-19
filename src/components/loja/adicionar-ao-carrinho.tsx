@@ -12,8 +12,8 @@ const LABEL_CONDICAO: Record<string, string> = { novo: "Novo", seminovo: "Semino
 const LABEL_PECA: Record<string, string> = { tela: "Tela", bateria: "Bateria", carcaca: "Carcaça" };
 
 function corBateria(bateria: number): string {
-  if (bateria >= 85) return "text-success";
-  if (bateria >= 70) return "text-warning";
+  if (bateria >= 85) return "text-success-text";
+  if (bateria >= 70) return "text-warning-text";
   return "text-danger";
 }
 
@@ -79,7 +79,7 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
                 key={a.id}
                 type="button"
                 onClick={() => handleSelecionarAparelho(a.id)}
-                className={`flex items-center justify-between rounded-xl border p-3 text-left transition-colors ${
+                className={`flex items-center justify-between rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                   aparelhoSelecionadoId === a.id ? "border-primary bg-primary/5" : "border-black/[0.08] hover:border-black/20"
                 }`}
               >
@@ -110,7 +110,7 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
         <button
           type="button"
           onClick={handleAdicionar}
-          className="flex items-center justify-center gap-2 rounded-full bg-primary py-4 text-base font-semibold text-white shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
+          className="flex items-center justify-center gap-2 rounded-full bg-primary py-4 text-base font-semibold text-white shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {adicionado ? <Check className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
           {adicionado ? "Adicionado!" : "Adicionar ao carrinho"}

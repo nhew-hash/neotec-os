@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Rocket, Flame, DollarSign, TrendingUp, Percent, Building2, HandCoins, Settings } from "lucide-react";
 import { listarLeadsProstec, obterDashboardProstec } from "@/services/prostec/prostec.service";
 import { LeadsProstecTable } from "@/components/prostec/leads-prostec-table";
+import { NovaBuscaForm } from "@/components/prostec/nova-busca-form";
 import { formatCurrency } from "@/utils";
 
 /**
@@ -44,6 +45,8 @@ export default async function ProstecPage() {
         <CardStat icon={DollarSign} label="Faturamento do mês" valor={formatCurrency(dashboard.faturamentoMes)} destaque />
         <CardStat icon={Percent} label="Comissão do mês" valor={formatCurrency(dashboard.comissaoMes)} />
       </div>
+
+      <NovaBuscaForm />
 
       <LeadsProstecTable leads={leads} />
     </div>

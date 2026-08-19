@@ -9,7 +9,12 @@ import { Input } from "@/components/ui/input";
 import { atualizarStatusLeadProstecAction, registrarVendaProstecAction } from "@/services/prostec/prostec.actions";
 import type { ProstecLead } from "@/services/prostec/prostec.service";
 
-const STATUS_DISPONIVEIS = ["novo", "em_contato", "negociando", "vendido", "perdido"];
+const STATUS_DISPONIVEIS = ["novo", "contato_realizado", "nao_atendeu", "retornar_depois", "interessado", "proposta_enviada", "negociacao", "venda_fechada", "sem_interesse", "numero_invalido"];
+const STATUS_LABELS: Record<string, string> = {
+  novo: "Novo", contato_realizado: "Contato realizado", nao_atendeu: "Não atendeu",
+  retornar_depois: "Retornar depois", interessado: "Interessado", proposta_enviada: "Proposta enviada",
+  negociacao: "Negociação", venda_fechada: "Venda fechada", sem_interesse: "Sem interesse", numero_invalido: "Número inválido",
+};
 const COR_TEMPERATURA: Record<string, string> = { quente: "text-danger bg-danger/10", morno: "text-warning bg-warning/10", frio: "text-muted-foreground bg-secondary" };
 
 export function LeadsProstecTable({ leads }: { leads: ProstecLead[] }) {
@@ -46,7 +51,7 @@ function LinhaLead({ lead }: { lead: ProstecLead }) {
     await registrarVendaProstecAction(lead.id, produto, Number(valor), Number(comissaoPct));
     setSalvando(false);
     setMostrarVenda(false);
-    setStatus("vendido");
+    setStatus("venda_fechada");
   }
 
   return (
@@ -70,11 +75,11 @@ function LinhaLead({ lead }: { lead: ProstecLead }) {
         <Select value={status} onValueChange={handleMudarStatus}>
           <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {STATUS_DISPONIVEIS.map((s) => <SelectItem key={s} value={s}>{s.replace("_", " ")}</SelectItem>)}
+            {STATUS_DISPONIVEIS.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
           </SelectContent>
         </Select>
 
-        {status !== "vendido" && (
+        {status !== "venda_fechada" && (
           <Button type="button" size="sm" variant="outline" onClick={() => setMostrarVenda((v) => !v)}>
             {mostrarVenda ? "Cancelar" : "Registrar venda"}
           </Button>

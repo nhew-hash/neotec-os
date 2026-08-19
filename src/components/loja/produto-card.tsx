@@ -28,7 +28,7 @@ export function ProdutoCard({ produto, maisVendido, ultimasUnidades }: ProdutoCa
         type="button"
         onClick={(e) => { e.preventDefault(); alternarFavorito(produto.id); }}
         title={favorito ? "Remover dos favoritos" : "Favoritar"}
-        className={`absolute left-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border bg-white/90 transition-colors ${
+        className={`absolute left-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border bg-white/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
           favorito ? "border-danger text-danger" : "border-black/[0.08] text-muted-foreground hover:border-danger/40"
         }`}
       >
@@ -41,9 +41,9 @@ export function ProdutoCard({ produto, maisVendido, ultimasUnidades }: ProdutoCa
           onClick={(e) => { e.preventDefault(); alternar(produto.id); }}
           disabled={limiteAtingido}
           title={selecionado ? "Remover da comparação" : "Comparar"}
-          className={`absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+          className={`absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
             selecionado ? "border-primary bg-primary text-white" : "border-black/[0.08] bg-white/90 text-muted-foreground hover:border-primary/40"
-          } disabled:opacity-40`}
+          } disabled:opacity-50`}
         >
           {selecionado ? <Check className="h-3.5 w-3.5" /> : <Scale className="h-3.5 w-3.5" />}
         </button>

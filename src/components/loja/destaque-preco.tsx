@@ -16,12 +16,12 @@ export function DestaquePreco({ destaque }: { destaque: DestaquePrecoLoja }) {
         <div>
           <div className="flex items-baseline gap-2">
             <span className="font-display text-3xl font-bold text-success">{formatCurrency(destaque.precoPix)}</span>
-            <span className="text-sm font-semibold text-success">no Pix</span>
+            <span className="text-sm font-semibold text-success-text">no Pix</span>
           </div>
           {destaque.precoVitrine > destaque.precoPix && (
             <p className="text-xs text-muted-foreground">
               ou {formatCurrency(destaque.precoVitrine)} no cartão
-              {destaque.percentualDescontoPix > 0 && <span className="ml-1 font-medium text-success">(economize {destaque.percentualDescontoPix}%)</span>}
+              {destaque.percentualDescontoPix > 0 && <span className="ml-1 font-medium text-success-text">(economize {destaque.percentualDescontoPix}%)</span>}
             </p>
           )}
         </div>
@@ -41,8 +41,8 @@ export function DestaquePreco({ destaque }: { destaque: DestaquePrecoLoja }) {
         <div className="flex items-center gap-2 rounded-xl bg-warning/10 px-3 py-2">
           <Wallet className="h-4 w-4 shrink-0 text-warning" />
           <p className="text-sm text-foreground">
-            Ganhe <span className="font-bold text-warning">{formatCurrency(destaque.cashbackValor)}</span>
-            <span className="ml-1 font-semibold text-warning">de cashback</span> nessa compra
+            Ganhe <span className="font-bold text-warning-text">{formatCurrency(destaque.cashbackValor)}</span>
+            <span className="ml-1 font-semibold text-warning-text">de cashback</span> nessa compra
           </p>
         </div>
       )}

@@ -41,7 +41,7 @@ export function LojaFooter() {
           </Link>
         </div>
       </div>
-      <div className="border-t border-black/[0.06] py-4 text-center text-xs text-muted-foreground/70">
+      <div className="border-t border-black/[0.06] py-4 text-center text-xs text-muted-foreground">
         Neotec Araguari — todos os direitos reservados
       </div>
     </footer>

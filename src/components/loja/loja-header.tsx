@@ -67,7 +67,7 @@ export function LojaHeader() {
               </span>
             )}
           </Link>
-          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-secondary lg:hidden" onClick={() => setMenuAberto((v) => !v)}>
+          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:hidden" onClick={() => setMenuAberto((v) => !v)}>
             {menuAberto ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>

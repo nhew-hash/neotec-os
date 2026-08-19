@@ -23,6 +23,7 @@ export default function CheckoutPage() {
   const [cpf, setCpf] = useState("");
   const [processando, setProcessando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [camposInvalidos, setCamposInvalidos] = useState<{ nome?: boolean; telefone?: boolean }>({});
 
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [gatewayAtivo, setGatewayAtivo] = useState(true);
@@ -65,8 +66,10 @@ export default function CheckoutPage() {
   function validarDados(): boolean {
     if (!nome.trim() || !telefone.trim()) {
       setErro("Informe nome e telefone");
+      setCamposInvalidos({ nome: !nome.trim(), telefone: !telefone.trim() });
       return false;
     }
+    setCamposInvalidos({});
     return true;
   }
 
@@ -178,27 +181,35 @@ export default function CheckoutPage() {
         {etapa === "dados" && (
           <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] p-6">
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Seus dados</p>
-            <input placeholder="Nome completo" value={nome} onChange={(e) => setNome(e.target.value)} className="rounded-xl border border-black/[0.08] px-3.5 py-2.5 text-sm outline-none focus:border-primary" />
-            <input placeholder="WhatsApp (DDD + número)" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="rounded-xl border border-black/[0.08] px-3.5 py-2.5 text-sm outline-none focus:border-primary" />
-            <input placeholder="CPF (recomendado — ajuda a aprovar o pagamento mais rápido)" value={cpf} onChange={(e) => setCpf(e.target.value)} className="rounded-xl border border-black/[0.08] px-3.5 py-2.5 text-sm outline-none focus:border-primary" />
+            <input
+              placeholder="Nome completo" value={nome} onChange={(e) => setNome(e.target.value)}
+              aria-invalid={camposInvalidos.nome ? "true" : undefined}
+              className={`rounded-xl border px-3.5 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${camposInvalidos.nome ? "border-danger focus:border-danger" : "border-black/[0.08] focus:border-primary"}`}
+            />
+            <input
+              placeholder="WhatsApp (DDD + número)" value={telefone} onChange={(e) => setTelefone(e.target.value)}
+              aria-invalid={camposInvalidos.telefone ? "true" : undefined}
+              className={`rounded-xl border px-3.5 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${camposInvalidos.telefone ? "border-danger focus:border-danger" : "border-black/[0.08] focus:border-primary"}`}
+            />
+            <input placeholder="CPF (recomendado — ajuda a aprovar o pagamento mais rápido)" value={cpf} onChange={(e) => setCpf(e.target.value)} className="rounded-xl border border-black/[0.08] px-3.5 py-2.5 text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
 
             {erro && <p className="text-xs text-danger">{erro}</p>}
 
-            <button type="button" onClick={handleIrParaPagamento} className="mt-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-white">Continuar pro pagamento</button>
+            <button type="button" onClick={handleIrParaPagamento} className="mt-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Continuar pro pagamento</button>
           </div>
         )}
 
         {etapa === "pagamento" && !gatewayAtivo && (
-          <p className="rounded-2xl bg-warning-soft p-4 text-sm text-warning">Pagamento online está temporariamente indisponível — finaliza pelo WhatsApp na tela do carrinho.</p>
+          <p className="rounded-2xl bg-warning-soft p-4 text-sm text-warning-text">Pagamento online está temporariamente indisponível — finaliza pelo WhatsApp na tela do carrinho.</p>
         )}
 
         {etapa === "pagamento" && gatewayAtivo && (
           <div className="flex flex-col gap-4 rounded-2xl border border-black/[0.06] p-6">
             <div className="flex gap-2">
-              <button type="button" onClick={() => setMetodo("pix")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-3 text-sm font-medium ${metodo === "pix" ? "border-primary bg-primary/5 text-foreground" : "border-black/[0.08] text-muted-foreground"}`}>
+              <button type="button" onClick={() => setMetodo("pix")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${metodo === "pix" ? "border-primary bg-primary/5 text-foreground" : "border-black/[0.08] text-muted-foreground"}`}>
                 <QrCode className="h-4 w-4" />Pix
               </button>
-              <button type="button" onClick={() => setMetodo("cartao")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-3 text-sm font-medium ${metodo === "cartao" ? "border-primary bg-primary/5 text-foreground" : "border-black/[0.08] text-muted-foreground"}`}>
+              <button type="button" onClick={() => setMetodo("cartao")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${metodo === "cartao" ? "border-primary bg-primary/5 text-foreground" : "border-black/[0.08] text-muted-foreground"}`}>
                 <CreditCard className="h-4 w-4" />Cartão
               </button>
             </div>
@@ -206,7 +217,7 @@ export default function CheckoutPage() {
             {erro && <p className="text-xs text-danger">{erro}</p>}
 
             {metodo === "pix" && !dadosPix && (
-              <button type="button" onClick={handlePagarPix} disabled={processando} className="rounded-full bg-primary py-3.5 text-sm font-semibold text-white disabled:opacity-60">
+              <button type="button" onClick={handlePagarPix} disabled={processando} className="rounded-full bg-primary py-3.5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50">
                 {processando ? "Gerando Pix..." : "Gerar Pix"}
               </button>
             )}
@@ -238,16 +249,16 @@ export default function CheckoutPage() {
         <div className="border-b border-black/[0.06] py-3">
           {cupomAplicado ? (
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-success">Cupom {cupomAplicado.codigo} aplicado</span>
+              <span className="font-medium text-success-text">Cupom {cupomAplicado.codigo} aplicado</span>
               <button type="button" onClick={handleRemoverCupom} className="text-muted-foreground hover:underline">Remover</button>
             </div>
           ) : (
             <div className="flex gap-1.5">
               <input
                 placeholder="Código do cupom" value={cupomInput} onChange={(e) => setCupomInput(e.target.value.toUpperCase())}
-                className="flex-1 rounded-lg border border-black/[0.08] px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+                className="flex-1 rounded-lg border border-black/[0.08] px-2.5 py-1.5 text-xs outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
-              <button type="button" onClick={handleAplicarCupom} disabled={validandoCupom || !cupomInput.trim()} className="rounded-lg border border-black/[0.08] px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-60">
+              <button type="button" onClick={handleAplicarCupom} disabled={validandoCupom || !cupomInput.trim()} className="rounded-lg border border-black/[0.08] px-3 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-50">
                 {validandoCupom ? "..." : "Aplicar"}
               </button>
             </div>
@@ -258,7 +269,7 @@ export default function CheckoutPage() {
         {saldoCashback > 0 && (
           <label className="flex items-center gap-2 border-b border-black/[0.06] py-3 text-xs">
             <input type="checkbox" checked={usarCashback} onChange={(e) => setUsarCashback(e.target.checked)} className="h-4 w-4 accent-primary" />
-            <span className="text-foreground">Usar meu saldo de cashback (<strong className="text-success">{formatCurrency(saldoCashback)}</strong> disponível)</span>
+            <span className="text-foreground">Usar meu saldo de cashback (<strong className="text-success-text">{formatCurrency(saldoCashback)}</strong> disponível)</span>
           </label>
         )}
 

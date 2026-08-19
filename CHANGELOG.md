@@ -4,6 +4,115 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 191] - 5 correcoes visuais (contraste + estados) na loja
+
+Todas aplicadas so no tratamento visual - nenhum texto, rota ou logica
+de negocio mudou.
+
+### 1. Contraste - tokens success/warning
+Adicionado `success-text` (#0F7A3D) e `warning-text` (#B45F04) no
+Tailwind - versao mais escura, so pra TEXTO pequeno (abaixo de 24px
+regular / 18.7px bold, que precisa de 4.5:1 pelo WCAG AA). Token
+original mantido intacto pra icone e fundo tintado (so precisam de
+3:1). Aplicado em 4 arquivos: badges-e-economia, destaque-preco (o
+valor principal em 3xl ficou com o token original, corrigido so o
+'no Pix' e os textos menores), checkout, adicionar-ao-carrinho
+(corBateria).
+
+### 2. Contraste - copyright do rodape
+`text-muted-foreground/70` (contraste ~2.8:1, falhava) trocado pra
+`text-muted-foreground` (~4.8:1).
+
+### 3. Estados - foco de teclado
+Todo botao/input criado a mao (fora do kit Button/Input) ganhou
+`focus-visible:ring-2` - navegacao por teclado agora funciona em loja-
+header, produto-card, adicionar-ao-carrinho, checkout e carrinho (15+
+elementos no total).
+
+### 4. Estados - opacidade do disabled unificada
+3 valores diferentes pro mesmo estado (opacity-40, opacity-60,
+opacity-50) unificados pra opacity-50 em todo lugar.
+
+### 5. Estados - erro por campo no formulario
+Checkout e carrinho agora marcam qual campo especifico falhou
+(borda vermelha + aria-invalid) quando nome/telefone estao vazios -
+sem remover a mensagem de texto que ja existia, so reforcando.
+Logica de validacao (validarDados/handleFinalizarWhatsapp) nao foi
+alterada, so passou a registrar quais campos estao invalidos.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 190] - Motor de prospeccao real portado - Google Places funcionando
+
+Comparei a versao nova do zip com a que ja tinha portado - mesma
+versao, mas usei pra portar o que faltava de verdade: o motor de
+busca completo.
+
+### Motor portado 1:1 do Prospector original
+- Busca real no Google Places API (Text Search, por segmento)
+- Analise real do site de cada empresa (fetch HTTP de verdade,
+  verifica HTTPS, responsividade, botao WhatsApp, formulario, CTA,
+  SEO basico) - nunca inventa dado, o que nao da pra confirmar fica
+  null
+- Pontuacao configuravel (0-100) com os pesos reais originais
+- Geracao de "razoes" (por que e oportunidade) e sugestao de
+  abordagem personalizada por empresa
+- Deduplicacao (mesmo telefone/site/nome+cidade vira atualizacao, nao
+  duplica)
+
+### Bug achado e corrigido: status errados
+Portei errado da primeira vez - usei 5 status simplificados
+(novo/em_contato/negociando/vendido/perdido) quando o sistema real
+tem 10 (novo, contato_realizado, nao_atendeu, retornar_depois,
+interessado, proposta_enviada, negociacao, venda_fechada,
+sem_interesse, numero_invalido). Corrigido em todo lugar - schema,
+interface, e dado que ja tinha sido criado com o status errado foi
+migrado pro certo.
+
+### Tela "Nova busca" conectada
+Botao no dashboard do Prostec - informa cidade, UF, segmentos e
+quantidade, dispara a busca real.
+
+### Aviso de performance
+Analisar o site de cada empresa (fetch real) e sequencial, uma por
+uma - buscas grandes podem demorar bastante e esbarrar no limite de
+tempo do Vercel. Recomendado comecar com quantidade baixa (15-20) pra
+testar.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 189] - Cadastro de equipe e de empresa manual
+
+Achado ao responder sua pergunta: nunca existiu uma tela de
+"cadastrar funcionario" no Neotec OS inteiro - sempre foi feito direto
+no Supabase. Corrigido, e junto o cadastro manual de empresa no
+Prostec.
+
+### Equipe (`/configuracoes/equipe`) - tela nova
+Lista todo mundo com conta de acesso (qualquer cargo) e permite criar
+uma conta nova - escolhe nome, e-mail e cargo (inclusive
+vendedor_prostec). Gera senha provisoria, mesmo padrao ja usado pra
+investidor/indicador.
+
+### Cadastrar empresa manual no Prostec
+Empresas (`/prostec/empresas`) agora tem botao "Cadastrar empresa" -
+nome, categoria, cidade, contato. Ja cria com um lead na etapa "novo"
+junto, pronto pra trabalhar.
+
+### Sobre a chave de API que voce configurou
+Isso ainda nao esta conectado a nenhuma tela - a BUSCA automatica de
+empresas (o motor de prospeccao que usaria essa chave pra vasculhar
+Google Places etc) ainda nao foi construida. Por enquanto, cadastro e
+manual mesmo.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 188] - Prostec completo (fase 2 finalizada)
 
 Todas as telas que faltavam da lista anterior, construidas.
