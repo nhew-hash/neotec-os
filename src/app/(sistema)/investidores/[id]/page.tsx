@@ -4,6 +4,8 @@ import {
   listarAparelhosPorInvestidor, listarAparelhosSemInvestidor,
 } from "@/services/investidores/investidores.service";
 import { ResumoInvestidorCards, MovimentoInvestidorForm, VincularAparelhoForm } from "@/components/investidores/investidor-components";
+import { CriarAcessoButton } from "@/components/acesso-externo/criar-acesso-button";
+import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDateTime } from "@/utils";
@@ -13,13 +15,18 @@ export default async function InvestidorDetailPage({ params }: { params: Promise
   const investidor = await buscarInvestidorPorId(id);
   if (!investidor) notFound();
 
-  const [resumo, movimentos, aparelhos, aparelhosDisponiveis] = await Promise.all([
+  const supabase = await createClient();
+  const [resumo, movimentos, aparelhos, aparelhosDisponiveis, { data: acessoExistente }] = await Promise.all([
     buscarResumoInvestidor(id), listarMovimentosPorInvestidor(id), listarAparelhosPorInvestidor(id), listarAparelhosSemInvestidor(),
+    supabase.from("usuarios").select("id").eq("investidor_id", id).maybeSingle(),
   ]);
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-display text-xl font-semibold text-foreground">{investidor.nome}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-xl font-semibold text-foreground">{investidor.nome}</h1>
+        <CriarAcessoButton tipo="investidor" registroId={id} temAcesso={!!acessoExistente} />
+      </div>
 
       {resumo && <ResumoInvestidorCards resumo={resumo} />}
 

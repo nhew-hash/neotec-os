@@ -110,7 +110,30 @@ export async function middleware(request: NextRequest) {
 
   }
 
+  // ======================================================
+  // INVESTIDOR / INDICADOR — só acessam a própria área
+  // Login normal, mas nunca devem alcançar o resto do
+  // sistema interno (mesmo que RLS já bloqueie o DADO, a
+  // TELA vazia/quebrada é confusa — aqui já barra antes).
+  // ======================================================
 
+  if (session && !isPublicRoute) {
+    const { data: perfil } = await supabase
+      .from("usuarios")
+      .select("cargo")
+      .eq("id", session.user.id)
+      .maybeSingle();
+
+    if (perfil?.cargo === "investidor" && !pathname.startsWith("/investidor")) {
+      return NextResponse.redirect(new URL("/investidor", request.url));
+    }
+    if (perfil?.cargo === "indicador" && !pathname.startsWith("/indicador")) {
+      return NextResponse.redirect(new URL("/indicador", request.url));
+    }
+    if (perfil?.cargo === "vendedor_prostec" && !pathname.startsWith("/prostec")) {
+      return NextResponse.redirect(new URL("/prostec", request.url));
+    }
+  }
 
   return response;
 

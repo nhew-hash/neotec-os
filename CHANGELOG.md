@@ -4,6 +4,127 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 188] - Prostec completo (fase 2 finalizada)
+
+Todas as telas que faltavam da lista anterior, construidas.
+
+### Empresas (`/prostec/empresas`)
+Lista completa de toda empresa prospectada (nao so as que tem lead
+ativo) - nome, cidade, categoria, contato, score, link pro lead
+quando existe.
+
+### Detalhe do lead (`/prostec/leads/[id]`)
+- Dados completos da empresa
+- Registrar contato (ligacao/whatsapp/email/outro + resultado)
+- Agendar follow-up (com conclusao)
+- Notas
+- Historico completo de mudanca de status
+
+### Configuracoes (`/prostec/configuracoes`)
+Faixas de temperatura (score minimo quente/morno), parametros padrao
+de prospeccao (raio, quantidade), comissao e valor de venda padrao,
+segmentos e cidades sugeridas.
+
+### Comissoes (`/prostec/comissoes`)
+Relatorio por vendedor - vendas fechadas, faturamento gerado,
+comissao total acumulada.
+
+### Navegacao conectada
+Dashboard principal agora tem links pras 3 telas novas. Nome da
+empresa na lista de leads agora e link pro detalhe completo.
+
+### Ainda fora do escopo
+So o motor de PROSPECCAO em si (buscar empresas novas via API
+externa/Google Places etc) - isso depende de credenciais de API que
+precisam ser configuradas separadamente, e webscraping/analise de site
+automatizada. O resto do sistema (gestao de leads ja existentes,
+CRM completo, vendas, comissao, configuracao) esta pronto e
+funcional.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 187] - Neotec Prostec fundido - nucleo operacional (fase 2)
+
+### Banco de dados
+13 tabelas do Prospector portadas, prefixadas `prostec_` (nunca
+colide com nada existente). Tabela `users` do Prospector NAO foi
+portada - login agora e o mesmo `usuarios` do Neotec OS (cargo
+`vendedor_prostec`), todos os FKs que apontavam pra ela agora apontam
+pra `usuarios`.
+
+### Separacao total entre os dois times (pedido explicito)
+RLS: vendedor_prostec so ve/mexe em dado `prostec_*`, nunca dado da
+loja. Vendedor/tecnico/caixa da loja nunca veem nada da Prostec.
+Admin/gerente veem os dois lados (supervisao). Middleware bloqueia
+navegacao cruzada - vendedor_prostec tentando acessar `/clientes` ou
+qualquer coisa da loja e redirecionado de volta pro `/prostec`
+automaticamente.
+
+### Nucleo operacional construido
+- Dashboard: total de leads, leads quentes, vendas do mes,
+  faturamento do mes, comissao do mes
+- Lista de leads ordenada por pontuacao de oportunidade, com
+  temperatura (quente/morno/frio), dados da empresa, sugestao de
+  abordagem
+- Mudar status do lead (com historico registrado automaticamente)
+- Registrar venda -> calcula e grava a comissao junto, na hora
+
+### Ainda nao portado (proxima entrega)
+- Motor de PROSPECCAO em si (buscar empresas novas) - depende de
+  chaves de API externas que precisam ser configuradas separadamente
+- Tela de Empresas (lista completa, nao so as que viraram lead)
+- Detalhe completo do lead (contatos, notas, follow-ups agendados,
+  historico de status)
+- Configuracoes (pesos do score, segmentos, cidades sugeridas)
+- Relatorio de comissao por vendedor
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 186] - Login proprio pra investidor e indicador (fase 1 do pedido)
+
+Investidor e indicador nunca tinham login proprio - so existiam como
+registro que a equipe gerenciava. Agora tem.
+
+### O que foi construido
+- 3 cargos novos: `vendedor_prostec`, `investidor`, `indicador`
+- Vinculo entre conta de login e o registro ja existente
+  (usuarios.investidor_id / indicador_id)
+- RLS restrito - investidor/indicador logado SO ve os proprios dados
+  (proprio saldo, proprios aparelhos/indicacoes) - nunca dado de outro
+  investidor/indicador, nunca dado interno da loja
+- Middleware bloqueia investidor/indicador de navegar pra qualquer
+  outra area do sistema (redireciona pro proprio painel)
+- Painel `/investidor`: saldo, capital aplicado/livre, lucro,
+  aparelhos no estoque, historico de movimentacao
+- Painel `/indicador`: saldo, quem foi indicado (venda ou
+  assistencia) com status de cada uma, historico de movimentacao
+- Botao "Dar acesso de login" na tela de detalhe do investidor - gera
+  senha provisoria, mesmo padrao ja usado no Portal do Cliente
+
+### Pendente - conectar o mesmo botao na tela de indicadores
+Nao achei uma tela de detalhe de indicador tao desenvolvida quanto a
+de investidor (so tem card de dashboard + botao de criar) - o
+componente de dar acesso ja existe e funciona pros dois tipos, so
+falta conectar visualmente do lado indicador.
+
+### Prostec (fusao completa) - AINDA NAO FEITO
+Analisei o zip - e um sistema completo e separado (prospeccao B2B de
+site, com companies/leads/scoring/vendas/comissao proprios). Fundir
+de verdade dentro do Neotec OS (como voce confirmou que quer) e um
+projeto do tamanho de uma fase inteira por si so - trazer o schema,
+adaptar a autenticacao dele pra usar a do Neotec OS, portar as telas.
+Nao tentei fazer isso "no meio" dessa entrega pra nao arriscar
+misturar duas coisas grandes e quebrar as duas. Fica pra proxima
+entrega dedicada.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 184] - Corrigido: venda do PDV contando como venda do site
 
 ### Bug critico achado

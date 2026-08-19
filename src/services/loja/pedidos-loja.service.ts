@@ -7,7 +7,7 @@ export interface PedidoLojaComItens extends PedidoLoja {
 
 export async function listarPedidosLoja(): Promise<PedidoLojaComItens[]> {
   const supabase = await createClient();
-  const { data: pedidos, error } = await supabase.from("pedidos_loja").select("*").order("created_at", { ascending: false });
+  const { data: pedidos, error } = await supabase.from("pedidos_loja").select("*").order("updated_at", { ascending: false });
   if (error) throw new Error(`Não foi possível carregar os pedidos: ${error.message}`);
 
   const { data: itens } = await supabase.from("pedido_loja_itens").select("*");

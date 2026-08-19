@@ -22,12 +22,19 @@ export async function signInAction(formData: FormData): Promise<ActionResult> {
   // Confirma que esta conta é da equipe (tem linha em `usuarios`) — sem
   // isso, alguém com login só de Portal do Cliente conseguiria "entrar"
   // aqui e só descobrir o problema na tela seguinte.
-  const { data: perfil } = await supabase.from("usuarios").select("id").eq("id", data.user.id).maybeSingle();
+  const { data: perfil } = await supabase.from("usuarios").select("id, cargo").eq("id", data.user.id).maybeSingle();
 
   if (!perfil) {
     await supabase.auth.signOut();
     return { success: false, error: "Esta conta não tem acesso à área da equipe" };
   }
+
+  // Investidor e indicador têm painel próprio, bem menor — nunca
+  // caem no dashboard geral da equipe (não fazem sentido pra eles, e
+  // a maioria dos links levariam pra área sem permissão).
+  if (perfil.cargo === "investidor") redirect("/investidor");
+  if (perfil.cargo === "indicador") redirect("/indicador");
+  if (perfil.cargo === "vendedor_prostec") redirect("/prostec");
 
   redirect("/dashboard");
 }
