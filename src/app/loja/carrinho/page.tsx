@@ -84,7 +84,7 @@ export default function CarrinhoPage() {
         ))}
       </div>
 
-      <Card radius="loose" className="h-fit bg-[#FAFBFC] p-5">
+      <Card radius="loose" className="h-fit p-5">
         <div className="mb-4 flex items-center justify-between border-b border-black/[0.06] pb-4">
           <span className="text-sm font-medium text-foreground">Total</span>
           <span className="font-display text-xl font-bold text-foreground">{formatCurrency(total)}</span>

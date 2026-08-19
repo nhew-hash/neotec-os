@@ -244,7 +244,7 @@ export default function CheckoutPage() {
         )}
       </div>
 
-      <Card radius="loose" className="h-fit bg-[#FAFBFC] p-5">
+      <Card radius="loose" className="h-fit p-5">
         <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Resumo do pedido</p>
         <div className="flex flex-col gap-2 border-b border-black/[0.06] pb-4">
           {itens.map((item) => (

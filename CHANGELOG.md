@@ -4,6 +4,30 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 193] - Ultimos 3 pontos da migracao: tokens de fundo/borda unificados
+
+### Item 1 - ja resolvido na correcao anterior
+Import de Button confirmado presente.
+
+### Item 2 - hex duplicado trocado pelos tokens do sistema
+5 arquivos, 8 ocorrencias: bg-[#FAFBFC] -> bg-card, border-black/[0.06]
+-> border-border. adicionar-ao-carrinho.tsx tambem ganhou borda que
+nao tinha nenhuma antes (bg-card sozinho, sem borda, ficava sem
+contorno definido).
+
+### Item 3 (opcional, aplicado) - token sidebar reaproveitado
+Achado um detalhe melhor que o sugerido: `sidebar.active` (#1C2030) e
+IDENTICO ao hex usado no gradiente do BlocoTradeIn, nao so "proximo"
+como o sidebar.hover mencionado no pedido. Trocado for from-[#0B0D12]
+to-[#1C2030] -> from-sidebar to-sidebar-active (par exato, sem perda
+de precisao de cor). BlocoAssistencia: bg-[#0B0D12] -> bg-sidebar.
+Confirmado que esse padrao de nome de classe ja e usado em varios
+lugares do sistema (sidebar, login), nao e invencao nova.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 192] - Loja migrada pro kit compartilhado + padrao de design documentado
 
 Prompt final de 3 fases, todas concluidas. So tratamento visual - nenhum

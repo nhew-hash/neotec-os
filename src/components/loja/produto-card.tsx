@@ -24,7 +24,7 @@ export function ProdutoCard({ produto, maisVendido, ultimasUnidades }: ProdutoCa
   const limiteAtingido = !selecionado && idsSelecionados.length >= MAX_COMPARACAO_ITENS;
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white transition-all hover:-translate-y-1 hover:shadow-[0_12px_32px_-12px_rgba(16,24,40,0.15)]">
+    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all hover:-translate-y-1 hover:shadow-[0_12px_32px_-12px_rgba(16,24,40,0.15)]">
       <Button
         type="button" variant="ghost" size="icon" pill
         onClick={(e) => { e.preventDefault(); alternarFavorito(produto.id); }}

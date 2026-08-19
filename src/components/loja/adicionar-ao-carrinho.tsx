@@ -123,7 +123,7 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
         </Button>
       )}
 
-      <div className="flex flex-col gap-2.5 rounded-2xl bg-[#FAFBFC] p-4">
+      <div className="flex flex-col gap-2.5 rounded-2xl border border-border bg-card p-4">
         <div className="flex items-start gap-3">
           <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <p className="text-xs text-foreground">Retire na loja em Araguari, ou combine entrega direto pelo WhatsApp na hora de fechar.</p>
