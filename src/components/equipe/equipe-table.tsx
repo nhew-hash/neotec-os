@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { desativarFuncionarioAction } from "@/services/equipe/equipe.actions";
-import { formatDate } from "@/utils";
 import type { MembroEquipe } from "@/services/equipe/equipe.service";
 
 const LABEL_CARGO: Record<string, string> = {
@@ -21,7 +20,6 @@ export function EquipeTable({ equipe }: { equipe: MembroEquipe[] }) {
             <th className="p-3 font-medium">Nome</th>
             <th className="p-3 font-medium">E-mail</th>
             <th className="p-3 font-medium">Cargo</th>
-            <th className="p-3 font-medium">Desde</th>
             <th className="p-3" />
           </tr>
         </thead>
@@ -53,7 +51,6 @@ function LinhaMembro({ membro }: { membro: MembroEquipe }) {
       <td className="p-3 font-medium text-foreground">{membro.nome}</td>
       <td className="p-3 text-muted-foreground">{membro.email}</td>
       <td className="p-3"><span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground">{LABEL_CARGO[membro.cargo] ?? membro.cargo}</span></td>
-      <td className="p-3 text-xs text-muted-foreground">{formatDate(membro.created_at)}</td>
       <td className="p-3 text-right">
         {confirmando ? (
           <div className="flex items-center justify-end gap-1.5 text-xs">

@@ -4,7 +4,14 @@ import { EquipeTable } from "@/components/equipe/equipe-table";
 import { NovoFuncionarioForm } from "@/components/equipe/novo-funcionario-form";
 
 export default async function EquipePage() {
-  const equipe = await listarEquipe();
+  let equipe: Awaited<ReturnType<typeof listarEquipe>> = [];
+  let erroCarregamento: string | null = null;
+
+  try {
+    equipe = await listarEquipe();
+  } catch (err) {
+    erroCarregamento = err instanceof Error ? err.message : "Erro desconhecido ao carregar a equipe";
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -15,6 +22,12 @@ export default async function EquipePage() {
           <p className="text-sm text-muted-foreground">{equipe.length} conta(s) de acesso</p>
         </div>
       </div>
+
+      {erroCarregamento && (
+        <div className="rounded-2xl border border-danger/20 bg-danger/5 p-4 text-sm text-danger">
+          Não foi possível carregar a lista de contas: {erroCarregamento}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
         <EquipeTable equipe={equipe} />
