@@ -1,6 +1,9 @@
 import { listarLacradosModelosPublico } from "@/services/lacrados/lacrados-publico.service";
 import { LacradosListaCliente } from "@/components/loja/lacrados-lista-cliente";
 
+// Mesmo motivo da página individual — nunca cachear estoque.
+export const revalidate = 0;
+
 export default async function LacradosListaPage() {
   const todos = await listarLacradosModelosPublico();
   const modelosApple = todos.filter((m) => m.marca?.toLowerCase() === "apple" && /iphone/i.test(m.nome));

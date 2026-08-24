@@ -4,6 +4,12 @@ import { ShieldCheck, FileText, Wallet, MapPin, Truck, ArrowRight, Repeat } from
 import { buscarLacradoModeloPorNome, listarLacradosVariantesPublico } from "@/services/lacrados/lacrados-publico.service";
 import { LacradoPdpCliente } from "@/components/loja/lacrado-pdp-cliente";
 
+// Estoque é informação crítica demais pra arriscar cache defasado —
+// depois de "substituir lista" no Central de Cadastro, um item que
+// acabou de zerar não pode continuar aparecendo disponível aqui, nem
+// por alguns minutos. Sempre busca fresco, direto do banco.
+export const revalidate = 0;
+
 /**
  * Descrição padrão pra TODO lacrado — pedido explícito ("criar uma
  * descrição padrão para todos os aparelhos lacrados... sem repetir

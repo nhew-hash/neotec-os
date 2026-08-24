@@ -4,6 +4,37 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 199] - CRITICO: estoque zerado continuava aparecendo disponivel no site
+
+### O bug real
+Depois de "substituir lista" no Central de Cadastro (zera o estoque
+que sumiu da lista nova), o SQL fazia certo - conferido de novo, o
+`quantidade > 0` ja estava la desde a Fase 147. O problema era cache:
+nenhuma pagina da loja tinha configuracao explicita de revalidacao, e
+o Next.js pode cachear paginas dinamicas (como
+`/loja/lacrados/[modelo]`) de forma independente do
+`revalidatePath("/loja", "layout")` que ja era chamado depois de
+substituir a lista - explicando por que item zerado continuava
+aparecendo disponivel por um tempo.
+
+### Corrigido
+`export const revalidate = 0` adicionado nas 6 paginas publicas que
+mostram estoque - nunca mais cache, sempre busca direto do banco:
+- Catalogo de iPhone lacrado
+- Catalogo de Android
+- Pagina individual de lacrado
+- Categoria generica (produtos)
+- Produto individual (seminovo)
+- Home (vitrine de destaque)
+
+Trade-off honesto: isso deixa essas paginas um pouco mais lentas (sem
+cache = consulta ao banco toda vez), mas pra informacao de estoque, e
+melhor mais lento e certo do que rapido e errado.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 198] - Frete/entrega no checkout (item 4 da auditoria CRO)
 
 O ultimo item pendente da auditoria - frete configurado no admin

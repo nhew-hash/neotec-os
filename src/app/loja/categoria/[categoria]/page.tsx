@@ -2,6 +2,9 @@ import { listarProdutosLoja } from "@/services/loja/loja-publica.service";
 import { ProdutoCard } from "@/components/loja/produto-card";
 import { labelCategoria } from "@/components/loja/categorias";
 
+// Mesmo motivo das páginas de lacrado — estoque nunca pode ficar em cache.
+export const revalidate = 0;
+
 export default async function LojaCategoriaPage({ params }: { params: Promise<{ categoria: string }> }) {
   const { categoria } = await params;
   const todosProdutos = await listarProdutosLoja();

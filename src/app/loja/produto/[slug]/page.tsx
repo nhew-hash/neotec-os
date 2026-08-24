@@ -9,6 +9,9 @@ import { FaixaSelosConfianca } from "@/components/loja/faixa-selos-confianca";
 import { RegistrarVisto, VistosRecentesLista } from "@/components/loja/vistos-recentes";
 import { labelCategoria } from "@/components/loja/categorias";
 
+// Mesmo motivo das páginas de lacrado — estoque nunca pode ficar em cache.
+export const revalidate = 0;
+
 export default async function LojaProdutoPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const produto = await buscarProdutoLojaPorSlug(slug);
