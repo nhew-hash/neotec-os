@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trash2, Minus, Plus, MessageCircle, CreditCard } from "lucide-react";
+import { Trash2, Minus, Plus, MessageCircle, CreditCard, Package } from "lucide-react";
 import { useCarrinho } from "@/components/loja/carrinho-context";
 import { criarPedidoLojaAction } from "@/services/loja/loja-pedido.actions";
 import { formatCurrency } from "@/utils";
@@ -63,6 +63,14 @@ export default function CarrinhoPage() {
         <h1 className="font-display text-xl font-semibold text-foreground">Seu carrinho</h1>
         {itens.map((item) => (
           <Card key={`${item.tipo}-${item.id}`} radius="loose" className="flex items-center gap-3 p-3">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary/50">
+              {item.foto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.foto} alt={item.nome} className="h-full w-full object-contain" />
+              ) : (
+                <Package className="h-5 w-5 text-muted-foreground" />
+              )}
+            </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">{item.nome}</p>
               {item.detalhe && <p className="text-xs text-muted-foreground">{item.detalhe}</p>}

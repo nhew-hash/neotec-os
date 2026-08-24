@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { tipo, sessaoUid, pagina, produtoId, aparelhoId, origem } = body as {
-      tipo: "pageview" | "add_to_cart" | "ping";
+      tipo: "pageview" | "add_to_cart" | "ping" | "checkout_view" | "checkout_started" | "payment_selected" | "payment_success" | "payment_failed";
       sessaoUid: string;
       pagina?: string;
       produtoId?: string;
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       { onConflict: "sessao_uid", ignoreDuplicates: false }
     );
 
-    if (tipo === "pageview" || tipo === "add_to_cart") {
+    if (tipo !== "ping") {
       await supabase.from("loja_eventos").insert({
         sessao_uid: sessaoUid,
         tipo,

@@ -56,6 +56,13 @@ export function rastrearAddToCart(input: { produtoId?: string; aparelhoId?: stri
   void enviar({ tipo: "add_to_cart", sessaoUid, pagina: window.location.pathname, ...input });
 }
 
+/** Eventos do funil de checkout — pra conseguir medir de verdade onde o cliente desiste, não só supor. */
+export function rastrearEventoCheckout(tipo: "checkout_view" | "checkout_started" | "payment_selected" | "payment_success" | "payment_failed") {
+  const sessaoUid = localStorage.getItem(CHAVE_SESSAO);
+  if (!sessaoUid) return;
+  void enviar({ tipo, sessaoUid, pagina: window.location.pathname });
+}
+
 export function LojaTrackingProvider() {
   const pathname = usePathname();
   const sessaoUidRef = useRef<string | null>(null);

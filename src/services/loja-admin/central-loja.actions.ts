@@ -68,3 +68,13 @@ export async function atualizarConfigSeoAction(input: { titulo_padrao?: string; 
   try { await service.atualizarConfigSeo(input); revalidar(); return { success: true, data: undefined }; }
   catch (err) { return handleErro(err, "Erro ao salvar"); }
 }
+
+/** Server Action pública — chamada pelo checkout (client component), sem sessão de staff. */
+export async function listarRegrasFretePublicoAction(): Promise<ActionResult<Awaited<ReturnType<typeof service.listarRegrasFretePublico>>>> {
+  try {
+    const regras = await service.listarRegrasFretePublico();
+    return { success: true, data: regras };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao carregar entrega" };
+  }
+}

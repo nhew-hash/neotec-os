@@ -14,11 +14,35 @@ import type { ItemPedidoLojaInput } from "@/services/loja/loja-pedido.actions";
  * pagamento dentro de componente".
  */
 
-async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number }): Promise<{ pedidoId: string; valorTotal: number }> {
+async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number; tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; valorFrete?: number }): Promise<{ pedidoId: string; valorTotal: number }> {
   const valorBruto = input.itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
   if (valorBruto <= 0) throw new Error("O valor do pedido está zerado — atualiza a página e tenta de novo.");
 
   const supabase = createAdminClient();
+
+  // Confirma que cada item ainda está disponível de verdade — sem
+  // isso, o cliente podia pagar por um aparelho que outra pessoa
+  // acabou de comprar (item único, sem estoque múltiplo) ou por uma
+  // quantidade de acessório que não existe mais. Roda ANTES de
+  // qualquer cobrança, nunca depois.
+  for (const item of input.itens) {
+    if (item.tipo === "aparelho") {
+      const { data: aparelho } = await supabase.from("aparelhos").select("status").eq("id", item.id).maybeSingle();
+      if (!aparelho || aparelho.status !== "disponivel") {
+        throw new Error(`"${item.nome}" acabou de ficar indisponível — alguém garantiu esse aparelho antes. Volta pro carrinho pra ver outras opções parecidas.`);
+      }
+    } else if (item.tipo === "produto") {
+      const { data: saldo } = await supabase.from("vw_produtos_saldo").select("saldo").eq("produto_id", item.id).maybeSingle();
+      if ((saldo?.saldo ?? 0) < item.quantidade) {
+        throw new Error(`"${item.nome}" não tem mais estoque suficiente pra essa quantidade. Ajusta no carrinho e tenta de novo.`);
+      }
+    } else if (item.tipo === "lacrado") {
+      const { data: variante } = await supabase.from("catalogo_lacrados_variantes").select("quantidade").eq("id", item.id).maybeSingle();
+      if ((variante?.quantidade ?? 0) < item.quantidade) {
+        throw new Error(`"${item.nome}" não tem mais estoque suficiente. Ajusta no carrinho e tenta de novo.`);
+      }
+    }
+  }
 
   // Busca ou cria o cliente pelo telefone — sem isso, o pedido nunca
   // tem "dono" de verdade, e cashback/histórico de compra não têm pra
@@ -69,9 +93,18 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
     valorTotal = Math.max(0, valorTotal - cashbackUsado);
   }
 
+  // Frete soma no total só depois de cupom/cashback já aplicados — o
+  // valor do frete em si nunca entra na base de cálculo de desconto
+  // percentual, só é somado no final.
+  const valorFrete = input.valorFrete && input.valorFrete > 0 ? input.valorFrete : 0;
+  valorTotal += valorFrete;
+
   const { data: pedido, error } = await supabase
     .from("pedidos_loja")
-    .insert({ cliente_id: clienteId, nome_contato: input.nomeContato.trim(), telefone_contato: telefoneLimpo, valor_total: valorTotal, origem_fechamento: "pagamento_online" })
+    .insert({
+      cliente_id: clienteId, nome_contato: input.nomeContato.trim(), telefone_contato: telefoneLimpo, valor_total: valorTotal, origem_fechamento: "pagamento_online",
+      tipo_entrega: input.tipoEntrega ?? "retirada", regiao_entrega: input.regiaoEntrega ?? null, valor_frete: valorFrete,
+    })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
@@ -106,6 +139,7 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
 
 export async function iniciarCheckoutPixAction(input: {
   nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cpf?: string; cupomCodigo?: string; usarCashback?: number;
+  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; valorFrete?: number;
 }): Promise<ActionResult<{ pedidoId: string; pagamentoId: string; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
@@ -122,6 +156,7 @@ export async function iniciarCheckoutPixAction(input: {
 export async function pagarComCartaoAction(input: {
   nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[];
   token: string; parcelas: number; metodoPagamentoId: string; cpf?: string; cupomCodigo?: string; usarCashback?: number;
+  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; valorFrete?: number;
 }): Promise<ActionResult<{ pedidoId: string; status: string; statusDetail: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };

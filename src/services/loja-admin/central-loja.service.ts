@@ -76,6 +76,14 @@ export async function listarRegrasFrete(): Promise<RegraFrete[]> {
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+
+/** Versão pública (loja, sem sessão) — só as regras ativas, pro cliente escolher no checkout. */
+export async function listarRegrasFretePublico(): Promise<Pick<RegraFrete, "id" | "regiao" | "valor" | "prazo_dias_uteis">[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("regras_frete").select("id, regiao, valor, prazo_dias_uteis").eq("ativo", true).order("ordem");
+  if (error) throw new Error(`Não foi possível carregar as opções de entrega: ${error.message}`);
+  return data ?? [];
+}
 export async function atualizarRegraFrete(id: string, input: Partial<Pick<RegraFrete, "valor" | "prazo_dias_uteis" | "ativo">>): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from("regras_frete").update(input).eq("id", id);

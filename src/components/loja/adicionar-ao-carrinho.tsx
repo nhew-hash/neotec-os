@@ -49,9 +49,10 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
         nome: produto.nome,
         detalhe: [aparelhoSelecionado.memoria, aparelhoSelecionado.cor, LABEL_CONDICAO[aparelhoSelecionado.condicao]].filter(Boolean).join(" · "),
         valor: aparelhoSelecionado.preco_venda ?? 0,
+        foto: produto.fotos?.[0] ?? null,
       });
     } else {
-      adicionar({ tipo: "produto", id: produto.id, nome: produto.nome, valor: produto.preco_venda ?? 0 });
+      adicionar({ tipo: "produto", id: produto.id, nome: produto.nome, valor: produto.preco_venda ?? 0, foto: produto.fotos?.[0] ?? null });
     }
     setAdicionado(true);
     setTimeout(() => setAdicionado(false), 2000);

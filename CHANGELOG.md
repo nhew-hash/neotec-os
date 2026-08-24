@@ -4,6 +4,128 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 198] - Frete/entrega no checkout (item 4 da auditoria CRO)
+
+O ultimo item pendente da auditoria - frete configurado no admin
+(`regras_frete`), nunca usado no checkout.
+
+### Descoberta que simplificou tudo
+Nao e um calculo por CEP - e uma lista simples de CIDADE + valor +
+prazo, ja configuravel pelo admin. Isso tornou a implementacao bem
+mais segura de fazer numa unica entrega.
+
+### Implementado
+- Seletor no checkout: "Retirar na loja" (gratis) + as regioes
+  cadastradas, mesmo bloco (confirmado com o usuario antes de
+  implementar)
+- Frete somado ao total corretamente (depois de cupom/cashback, antes
+  da cobranca final)
+- Servidor SEMPRE recalcula o valor final do zero (nunca confia no
+  frete que veio do navegador) - mesmo padrao ja usado pra cupom e
+  cashback
+- `pedidos_loja` ganhou 3 campos novos pra guardar o que foi
+  escolhido (tipo_entrega, regiao_entrega, valor_frete)
+- Leitura publica liberada em `regras_frete` (so linhas ativas -
+  nunca vaza configuracao desativada)
+
+### Nao testado (mesma ressalva de sempre)
+Nao testei em producao - recomendo forte testar os 2 fluxos de
+pagamento com frete selecionado antes de confiar 100%.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 197] - Auditoria CRO do checkout + implementacao dos itens de maior impacto
+
+Auditoria completa do fluxo produto -> carrinho -> checkout -> pagamento
+-> pedido, sem alterar nada ate mapear tudo. Achados classificados por
+gravidade, implementados os de maior impacto.
+
+### 🔴 Critico - implementado
+- **Zero verificacao de estoque real** antes de cobrar - cliente podia
+  pagar por aparelho ja vendido por outra pessoa, ou quantidade de
+  produto que nao existia mais. Corrigido: confere estoque de verdade
+  ANTES de qualquer cobranca, com mensagem clara se nao tiver mais.
+- **Zero imagem de produto** no carrinho/checkout - ItemCarrinho nem
+  tinha campo de foto. Corrigido: miniatura em todo lugar (carrinho,
+  resumo do checkout), propagada dos 3 pontos de "adicionar ao
+  carrinho" (produto, aparelho, lacrado).
+
+### 🟠 Alto - implementado
+- **Zero rastreamento de funil de checkout** - so existia pageview/
+  add_to_cart. Adicionado checkout_view, checkout_started,
+  payment_selected, payment_success, payment_failed - reaproveitando a
+  MESMA infraestrutura ja existente (Fase 183), sem inventar
+  plataforma nova.
+
+### 🟠 Alto - NAO implementado (fora do escopo seguro pra essa entrega)
+- Frete configurado no admin (`regras_frete`) nunca usado no checkout.
+  Nao implementei calculo de frete agora porque isso e uma decisao de
+  arquitetura maior (like como CEP entra, como a tabela de regras
+  mapeia praticamente) que merece conversa dedicada antes de mexer -
+  prefiro nao arriscar inventar uma logica errada.
+- Mensagem de erro do Mercado Pago pode vazar termo tecnico (ja existe
+  extracao de mensagem em erro.utils.ts, mas nao traduz termos como
+  "cvc_invalid" pra portugues) - nao fiz tradução completa por nao
+  conseguir listar todos os codigos possiveis sem testar em producao.
+
+### 🟡 Medio - implementado
+- Bloco de "retirada gratis na loja ou combinamos a entrega" + selo
+  de "pagamento seguro" logo no topo do checkout - informacao que so
+  existia solta em outras paginas, nunca dentro do proprio checkout.
+- Link discreto de "fala com a gente no WhatsApp" no rodape do resumo
+  - nunca tira o cliente do checkout sozinho, so oferece a saida.
+
+### Nao testado (regra 27 do prompt - nao fingir que testou)
+Nao consegui testar pagamento real (Pix/cartao) nem verificacao de
+estoque em producao - sao integracoes que dependem de ambiente live
+(Mercado Pago, banco real). Testei apenas: balanceamento de codigo,
+imports corretos, tipos consistentes. Recomendo fortemente testar
+manualmente os 2 fluxos de pagamento reais antes de confiar 100%.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 196] - CRITICO: venda parcelada no cartao cobrava o valor a vista
+
+### O problema (achado real, com impacto financeiro)
+Confirmado: em toda venda parcelada pelo checkout, o valor cobrado de
+verdade no Mercado Pago era o mesmo valor a vista (Pix) - nao importa
+se o cliente escolhia 1x ou 12x. A loja estava absorvendo o custo do
+parcelamento sozinha em toda venda no cartao parcelado, sem nenhum
+acrescimo repassado.
+
+### Causa
+O checkout passava um valor fixo (`transaction_amount`) direto pro
+Mercado Pago, sem nunca consultar o motor de precificacao que JA
+EXISTE e ja calcula certo o valor de cada parcela (o mesmo usado pra
+mostrar parcelamento na pagina de produto) - so nunca foi conectado no
+fluxo de pagamento de verdade.
+
+### Corrigido
+Antes de cobrar, o servidor agora recalcula o valor real pra aquele
+numero especifico de parcelas usando o motor ja configurado
+(Configuracoes -> Financeiro -> Parcelamento) - nunca mais cobra o
+valor a vista pra parcelamento maior que 1x.
+
+### Tambem adicionado
+Aviso no checkout avisando o cliente que parcelamento pode ter
+acrescimo - evita susto/reclamacao, ja que o Mercado Pago pode mostrar
+um preview diferente do valor final durante a escolha da parcela.
+
+### Recomendacao urgente
+Verificar no painel do Mercado Pago se ha configuracao de
+"parcelamento sem juros" no nivel da CONTA (fora do codigo) que possa
+estar sobrepondo isso - vale conferir com o suporte do Mercado Pago
+tambem, ja que esse e o unico ponto que eu nao consigo verificar
+diretamente pelo codigo.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 193] - Ultimos 3 pontos da migracao: tokens de fundo/borda unificados
 
 ### Item 1 - ja resolvido na correcao anterior

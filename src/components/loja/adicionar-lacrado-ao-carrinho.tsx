@@ -59,6 +59,7 @@ export function AdicionarLacradoAoCarrinho({ modelo, variantes, onVarianteFotosC
       nome: modelo.nome,
       detalhe: `${varianteSelecionada.armazenamento} · ${varianteSelecionada.cor} · Lacrado`,
       valor: varianteSelecionada.preco_venda ?? 0,
+      foto: varianteSelecionada.fotos?.[0] ?? null,
     });
     setAdicionado(true);
     setTimeout(() => setAdicionado(false), 2000);

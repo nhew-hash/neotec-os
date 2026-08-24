@@ -70,13 +70,22 @@ export class PaymentService {
 
   async pagarComCartao(input: { pedidoId: string; valor: number; descricao: string; token: string; parcelas: number; metodoPagamentoId: string; cpf?: string }) {
     const { provider } = await this.obterProvider();
+
+    // CRÍTICO: input.valor é o preço à vista (Pix) — cobrar ele direto
+    // pra qualquer número de parcelas significa a loja bancar o custo
+    // do parcelamento sozinha, em toda venda no cartão. Recalcula o
+    // valor REAL pra esse número de parcelas usando o motor de preço já
+    // configurado (mesma lógica que já é usada certa na página de
+    // produto) antes de cobrar de verdade.
+    const valorReal = await this.calcularValorRealParaParcelas(input.valor, input.parcelas);
+
     const pagamento = await paymentRepository.criarPagamento({
-      pedidoId: input.pedidoId, gateway: "mercadopago", valor: input.valor, tipoPagamento: "cartao_credito", parcelas: input.parcelas,
+      pedidoId: input.pedidoId, gateway: "mercadopago", valor: valorReal, tipoPagamento: "cartao_credito", parcelas: input.parcelas,
     });
 
     const resultado = await provider.criarPagamentoCartao({
       token: input.token,
-      valor: input.valor,
+      valor: valorReal,
       descricao: input.descricao,
       email: EMAIL_PADRAO,
       cpf: input.cpf,
@@ -91,6 +100,22 @@ export class PaymentService {
     if (status === "aprovado") await this.processarPagamentoAprovado(pagamento.id);
 
     return { pagamentoId: pagamento.id, status, statusDetail: resultado.statusDetail };
+  }
+
+  /** Usa o mesmo motor de preço (Configurações → Financeiro → Parcelamento) já usado em toda a loja pra calcular o valor certo de cada parcela — nunca cobra o valor à vista pra venda parcelada. */
+  private async calcularValorRealParaParcelas(valorAvista: number, parcelas: number): Promise<number> {
+    if (parcelas <= 1) return valorAvista; // 1x é o próprio valor à vista, não precisa recalcular
+
+    const { obterPricingEnginePublico } = await import("@/services/precificacao/precificacao-publico.service");
+    const engine = await obterPricingEnginePublico();
+    const resultado = engine.calcular(valorAvista);
+
+    const opcaoParcela = resultado.parcelas.find((p) => p.numero === parcelas);
+    // Se não tem taxa configurada pra esse número exato de parcelas,
+    // cobra o valor à vista mesmo (nunca inventa uma taxa) — mas isso
+    // não deveria acontecer normalmente, já que o Brick só oferece até
+    // o número máximo configurado.
+    return opcaoParcela?.valorTotal ?? valorAvista;
   }
 
   /** Consultada pelo checkout via polling — nunca confia no que ficou salvo antes sem confirmar de novo se ainda está "pendente" (Pix pode ter sido pago no intervalo). */

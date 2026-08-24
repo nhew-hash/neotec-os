@@ -9,6 +9,7 @@ export interface ItemCarrinho {
   detalhe?: string; // ex: "128GB Azul, seminovo"
   valor: number;
   quantidade: number;
+  foto?: string | null;
 }
 
 interface CarrinhoContextValue {
