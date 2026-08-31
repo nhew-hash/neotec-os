@@ -5,7 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { definirMetaVendedorAction } from "@/services/prostec/prostec.actions";
 import { formatCurrency } from "@/utils";
-import type { RankingVendedor } from "@/services/prostec/prostec.service";
+interface RankingVendedor {
+  usuario_id: string;
+  nome: string;
+  metaMes: number;
+  faturamentoMes: number;
+  vendasMes: number;
+  progressoPct: number;
+}
 
 export function RankingVendedoresTable({ ranking }: { ranking: RankingVendedor[] }) {
   return (

@@ -4,7 +4,21 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { atualizarStatusLeadProstecAction } from "@/services/prostec/prostec.actions";
-import type { ProstecLead } from "@/services/prostec/prostec.service";
+// Tipo duplicado aqui de propósito — import (mesmo "type") de
+// prostec.service.ts arrasta o arquivo inteiro (usa next/headers)
+// pro bundle do cliente.
+interface ProstecLead {
+  id: string;
+  company_id: string;
+  segment: string;
+  score: number;
+  temperature: "quente" | "morno" | "frio";
+  status: string;
+  assigned_to: string | null;
+  approach_suggestion: string;
+  created_at: string;
+  company: { name: string; city: string; state: string; phone: string | null; whatsapp: string | null; website: string | null } | null;
+}
 
 const COLUNAS = [
   { status: "novo", label: "Novo" },

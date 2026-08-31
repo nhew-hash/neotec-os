@@ -6,7 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { criarPropostaProstecAction } from "@/services/prostec/prostec.actions";
 import { formatCurrency, formatDateTime } from "@/utils";
-import type { ProstecProposta } from "@/services/prostec/prostec.service";
+interface ProstecProposta {
+  id: string;
+  produto: string;
+  valor: number;
+  forma_pagamento: string | null;
+  status: string;
+  token_publico: string;
+  visualizacoes: number;
+  primeira_visualizacao_em: string | null;
+  created_at: string;
+}
 
 const LABEL_STATUS: Record<string, string> = { enviada: "Enviada", visualizada: "Visualizada", aceita: "Aceita ✅", recusada: "Recusada ❌" };
 

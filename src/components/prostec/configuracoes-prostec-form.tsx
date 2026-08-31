@@ -4,7 +4,17 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { salvarConfiguracoesProstecAction } from "@/services/prostec/prostec.actions";
-import type { ProstecSettings } from "@/services/prostec/prostec.service";
+interface ProstecSettings {
+  score_quente_min: number;
+  score_morno_min: number;
+  segmentos_disponiveis: string[];
+  cidades_sugeridas: string[];
+  raio_padrao_km: number;
+  quantidade_padrao: number;
+  comissao_pct_padrao: number;
+  valor_venda_padrao: number;
+  status_disponiveis: string[];
+}
 
 export function ConfiguracoesProstecForm({ config }: { config: ProstecSettings }) {
   const [isPending, startTransition] = useTransition();

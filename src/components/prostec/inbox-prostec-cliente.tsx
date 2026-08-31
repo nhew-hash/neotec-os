@@ -6,10 +6,34 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  buscarConversaComMensagens, listarConversasProstec, type ConversaProstec, type MensagemProstec,
-} from "@/services/prostec/prostec.service";
-import { assumirConversaProstecAction, enviarMensagemManualProstecAction, marcarConversaLidaProstecAction } from "@/services/prostec/prostec.actions";
+  assumirConversaProstecAction, enviarMensagemManualProstecAction, marcarConversaLidaProstecAction,
+  listarConversasProstecAction, buscarConversaComMensagensAction,
+} from "@/services/prostec/prostec.actions";
 import { formatDateTime } from "@/utils";
+
+// Tipos duplicados aqui de propósito — mesmo "import type" do
+// prostec.service.ts causava o bundler arrastar o arquivo inteiro
+// (que usa next/headers) pro bundle do cliente. Nunca importar nada
+// desse arquivo, nem tipo, de um "use client".
+interface ConversaProstec {
+  id: string;
+  telefone: string;
+  status: string;
+  bot_ativo: boolean;
+  etapa_bot: string;
+  nao_lidas: number;
+  ultima_mensagem_em: string | null;
+  lead_empresa_nome: string | null;
+  lead_id: string | null;
+}
+
+interface MensagemProstec {
+  id: string;
+  remetente: string;
+  conteudo: string;
+  ia_gerada: boolean;
+  enviada_em: string;
+}
 
 const ETAPA_LABELS: Record<string, string> = {
   abertura: "Iniciando", descobrir_responsavel: "Confirmando responsável", perguntar_site: "Perguntando sobre site",
@@ -27,10 +51,10 @@ export function InboxProstecCliente({ conversasIniciais }: { conversasIniciais: 
   useEffect(() => {
     if (!conversaAtivaId) return;
     (async () => {
-      const result = await buscarConversaComMensagens(conversaAtivaId);
-      if (result) {
-        setMensagens(result.mensagens);
-        setConversaAtiva(result.conversa);
+      const result = await buscarConversaComMensagensAction(conversaAtivaId);
+      if (result.success) {
+        setMensagens(result.data.mensagens);
+        setConversaAtiva(result.data.conversa);
         void marcarConversaLidaProstecAction(conversaAtivaId);
       }
     })();
@@ -39,11 +63,11 @@ export function InboxProstecCliente({ conversasIniciais }: { conversasIniciais: 
   // Atualiza a lista de conversas periodicamente — pra ver mensagem nova do bot/lead sem precisar recarregar a página inteira.
   useEffect(() => {
     const intervalo = setInterval(async () => {
-      const novasConversas = await listarConversasProstec();
-      setConversas(novasConversas);
+      const resultLista = await listarConversasProstecAction();
+      if (resultLista.success) setConversas(resultLista.data);
       if (conversaAtivaId) {
-        const result = await buscarConversaComMensagens(conversaAtivaId);
-        if (result) setMensagens(result.mensagens);
+        const result = await buscarConversaComMensagensAction(conversaAtivaId);
+        if (result.success) setMensagens(result.data.mensagens);
       }
     }, 8000);
     return () => clearInterval(intervalo);
@@ -56,8 +80,8 @@ export function InboxProstecCliente({ conversasIniciais }: { conversasIniciais: 
     startTransition(async () => {
       const result = await enviarMensagemManualProstecAction(conversaAtiva.id, conversaAtiva.telefone, textoEnviado);
       if (result.success) {
-        const atualizado = await buscarConversaComMensagens(conversaAtiva.id);
-        if (atualizado) setMensagens(atualizado.mensagens);
+        const atualizado = await buscarConversaComMensagensAction(conversaAtiva.id);
+        if (atualizado.success) setMensagens(atualizado.data.mensagens);
       }
     });
   }
@@ -66,8 +90,8 @@ export function InboxProstecCliente({ conversasIniciais }: { conversasIniciais: 
     if (!conversaAtiva) return;
     startTransition(async () => {
       await assumirConversaProstecAction(conversaAtiva.id);
-      const atualizado = await buscarConversaComMensagens(conversaAtiva.id);
-      if (atualizado) setConversaAtiva(atualizado.conversa);
+      const atualizado = await buscarConversaComMensagensAction(conversaAtiva.id);
+      if (atualizado.success) setConversaAtiva(atualizado.data.conversa);
     });
   }
 

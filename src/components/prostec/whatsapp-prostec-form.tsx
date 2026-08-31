@@ -5,7 +5,12 @@ import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { salvarConfigWhatsappProstecAction } from "@/services/prostec/prostec.actions";
-import type { ConfigWhatsappProstec } from "@/services/prostec/prostec.service";
+interface ConfigWhatsappProstec {
+  phone_number_id: string | null;
+  access_token: string | null;
+  numero: string | null;
+  status: string;
+}
 
 export function WhatsappProstecForm({ config }: { config: ConfigWhatsappProstec | null }) {
   const [isPending, startTransition] = useTransition();

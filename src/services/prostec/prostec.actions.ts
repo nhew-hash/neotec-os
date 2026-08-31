@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import * as service from "./prostec.service";
 import type { ActionResult } from "@/types";
 
 export async function atualizarStatusLeadProstecAction(leadId: string, novoStatus: string, motivoPerda?: string): Promise<ActionResult> {
@@ -464,5 +465,24 @@ export async function salvarConfigWhatsappProstecAction(formData: FormData): Pro
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar configuração" };
+  }
+}
+
+export async function listarConversasProstecAction(): Promise<ActionResult<Awaited<ReturnType<typeof service.listarConversasProstec>>>> {
+  try {
+    const dados = await service.listarConversasProstec();
+    return { success: true, data: dados };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao carregar conversas" };
+  }
+}
+
+export async function buscarConversaComMensagensAction(conversaId: string): Promise<ActionResult<NonNullable<Awaited<ReturnType<typeof service.buscarConversaComMensagens>>>>> {
+  try {
+    const dados = await service.buscarConversaComMensagens(conversaId);
+    if (!dados) return { success: false, error: "Conversa não encontrada" };
+    return { success: true, data: dados };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao carregar conversa" };
   }
 }

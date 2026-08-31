@@ -6,7 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { responderPropostaPublicaAction } from "@/services/prostec/prostec.actions";
 import { formatCurrency } from "@/utils";
-import type { PropostaPublica } from "@/services/prostec/prostec.service";
+interface PropostaPublica {
+  id: string;
+  produto: string;
+  valor: number;
+  forma_pagamento: string | null;
+  status: string;
+  empresa_nome: string | null;
+}
 
 export function PropostaPublicaCliente({ proposta, token }: { proposta: PropostaPublica; token: string }) {
   const [status, setStatus] = useState(proposta.status);

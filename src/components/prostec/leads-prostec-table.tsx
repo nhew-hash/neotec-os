@@ -7,7 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { atualizarStatusLeadProstecAction, registrarVendaProstecAction } from "@/services/prostec/prostec.actions";
-import type { ProstecLead } from "@/services/prostec/prostec.service";
+interface ProstecLead {
+  id: string;
+  company_id: string;
+  segment: string;
+  score: number;
+  temperature: "quente" | "morno" | "frio";
+  status: string;
+  assigned_to: string | null;
+  approach_suggestion: string;
+  created_at: string;
+  company: { name: string; city: string; state: string; phone: string | null; whatsapp: string | null; website: string | null } | null;
+}
 
 const STATUS_DISPONIVEIS = ["novo", "contato_realizado", "qualificado", "reuniao", "proposta_enviada", "negociacao", "venda_fechada", "perdido"];
 const STATUS_LABELS: Record<string, string> = {

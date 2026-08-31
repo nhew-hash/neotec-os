@@ -10,7 +10,23 @@ import {
   adicionarNotaLeadAction, registrarContatoLeadAction, agendarFollowupLeadAction, concluirFollowupLeadAction,
 } from "@/services/prostec/prostec.actions";
 import { formatDate, formatDateTime } from "@/utils";
-import type { ProstecLeadDetalhe } from "@/services/prostec/prostec.service";
+interface ProstecLeadDetalhe {
+  id: string;
+  company_id: string;
+  segment: string;
+  score: number;
+  temperature: "quente" | "morno" | "frio";
+  status: string;
+  assigned_to: string | null;
+  approach_suggestion: string;
+  created_at: string;
+  company: { name: string; city: string; state: string; phone: string | null; whatsapp: string | null; website: string | null } | null;
+  company_full: { name: string; category: string; city: string; state: string; address: string | null; phone: string | null; whatsapp: string | null; website: string | null; instagram: string | null; rating: number | null; reviews_count: number | null } | null;
+  contacts: { id: string; contact_type: string; result: string; notes: string | null; created_at: string; user: { nome: string } | null }[];
+  notes: { id: string; note: string; created_at: string; user: { nome: string } | null }[];
+  followups: { id: string; next_contact_date: string; next_contact_time: string | null; observation: string | null; done: boolean }[];
+  statusHistory: { id: string; from_status: string | null; to_status: string; created_at: string; user: { nome: string } | null }[];
+}
 
 const TIPOS_CONTATO = ["ligacao", "whatsapp", "email", "outro"];
 const RESULTADOS_CONTATO = ["sem_resposta", "atendeu", "numero_invalido", "interessado", "sem_interesse"];
