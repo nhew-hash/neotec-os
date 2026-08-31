@@ -248,6 +248,44 @@ export async function gerarFollowupsAutomaticosProstec(): Promise<{ criados: num
   return { criados };
 }
 
+export interface ProstecOferta {
+  produto: string;
+  preco: number;
+  formas_pagamento: string;
+  prazo_entrega: string;
+  incluso: string;
+  nao_incluso: string;
+  desconto_maximo_automatico_pct: number;
+  parcelamento_maximo: number;
+}
+
+/** Única fonte de verdade que a Iara usa pra nunca inventar preço/condição — configurada aqui, lida direto por ela a cada conversa. */
+export async function buscarOfertaProstec(): Promise<ProstecOferta> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("prostec_oferta").select("*").eq("id", "default").maybeSingle();
+  return {
+    produto: data?.produto ?? "Site institucional profissional",
+    preco: data?.preco ?? 1497,
+    formas_pagamento: data?.formas_pagamento ?? "PIX ou cartão de crédito, em até 12x",
+    prazo_entrega: data?.prazo_entrega ?? "10 dias úteis após aprovação do conteúdo",
+    incluso: data?.incluso ?? "Design profissional, até 5 páginas, formulário de contato, otimização para celular",
+    nao_incluso: data?.nao_incluso ?? "Fotos profissionais, redação de texto, domínio e hospedagem",
+    desconto_maximo_automatico_pct: data?.desconto_maximo_automatico_pct ?? 0,
+    parcelamento_maximo: data?.parcelamento_maximo ?? 12,
+  };
+}
+
+export interface VendedorProstec {
+  id: string;
+  nome: string;
+}
+
+export async function listarVendedoresProstec(): Promise<VendedorProstec[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("usuarios").select("id, nome").eq("cargo", "vendedor_prostec").order("nome");
+  return data ?? [];
+}
+
 export interface ProstecCompany {
   id: string; name: string; category: string; city: string; state: string;
   phone: string | null; whatsapp: string | null; website: string | null;

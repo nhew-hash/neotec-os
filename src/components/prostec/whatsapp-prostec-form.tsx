@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { MessageCircle, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { conectarWhatsappProstecAction, desconectarWhatsappProstecAction, definirModoOperacaoProstecAction } from "@/services/prostec/prostec.actions";
+import { conectarWhatsappProstecAction, desconectarWhatsappProstecAction, definirModoOperacaoProstecAction, pausarOuAtivarIaraAction } from "@/services/prostec/prostec.actions";
 
 // Tipo duplicado — nunca importar (nem tipo) de prostec.service.ts num "use client".
 interface ConfigWhatsappProstec {
@@ -42,6 +42,10 @@ export function WhatsappProstecForm({ config }: { config: ConfigWhatsappProstec 
 
   function handleModo(modo: "teste" | "piloto" | "autonomo") {
     startTransition(async () => { await definirModoOperacaoProstecAction(modo); });
+  }
+
+  function handlePausarAtivar() {
+    startTransition(async () => { await pausarOuAtivarIaraAction(!config?.iara_ativa); });
   }
 
   return (
@@ -98,6 +102,16 @@ export function WhatsappProstecForm({ config }: { config: ConfigWhatsappProstec 
           {config?.modo_operacao === "piloto" && "Quantidade limitada de leads."}
           {config?.modo_operacao === "autonomo" && "Iara operando dentro dos limites configurados."}
         </p>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-black/[0.06] pt-3">
+        <div>
+          <p className="text-xs font-medium text-foreground">Iara {config?.iara_ativa !== false ? "ativa" : "pausada"}</p>
+          <p className="text-[11px] text-muted-foreground">Pausada, nenhuma conversa nova é iniciada nem respondida automaticamente.</p>
+        </div>
+        <Button type="button" size="sm" variant={config?.iara_ativa !== false ? "outline" : "default"} onClick={handlePausarAtivar} disabled={isPending}>
+          {config?.iara_ativa !== false ? "Pausar Iara" : "Ativar Iara"}
+        </Button>
       </div>
     </div>
   );

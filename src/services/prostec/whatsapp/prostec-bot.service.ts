@@ -226,6 +226,11 @@ export async function processarMensagemRecebidaIara(telefone: string, textoReceb
     }
     if (decisao.nova_temperatura) patch.temperature = decisao.nova_temperatura;
     if (Object.keys(patch).length > 0) await admin.from("prostec_leads").update(patch).eq("id", lead.id);
+
+    if (patch.status === "qualificado") {
+      const { distribuirLeadAutomaticamente } = await import("../prostec.actions");
+      await distribuirLeadAutomaticamente(lead.id);
+    }
   }
 
   const novasObjecoes = decisao.objecao ? [...(Array.isArray(conversa.objecoes) ? conversa.objecoes : []), decisao.objecao] : conversa.objecoes;

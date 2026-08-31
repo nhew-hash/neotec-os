@@ -19,6 +19,25 @@ export interface SiteAnalysis {
   data_atualizacao_aparente: string | null;
   classificacao: SiteQuality;
   analisado_em: string;
+  /** Extraído do próprio HTML do site quando existe (link de rodapé/header) — nunca inventado, null quando não encontrado. */
+  instagram_encontrado: string | null;
+  /** Extraído de um link wa.me/NUMERO real no site — mais confiável que assumir que o telefone geral é WhatsApp. */
+  whatsapp_encontrado: string | null;
+}
+
+/** Procura um link de Instagram real no HTML — nunca inventa, só extrai se realmente estiver lá. */
+function extrairInstagramDoHtml(html: string): string | null {
+  const match = html.match(/instagram\.com\/([a-zA-Z0-9_.]{2,30})/i);
+  if (!match) return null;
+  const handle = match[1].toLowerCase();
+  if (["p", "reel", "explore", "accounts", "share"].includes(handle)) return null; // links de post/ação, não de perfil
+  return `https://instagram.com/${handle}`;
+}
+
+/** Procura um link wa.me/NUMERO real no HTML — só extrai o que está literalmente lá, nunca deriva do telefone geral. */
+function extrairWhatsappDoHtml(html: string): string | null {
+  const match = html.match(/wa\.me\/(\d{10,15})/i);
+  return match ? match[1] : null;
 }
 
 const FETCH_TIMEOUT_MS = 8000;
@@ -34,7 +53,7 @@ function noSiteAnalysis(reliable: boolean, now: string): SiteAnalysis {
     possui_site: false, site_confiavel: reliable, acessivel: null, https: null, responsivo: null,
     aparencia_moderna: null, velocidade_aproximada: null, botao_whatsapp: null, formulario_contato: null,
     informacoes_empresa: null, cta_claro: null, pagina_servicos: null, seo_basico: null,
-    data_atualizacao_aparente: null, classificacao: "inexistente", analisado_em: now,
+    data_atualizacao_aparente: null, classificacao: "inexistente", analisado_em: now, instagram_encontrado: null, whatsapp_encontrado: null,
   };
 }
 
@@ -90,7 +109,7 @@ async function analyzeRealSite(website: string, now: string): Promise<SiteAnalys
       possui_site: true, site_confiavel: true, acessivel: false, https: website.startsWith("https://"),
       responsivo: null, aparencia_moderna: null, velocidade_aproximada: null, botao_whatsapp: null,
       formulario_contato: null, informacoes_empresa: null, cta_claro: null, pagina_servicos: null,
-      seo_basico: null, data_atualizacao_aparente: null, classificacao: "fraco", analisado_em: now,
+      seo_basico: null, data_atualizacao_aparente: null, classificacao: "fraco", analisado_em: now, instagram_encontrado: null, whatsapp_encontrado: null,
     };
   }
 
@@ -114,6 +133,8 @@ async function analyzeRealSite(website: string, now: string): Promise<SiteAnalys
   const velocidade: SiteAnalysis["velocidade_aproximada"] = ms < 800 ? "rapida" : ms < 2500 ? "media" : "lenta";
   const yearMatch = html.match(/(?:©|copyright)\D{0,10}(\d{4})/i);
   const dataAtualizacaoAparente = yearMatch ? yearMatch[1] : null;
+  const instagramEncontrado = extrairInstagramDoHtml(html);
+  const whatsappEncontrado = extrairWhatsappDoHtml(html);
 
   const positives = [https, true, responsivo, aparenciaModerna, botaoWhatsapp, formularioContato, informacoesEmpresa, ctaClaro, paginaServicos, seoBasico].filter(Boolean).length;
 
@@ -122,7 +143,7 @@ async function analyzeRealSite(website: string, now: string): Promise<SiteAnalys
     aparencia_moderna: aparenciaModerna, velocidade_aproximada: velocidade, botao_whatsapp: botaoWhatsapp,
     formulario_contato: formularioContato, informacoes_empresa: informacoesEmpresa, cta_claro: ctaClaro,
     pagina_servicos: paginaServicos, seo_basico: seoBasico, data_atualizacao_aparente: dataAtualizacaoAparente,
-    classificacao: classify(true, positives), analisado_em: now,
+    classificacao: classify(true, positives), analisado_em: now, instagram_encontrado: instagramEncontrado, whatsapp_encontrado: whatsappEncontrado,
   };
 }
 

@@ -1,15 +1,16 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { buscarLeadProstecPorId, listarPropostasDoLead } from "@/services/prostec/prostec.service";
+import { buscarLeadProstecPorId, listarPropostasDoLead, listarVendedoresProstec } from "@/services/prostec/prostec.service";
 import { LeadDetalhePainel } from "@/components/prostec/lead-detalhe-painel";
 import { PropostaLeadPanel } from "@/components/prostec/proposta-lead-panel";
 import { EnviarBotButton } from "@/components/prostec/enviar-bot-button";
+import { AtribuirLeadSelect } from "@/components/prostec/atribuir-lead-select";
 import { formatDateTime } from "@/utils";
 
 export default async function LeadProstecDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [lead, propostas] = await Promise.all([buscarLeadProstecPorId(id), listarPropostasDoLead(id)]);
+  const [lead, propostas, vendedores] = await Promise.all([buscarLeadProstecPorId(id), listarPropostasDoLead(id), listarVendedoresProstec()]);
   if (!lead) notFound();
 
   return (
@@ -27,6 +28,10 @@ export default async function LeadProstecDetailPage({ params }: { params: Promis
         <LeadDetalhePainel lead={lead} />
 
         <div className="flex flex-col gap-4">
+          <div className="rounded-2xl border border-black/[0.06] bg-white p-3 shadow-sm">
+            <AtribuirLeadSelect leadId={id} assignedTo={lead.assigned_to} vendedores={vendedores} />
+          </div>
+
           <PropostaLeadPanel leadId={id} propostas={propostas} />
 
           <div className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-sm">

@@ -4,6 +4,50 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 203] - Iara: schema que faltava + oferta + atribuicao de lead
+
+Resolvidos os 4 pontos pendentes da auditoria do Prostec.
+
+### 1. Instagram/WhatsApp da empresa - corrigido
+Antes sempre vazio (Google Places nao retorna isso). Agora extrai de
+verdade do HTML do site da empresa quando existe (link real de
+instagram.com ou wa.me encontrado no proprio site) - nunca inventa,
+so usa se achou o link literal. Conectado tambem no calculo de score,
+que antes nunca considerava isso.
+
+### 2. WhatsApp real - schema completo
+Descoberta importante: ja existia uma versao bem mais sofisticada da
+Iara implementada (memoria de conversa, decisao via IA, escalonamento,
+proposta automatica) mas SEM a migracao que cria as tabelas que esse
+codigo usa - toda chamada real quebraria. Migracao fase203 completa
+isso: `prostec_oferta`, `prostec_ia_decisoes`, e todos os campos que
+faltavam em `prostec_conversas`/`integracoes_whatsapp_prostec`
+(modo_operacao, iara_ativa, propriedade, exige_atencao, etc).
+
+Tambem: formulario de Oferta criado do zero (nao existia UI nenhuma
+pra configurar o que a Iara vende - sem isso ela nao tinha preco/
+prazo/condicao pra responder). Toggle de Pausar/Ativar Iara adicionado
+(a acao ja existia, faltava o botao). Corrigidos 2 `revalidatePath`
+que apontavam pra uma pagina fantasma (/prostec/iara).
+
+### 3. Bot mais livre - ja estava construido
+A versao encontrada no codigo (`processarMensagemRecebidaIara`) ja e
+uma conversa aberta de verdade, guiada por IA com guardrails (nunca
+inventa preco, escala pro humano quando foge do limite configurado,
+gera proposta automatica quando o cliente pede). So faltava o schema
+(resolvido no item 2).
+
+### 4. Atribuicao de lead + distribuicao automatica
+Seletor de vendedor na tela do lead (atribuicao manual). Distribuicao
+automatica (round robin por carga - pega quem tem MENOS leads ativos
+no momento) disparada sozinha quando um lead vira "qualificado",
+tanto pela mudanca manual de status quanto pela propria Iara
+qualificando via WhatsApp.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 202] - Bug real achado: menu da Central da Loja "expulsava" o usuario
 
 ### O bug

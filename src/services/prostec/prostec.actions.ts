@@ -26,6 +26,8 @@ export async function atualizarStatusLeadProstecAction(leadId: string, novoStatu
       descricao: novoStatus === "perdido" ? `Marcado como perdido — ${motivoPerda}` : `Status mudou pra "${novoStatus}"`,
     });
 
+    if (novoStatus === "qualificado") await distribuirLeadAutomaticamente(leadId);
+
     revalidatePath("/prostec");
     return { success: true, data: undefined };
   } catch (err) {
@@ -255,7 +257,7 @@ export async function executarBuscaProstecAction(formData: FormData): Promise<Ac
 
       // Deduplicação — mesmo telefone, mesmo domínio de site, ou mesmo
       // nome+cidade já cadastrado antes vira UPDATE, não duplica.
-      const { data: existentes } = await supabase.from("prostec_companies").select("id, phone, whatsapp, website, name, city, dedupe_key").eq("city", rawCompany.city);
+      const { data: existentes } = await supabase.from("prostec_companies").select("id, phone, whatsapp, website, name, city, dedupe_key, instagram").eq("city", rawCompany.city);
       const duplicata = (existentes ?? []).find((e) =>
         e.dedupe_key === dedupeKey ||
         (rawCompany.phone && (e.phone === rawCompany.phone || e.whatsapp === rawCompany.phone)) ||
@@ -264,6 +266,16 @@ export async function executarBuscaProstecAction(formData: FormData): Promise<Ac
       );
 
       const site = await analyzeSite(rawCompany.website, true);
+
+      // Instagram/WhatsApp da Google Places sempre vêm vazios (a API
+      // não retorna isso) — usa o que foi extraído de verdade do HTML
+      // do site, quando existe, ANTES de calcular o score (senão o
+      // score nunca considera esse dado, mesmo já tendo achado ele).
+      const instagramReal = site.instagram_encontrado;
+      const whatsappReal = site.whatsapp_encontrado;
+      if (instagramReal) rawCompany.instagram = instagramReal;
+      if (whatsappReal) rawCompany.whatsapp = whatsappReal;
+
       const scoreResult = computeScore(rawCompany, site, weights, segmentosAltaNecessidade, scoreQuenteMin, scoreMornoMin);
       const reasons = buildReasons(rawCompany, site, scoreResult.breakdown);
       const approach = generateApproach(rawCompany, site, "Ana");
@@ -275,6 +287,7 @@ export async function executarBuscaProstecAction(formData: FormData): Promise<Ac
           name: rawCompany.name, category: rawCompany.category, address: rawCompany.address,
           phone: rawCompany.phone, website: rawCompany.website, google_profile_url: rawCompany.google_profile_url,
           rating: rawCompany.rating, reviews_count: rawCompany.reviews_count, opening_hours: rawCompany.opening_hours,
+          instagram: instagramReal ?? duplicata.instagram ?? null, whatsapp: whatsappReal ?? duplicata.whatsapp ?? null,
           collected_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         }).eq("id", companyId);
       } else {
@@ -283,6 +296,7 @@ export async function executarBuscaProstecAction(formData: FormData): Promise<Ac
           address: rawCompany.address, phone: rawCompany.phone, website: rawCompany.website,
           google_profile_url: rawCompany.google_profile_url, rating: rawCompany.rating, reviews_count: rawCompany.reviews_count,
           opening_hours: rawCompany.opening_hours, source: rawCompany.source, dedupe_key: dedupeKey, is_demo_data: false,
+          instagram: instagramReal, whatsapp: whatsappReal,
         }).select("id").single();
         if (erroEmpresa) continue; // não trava a busca inteira por um erro pontual numa empresa
         companyId = novaEmpresa.id;
@@ -478,7 +492,7 @@ export async function definirModoOperacaoProstecAction(modo: "teste" | "piloto" 
     if (!linha) return { success: false, error: "Configuração não encontrada" };
     await supabase.from("integracoes_whatsapp_prostec").update({ modo_operacao: modo }).eq("id", linha.id);
     revalidatePath("/prostec/configuracoes");
-    revalidatePath("/prostec/iara");
+    revalidatePath("/prostec/configuracoes");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao definir modo" };
@@ -491,7 +505,7 @@ export async function pausarOuAtivarIaraAction(ativa: boolean): Promise<ActionRe
     const { data: linha } = await supabase.from("integracoes_whatsapp_prostec").select("id").maybeSingle();
     if (!linha) return { success: false, error: "Configuração não encontrada" };
     await supabase.from("integracoes_whatsapp_prostec").update({ iara_ativa: ativa }).eq("id", linha.id);
-    revalidatePath("/prostec/iara");
+    revalidatePath("/prostec/configuracoes");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar" };
@@ -526,4 +540,74 @@ export async function buscarConversaComMensagensAction(conversaId: string): Prom
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao carregar conversa" };
   }
+}
+
+export async function salvarOfertaProstecAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("prostec_oferta").update({
+      produto: String(formData.get("produto") ?? "").trim(),
+      preco: Number(formData.get("preco") ?? 0),
+      formas_pagamento: String(formData.get("formas_pagamento") ?? "").trim(),
+      prazo_entrega: String(formData.get("prazo_entrega") ?? "").trim(),
+      incluso: String(formData.get("incluso") ?? "").trim(),
+      nao_incluso: String(formData.get("nao_incluso") ?? "").trim(),
+      desconto_maximo_automatico_pct: Number(formData.get("desconto_maximo_automatico_pct") ?? 0),
+      parcelamento_maximo: Number(formData.get("parcelamento_maximo") ?? 12),
+    }).eq("id", "default");
+    if (error) throw new Error(error.message);
+    revalidatePath("/prostec/configuracoes");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar oferta" };
+  }
+}
+
+export async function atribuirLeadVendedorAction(leadId: string, usuarioId: string | null): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("prostec_leads").update({ assigned_to: usuarioId }).eq("id", leadId);
+    if (error) throw new Error(error.message);
+
+    if (usuarioId) {
+      const { data: vendedor } = await supabase.from("usuarios").select("nome").eq("id", usuarioId).maybeSingle();
+      await supabase.from("prostec_atividades").insert({ lead_id: leadId, tipo: "atribuicao", descricao: `Atribuído pra ${vendedor?.nome ?? "vendedor"}` });
+    }
+
+    revalidatePath(`/prostec/leads/${leadId}`);
+    revalidatePath("/prostec");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao atribuir lead" };
+  }
+}
+
+/**
+ * Distribuição automática (round robin simples) — chamada quando um
+ * lead vira "qualificado" sem já ter alguém atribuído. Pega o
+ * vendedor_prostec que está com MENOS leads atribuídos no momento —
+ * isso já distribui de forma equilibrada com o tempo, sem precisar
+ * guardar "de quem foi a vez" em lugar nenhum.
+ */
+export async function distribuirLeadAutomaticamente(leadId: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { data: leadAtual } = await supabase.from("prostec_leads").select("assigned_to").eq("id", leadId).maybeSingle();
+  if (leadAtual?.assigned_to) return; // já tem alguém, não sobrescreve escolha manual
+
+  const { data: vendedores } = await supabase.from("usuarios").select("id").eq("cargo", "vendedor_prostec");
+  if (!vendedores || vendedores.length === 0) return; // sem vendedor cadastrado, fica sem atribuir mesmo
+
+  const contagens = await Promise.all(
+    vendedores.map(async (v) => {
+      const { count } = await supabase.from("prostec_leads").select("*", { count: "exact", head: true }).eq("assigned_to", v.id).not("status", "in", "(venda_fechada,perdido)");
+      return { usuarioId: v.id, quantidade: count ?? 0 };
+    })
+  );
+
+  const escolhido = contagens.sort((a, b) => a.quantidade - b.quantidade)[0];
+  await supabase.from("prostec_leads").update({ assigned_to: escolhido.usuarioId }).eq("id", leadId);
+
+  const { data: vendedor } = await supabase.from("usuarios").select("nome").eq("id", escolhido.usuarioId).maybeSingle();
+  await supabase.from("prostec_atividades").insert({ lead_id: leadId, tipo: "atribuicao", descricao: `🎯 Atribuído automaticamente pra ${vendedor?.nome ?? "vendedor"} (distribuição por carga)` });
 }
