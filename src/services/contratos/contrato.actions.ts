@@ -277,7 +277,7 @@ export async function salvarModeloContratoAction(formData: FormData): Promise<Ac
     // apontando pra versão que usaram (pedido explícito: versão
     // congelada nunca muda depois de usada).
     await supabase.from("contratos_modelos").update({ ativo: false }).eq("ativo", true);
-    const { error } = await supabase.from("contratos_modelos").insert({ nome, versao, conteudo, revisado_juridicamente, ativo: true, created_by: user?.id ?? null });
+    const { error } = await supabase.from("contratos_modelos").insert({ nome, versao, conteudo, revisado_juridicamente: revisadoJuridicamente, ativo: true, created_by: user?.id ?? null });
     if (error) throw new Error(error.message);
 
     revalidatePath("/contratos/modelos");
