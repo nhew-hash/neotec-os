@@ -4,6 +4,84 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 206] - Modulo de Crediario completo
+
+Resto do documento original (tudo exceto Contratos, ja entregue na
+Fase 205). Escopo enorme, construido de ponta a ponta: cliente ->
+analise -> score -> classe -> oferta -> fiador -> aprovacao humana ->
+contrato -> parcelas -> cobranca -> pagamento -> dashboard.
+
+### Motor financeiro unico
+Uma funcao so (`calcularPlanoCrediario`) calcula diaria, semanal,
+quinzenal e mensal - nunca "divide o valor mensal por 4" pra fingir
+semanal. Datas reais calculadas uma por uma (mensal avanca de mes
+corrido, nunca 30 dias fixos - evita desalinhar o vencimento ao longo
+do contrato). Ajuste de centavos sempre na ultima parcela, nunca
+escondido.
+
+### Motor de credito
+Score Neotec com pesos configuraveis (nunca hardcoded), classes A+
+ate E com todos os parametros editaveis pelo admin (score, limite,
+entrada, prazo, encargos, fiador obrigatorio, frequencias permitidas).
+Cliente negativado NUNCA reprova sozinho por causa disso - so ajusta
+condicao (entrada maior), exatamente como pedido.
+
+### Motor de ofertas
+Vendedor nunca faz conta - clica, o sistema mostra pra cada aparelho
+se ta aprovado, precisa de entrada maior, ou nao disponivel (com
+motivo). Reaproveita o modulo de Contratos ja existente (Fase 205)
+pra gerar o contrato de verdade quando aprovado.
+
+### Fiador
+Entidade propria, analisado separadamente - nunca aprova cliente so
+por ter fiador vinculado.
+
+### WhatsApp de Cobranca - numero PROPRIO
+Terceiro numero separado (loja, Prostec, e agora Cobranca) - mesma
+arquitetura Bridge ja estabelecida. Bot DELIBERADAMENTE limitado: so
+5 perguntas conhecidas (parcela/boleto/pix/segunda via/confirmar
+pagamento). Qualquer coisa fora disso escala pra humano - inclusive
+checagem por palavra-chave ANTES de chamar IA (mais rapido e
+confiavel pra detectar "quero negociar", "nao consigo pagar" etc.).
+Bot NUNCA aprova, nega, ou negocia - regra nao-negociavel do
+documento.
+
+### Pagamento desacoplado
+Reaproveitado o Mercado Pago que ja existe na loja (mesma
+configuracao, Pix real) - interface pronta pra trocar/adicionar
+gateway sem reescrever o resto do modulo.
+
+### Regua de cobranca automatica
+Configuravel (D-7/D-3/D-1/D0/D+1/D+3/D+7), conectada no MESMO cron
+diario ja existente (Vercel Hobby so permite 2 crons) - nunca manda a
+mesma mensagem 2x pro mesmo dia.
+
+### Renegociacao - sempre humano
+Acao separada, exige permissao especifica (`crediario.renegociar`) -
+bot nunca chega perto disso.
+
+### Permissoes granulares
+crediario_permissoes_usuario - aprovar credito e acao DIFERENTE de
+ver dashboard, cada uma checada na propria action antes de executar.
+
+### Dashboards
+Crediario (carteira, valor contratado, recebido, atraso, exposicao) e
+Risco (clientes por classe, taxa de pagamento/atraso, ticket medio,
+perda por R$1.000 de carteira).
+
+### Nao implementado (fora do escopo dessa entrega)
+- Escada de credito automatica (aumento de limite sozinho) - so o
+  historico existe, o AJUSTE automatico de limite fica pra proxima
+- Upgrade automatico de aparelho no fim do contrato
+- Boleto de verdade (so Pix implementado no provider de pagamento)
+- Bureau de credito consultado automaticamente (campo existe, mas
+  precisa integrar a API real do Serasa/Boa Vista - hoje o score do
+  bureau e informado manualmente na tela de nova analise)
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 205] - Modulo de Contratos (Neotec Assinatura)
 
 Escopo estrito, conforme pedido: geracao, assinatura, armazenamento,

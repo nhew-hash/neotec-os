@@ -4,6 +4,7 @@ import { processarRetiradasAgendadas } from "@/services/estoque/estoque.actions"
 import { expirarPerguntasAntigas } from "@/services/ia/ia-pergunta-equipe.service";
 import { gerarFollowupsAutomaticos } from "@/services/crm-pipeline/crm-pipeline.service";
 import { gerarFollowupsAutomaticosProstec, verificarTaxaOptOutProstec, recalcularNextBestActionTodosLeads } from "@/services/prostec/prostec.service";
+import { executarReguaCobranca } from "@/services/crediario/crediario.service";
 
 /**
  * Chamada pelo Vercel Cron (ver vercel.json) — nunca pelo navegador.
@@ -31,7 +32,8 @@ export async function GET(request: NextRequest) {
     const followupsProstec = await gerarFollowupsAutomaticosProstec();
     const circuitBreakerOptOut = await verificarTaxaOptOutProstec();
     const nextBestAction = await recalcularNextBestActionTodosLeads();
-    return NextResponse.json({ ok: true, ...resultado, retiradas, perguntasExpiradas, followupsAutomaticos, followupsProstec, circuitBreakerOptOut, nextBestAction });
+    const reguaCobranca = await executarReguaCobranca();
+    return NextResponse.json({ ok: true, ...resultado, retiradas, perguntasExpiradas, followupsAutomaticos, followupsProstec, circuitBreakerOptOut, nextBestAction, reguaCobranca });
   } catch (err) {
     console.error("Falha ao processar follow-ups de venda:", err);
     return NextResponse.json(

@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Wallet,
   FileSignature,
+  CreditCard,
   Landmark,
   HandCoins,
   Tags,
@@ -88,6 +89,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
     items: [
       { label: "Financeiro", href: "/financeiro", icon: Wallet, cargos: ["admin", "gerente"] },
       { label: "Contratos", href: "/contratos", icon: FileSignature, cargos: ["admin", "gerente", "vendedor"] },
+      { label: "Crediário", href: "/crediario", icon: CreditCard, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Investidores", href: "/investidores", icon: Landmark, cargos: ["admin", "gerente"] },
       { label: "Consignação", href: "/consignacao", icon: HandCoins, cargos: ["admin", "gerente"] },
       { label: "Indicações", href: "/indicacoes", icon: UserCheck, cargos: ["admin", "gerente"] },
