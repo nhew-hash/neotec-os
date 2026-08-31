@@ -53,12 +53,12 @@ export async function criarContratoAction(input: CriarContratoInput): Promise<Ac
     if (erroContrato) throw new Error(erroContrato.message);
 
     // Signatários — sempre Neotec + cliente, fiador só se aplicável.
-    const signatarios = [
-      { contrato_id: contrato.id, papel: "neotec" as const, nome: dados.neotecRazaoSocial, cpf: "—" },
-      { contrato_id: contrato.id, papel: "cliente" as const, nome: dados.clienteNome, cpf: dados.clienteCpf },
+    const signatarios: { contrato_id: string; papel: "neotec" | "cliente" | "fiador"; nome: string; cpf: string }[] = [
+      { contrato_id: contrato.id, papel: "neotec", nome: dados.neotecRazaoSocial, cpf: "—" },
+      { contrato_id: contrato.id, papel: "cliente", nome: dados.clienteNome, cpf: dados.clienteCpf },
     ];
     if (input.temFiador && input.fiadorNome && input.fiadorCpf) {
-      signatarios.push({ contrato_id: contrato.id, papel: "fiador" as const, nome: input.fiadorNome, cpf: input.fiadorCpf });
+      signatarios.push({ contrato_id: contrato.id, papel: "fiador", nome: input.fiadorNome, cpf: input.fiadorCpf });
     }
     await supabase.from("contratos_signatarios").insert(signatarios);
 
