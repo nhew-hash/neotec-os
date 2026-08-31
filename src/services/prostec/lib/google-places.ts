@@ -70,12 +70,13 @@ function mapPlaceToRawCompany(place: PlacesApiPlace, segment: string, city: stri
   };
 }
 
-export async function buscarEmpresasGooglePlaces(params: { city: string; state: string; segments: string[]; quantity: number }): Promise<RawCompany[]> {
+export async function buscarEmpresasGooglePlaces(params: { city: string; state: string; segments: string[]; quantity: number; segmentosPadrao?: string[] }): Promise<RawCompany[]> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_PLACES_API_KEY não configurada nas variáveis de ambiente.");
 
+  const listaPadrao = params.segmentosPadrao?.length ? params.segmentosPadrao : SEGMENTOS_DISPONIVEIS;
   const segments = !params.segments.length || params.segments.includes("Todos os segmentos")
-    ? SEGMENTOS_DISPONIVEIS.filter((s) => s !== "Outros")
+    ? listaPadrao.filter((s) => s !== "Outros")
     : params.segments;
 
   const perSegmentTarget = Math.max(5, Math.ceil(params.quantity / segments.length));

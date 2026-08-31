@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { executarBuscaProstecAction } from "@/services/prostec/prostec.actions";
 
-const CIDADES_SUGERIDAS = ["Araguari - MG", "Uberlândia - MG", "Patrocínio - MG", "Uberaba - MG", "Araxá - MG"];
+const CIDADES_SUGERIDAS_PADRAO = ["Araguari - MG", "Uberlândia - MG", "Patrocínio - MG", "Uberaba - MG", "Araxá - MG"];
 
-export function NovaBuscaForm() {
+export function NovaBuscaForm({ cidadesSugeridas }: { cidadesSugeridas?: string[] }) {
+  const cidades = cidadesSugeridas?.length ? cidadesSugeridas : CIDADES_SUGERIDAS_PADRAO;
   const [aberto, setAberto] = useState(false);
   const [cidade, setCidade] = useState("");
   const [uf, setUf] = useState("MG");
@@ -49,7 +50,7 @@ export function NovaBuscaForm() {
 
       <div className="grid grid-cols-2 gap-2">
         <Input placeholder="Cidade" value={cidade} onChange={(e) => setCidade(e.target.value)} className="h-9 text-xs" list="cidades-sugeridas" />
-        <datalist id="cidades-sugeridas">{CIDADES_SUGERIDAS.map((c) => <option key={c} value={c.split(" - ")[0]} />)}</datalist>
+        <datalist id="cidades-sugeridas">{cidades.map((c) => <option key={c} value={c.split(" - ")[0]} />)}</datalist>
         <Input placeholder="UF" value={uf} onChange={(e) => setUf(e.target.value)} maxLength={2} className="h-9 text-xs" />
       </div>
 

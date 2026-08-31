@@ -4,6 +4,71 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 204] - Evolucao completa da Iara: Fases 1-7 aprovadas (exceto Instagram API)
+
+Implementadas todas as fases do plano de evolucao aprovado, exceto
+Instagram API (adiada por decisao explicita).
+
+### Fase 1 - Seguranca e integridade
+- Idempotencia no webhook (usa idExterno da Bridge quando disponivel,
+  fallback por hash quando nao vier) - nunca mais processa a mesma
+  mensagem 2x
+- Custo de IA (tokens + R$ estimado) salvo em toda decisao
+- Validacao DETERMINISTICA de desconto - a IA agora retorna o
+  percentual explicito que esta oferecendo, e o CODIGO confere contra
+  o limite real antes de deixar enviar (nunca confia so na IA
+  "calcular" sozinha)
+
+### Fase 2 - Visibilidade
+- Tela nova `/prostec/decisoes` - o log de decisoes da IA (que ja
+  existia no banco desde a Fase 203) agora e visivel, com metricas
+  comerciais completas (taxa de resposta/interesse/conversao, ticket
+  medio, custo de IA, custo por lead, escaladas pra humano)
+
+### Fase 3 - Configuracao completa
+- Segmentos e cidades sugeridas agora vem do banco de verdade (antes
+  eram constante fixa no codigo, mesmo ja existindo campo pra isso em
+  prostec_settings)
+
+### Fase 4 - Opt-out robusto
+- Nova tabela `prostec_opt_out` (por TELEFONE, nao por conversa) -
+  bloqueia reentrada de verdade, checado ANTES de iniciar qualquer
+  conversa nova
+
+### Fase 5 - Circuit breaker automatico
+- Pausa sozinho se: 5+ falhas de IA em 5 minutos, OU taxa de opt-out
+  acima do limite configurado nas ultimas 24h
+- Aviso visivel na tela de configuracoes quando pausado
+  automaticamente, com o motivo exato
+- Reativar manualmente limpa a flag de pausa automatica
+
+### Fase 6 - Next Best Action
+- Motor DETERMINISTICO (nao e a IA decidindo, e codigo com regra
+  fixa) rodando 1x por dia - separado de proposito da decisao em
+  texto livre que a Iara ja faz numa conversa
+
+### Fase 7 - A/B Test
+- Tela `/prostec/experimentos` - cria experimento com 2 mensagens de
+  abertura diferentes, o bot escolhe uma aleatoriamente quando envia
+  a primeira mensagem pra um lead novo
+- Rastreia enviadas/respondidas/vendidas por variante
+- NUNCA declara vencedor com amostra abaixo do minimo configurado
+
+### Reaproveitado, nao mexido
+Todo o cron diario ja existente (nao criou rota nova - Vercel Hobby
+so permite 2). Tabela de custo por token ja existente na loja (Iara),
+duplicada aqui pra nao mexer no arquivo compartilhado.
+
+---
+
+## Instagram API - fica pra depois, por decisao explicita
+
+Nao implementado nessa entrega.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 203] - Iara: schema que faltava + oferta + atribuicao de lead
 
 Resolvidos os 4 pontos pendentes da auditoria do Prostec.

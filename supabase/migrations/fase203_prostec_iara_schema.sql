@@ -47,6 +47,7 @@ create table if not exists prostec_oferta (
 );
 insert into prostec_oferta (id) values ('default') on conflict (id) do nothing;
 
+drop trigger if exists trg_prostec_oferta_updated_at on prostec_oferta;
 create trigger trg_prostec_oferta_updated_at
   before update on prostec_oferta
   for each row execute function set_updated_at();
@@ -65,7 +66,10 @@ create index if not exists idx_prostec_ia_decisoes_conversa on prostec_ia_deciso
 alter table prostec_oferta enable row level security;
 alter table prostec_ia_decisoes enable row level security;
 
+drop policy if exists "prostec_oferta_staff" on prostec_oferta;
 create policy "prostec_oferta_staff" on prostec_oferta for all using (current_user_cargo() in ('admin', 'gerente', 'vendedor_prostec'));
+
+drop policy if exists "prostec_ia_decisoes_staff" on prostec_ia_decisoes;
 create policy "prostec_ia_decisoes_staff" on prostec_ia_decisoes for select using (current_user_cargo() in ('admin', 'gerente', 'vendedor_prostec'));
 
 notify pgrst, 'reload schema';

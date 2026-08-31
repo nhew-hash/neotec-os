@@ -14,6 +14,8 @@ interface ConfigWhatsappProstec {
   modo_operacao: string;
   iara_ativa: boolean;
   mensagens_hoje: number;
+  pausado_automaticamente: boolean;
+  motivo_pausa_automatica: string | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -72,6 +74,13 @@ export function WhatsappProstecForm({ config }: { config: ConfigWhatsappProstec 
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={config.qr_code} alt="QR Code do WhatsApp da Prostec" className="h-48 w-48" />
           <p className="text-xs text-muted-foreground">Escaneia com o WhatsApp que vai ser o número da Prostec</p>
+        </div>
+      )}
+
+      {config?.pausado_automaticamente && (
+        <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-xs">
+          <p className="font-medium text-danger">⚠ Iara pausada automaticamente pelo circuit breaker</p>
+          <p className="mt-1 text-muted-foreground">{config.motivo_pausa_automatica}</p>
         </div>
       )}
 

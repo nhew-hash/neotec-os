@@ -275,6 +275,172 @@ export async function buscarOfertaProstec(): Promise<ProstecOferta> {
   };
 }
 
+/**
+ * Circuit breaker por taxa de opt-out (Fase 5) — chamado 1x por dia
+ * pelo cron. Se muita gente estiver pedindo pra não ser mais
+ * contatada num período curto, é sinal de abordagem errada (ou até
+ * abuso) — pausa a Iara pra reavaliação humana antes de continuar
+ * incomodando mais gente.
+ */
+export async function verificarTaxaOptOutProstec(): Promise<{ pausou: boolean }> {
+  const supabase = await createClient();
+  const ultimas24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const [{ count: totalConversas }, { count: optOutsRecentes }, { data: config }] = await Promise.all([
+    supabase.from("prostec_conversas").select("*", { count: "exact", head: true }).gte("ultima_mensagem_em", ultimas24h),
+    supabase.from("prostec_opt_out").select("*", { count: "exact", head: true }).gte("created_at", ultimas24h),
+    supabase.from("integracoes_whatsapp_prostec").select("id, limite_opt_out_pct, iara_ativa").maybeSingle(),
+  ]);
+
+  if (!config || !config.iara_ativa || (totalConversas ?? 0) < 5) return { pausou: false }; // amostra pequena demais pra significar algo
+
+  const taxaOptOut = ((optOutsRecentes ?? 0) / (totalConversas ?? 1)) * 100;
+  if (taxaOptOut <= config.limite_opt_out_pct) return { pausou: false };
+
+  await supabase.from("integracoes_whatsapp_prostec").update({
+    iara_ativa: false, pausado_automaticamente: true,
+    motivo_pausa_automatica: `Taxa de opt-out de ${taxaOptOut.toFixed(1)}% nas últimas 24h, acima do limite (${config.limite_opt_out_pct}%) — pausada automaticamente.`,
+  }).eq("id", config.id);
+
+  await supabase.from("prostec_anomalias").insert({
+    tipo: "taxa_opt_out", descricao: "Sistema pausado automaticamente por taxa alta de opt-out",
+    valor_observado: taxaOptOut, limite_configurado: config.limite_opt_out_pct, pausou_sistema: true,
+  });
+
+  return { pausou: true };
+}
+
+/**
+ * Next Best Action (Fase 6) — motor DETERMINÍSTICO, separado da
+ * decisão em texto livre da própria IA numa conversa. Roda pra TODO
+ * lead (mesmo os que nunca conversaram com a Iara ainda), baseado só
+ * em regra de código, nunca em IA — pra sempre ser previsível e
+ * auditável.
+ */
+function calcularNextBestAction(lead: {
+  status: string; temperature: string; score: number; created_at: string; proximo_followup_em: string | null;
+}): { acao: string; motivo: string } {
+  const diasDesdeCriacao = Math.floor((Date.now() - new Date(lead.created_at).getTime()) / (1000 * 60 * 60 * 24));
+
+  if (lead.status === "venda_fechada" || lead.status === "perdido") return { acao: "Não entrar em contato", motivo: `Lead já está em status final (${lead.status})` };
+  if (lead.status === "novo" && lead.temperature === "quente") return { acao: "Enviar primeira abordagem", motivo: "Lead quente ainda não contatado — prioridade alta" };
+  if (lead.status === "novo") return { acao: "Enviar primeira abordagem", motivo: "Lead ainda não contatado" };
+  if (lead.status === "contato_realizado" && diasDesdeCriacao >= 2) return { acao: "Fazer follow-up", motivo: "Contatado há 2+ dias sem avançar de etapa" };
+  if (lead.status === "contato_realizado") return { acao: "Aguardar resposta", motivo: "Contato recente, ainda dentro da janela normal de resposta" };
+  if (lead.status === "qualificado") return { acao: "Chamar vendedor", motivo: "Lead qualificado precisa de atendimento humano pra avançar" };
+  if (lead.status === "reuniao") return { acao: "Aguardar resposta", motivo: "Reunião em andamento" };
+  if (lead.status === "proposta_enviada" && lead.proximo_followup_em && new Date(lead.proximo_followup_em) <= new Date()) return { acao: "Fazer follow-up", motivo: "Follow-up de proposta está vencido" };
+  if (lead.status === "proposta_enviada") return { acao: "Aguardar resposta", motivo: "Proposta enviada, dentro do prazo de follow-up automático" };
+  if (lead.status === "negociacao") return { acao: "Tratar objeção", motivo: "Lead em negociação ativa" };
+
+  return { acao: "Aguardar resposta", motivo: "Sem regra específica pra esse estágio — padrão seguro" };
+}
+
+/** Recalcula o Next Best Action de todo lead ativo — chamado 1x por dia pelo cron. */
+export async function recalcularNextBestActionTodosLeads(): Promise<{ atualizados: number }> {
+  const supabase = await createClient();
+  const { data: leads } = await supabase.from("prostec_leads").select("id, status, temperature, score, created_at, proximo_followup_em").not("status", "in", "(venda_fechada,perdido)");
+
+  let atualizados = 0;
+  for (const lead of leads ?? []) {
+    const { acao, motivo } = calcularNextBestAction(lead);
+    await supabase.from("prostec_leads").update({ next_best_action: acao, next_best_action_motivo: motivo, next_best_action_calculada_em: new Date().toISOString() }).eq("id", lead.id);
+    atualizados++;
+  }
+  return { atualizados };
+}
+
+export interface DecisaoIaraLog {
+  id: string;
+  mensagem_recebida: string;
+  intent: string | null;
+  decisao: string | null;
+  acao: string | null;
+  tokens_entrada: number | null;
+  tokens_saida: number | null;
+  custo_estimado: number | null;
+  desconto_solicitado_pct: number | null;
+  desconto_validado: boolean | null;
+  created_at: string;
+  lead_empresa_nome: string | null;
+}
+
+/** Log de decisões da Iara (Fase 2) — o dado já existia desde a Fase 203, essa é a primeira vez que vira visível numa tela. */
+export async function listarDecisoesIara(limite = 50): Promise<DecisaoIaraLog[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("prostec_ia_decisoes")
+    .select("id, mensagem_recebida, intent, decisao, acao, tokens_entrada, tokens_saida, custo_estimado, desconto_solicitado_pct, desconto_validado, created_at, conversa:prostec_conversas(lead:prostec_leads(company:prostec_companies(name)))")
+    .order("created_at", { ascending: false })
+    .limit(limite);
+
+  return (data ?? []).map((d) => {
+    const conversa = d.conversa as unknown as { lead: { company: { name: string } | null } | null } | null;
+    return { ...d, lead_empresa_nome: conversa?.lead?.company?.name ?? null };
+  });
+}
+
+export interface MetricasComerciaisProstec {
+  taxaResposta: number;
+  taxaInteresse: number;
+  taxaConversao: number;
+  ticketMedio: number;
+  receitaTotal: number;
+  custoIaTotal: number;
+  custoPorLead: number;
+  decisoesTotal: number;
+  escaladasParaHumano: number;
+}
+
+/** Métricas comerciais completas (Fase 2, pedido explícito da seção 18 do documento). */
+export async function obterMetricasComerciaisProstec(): Promise<MetricasComerciaisProstec> {
+  const supabase = await createClient();
+  const trintaDiasAtras = new Date();
+  trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+
+  const [{ count: totalLeads }, { count: totalConversas }, { count: totalQualificados }, { count: totalVendas }, { data: vendas }, { data: decisoes }, { count: escaladas }] = await Promise.all([
+    supabase.from("prostec_leads").select("*", { count: "exact", head: true }).gte("created_at", trintaDiasAtras.toISOString()),
+    supabase.from("prostec_conversas").select("*", { count: "exact", head: true }).gte("created_at", trintaDiasAtras.toISOString()),
+    supabase.from("prostec_leads").select("*", { count: "exact", head: true }).in("status", ["qualificado", "reuniao", "proposta_enviada", "negociacao", "venda_fechada"]).gte("created_at", trintaDiasAtras.toISOString()),
+    supabase.from("prostec_leads").select("*", { count: "exact", head: true }).eq("status", "venda_fechada").gte("created_at", trintaDiasAtras.toISOString()),
+    supabase.from("prostec_sales").select("amount").gte("closed_at", trintaDiasAtras.toISOString()),
+    supabase.from("prostec_ia_decisoes").select("custo_estimado").gte("created_at", trintaDiasAtras.toISOString()),
+    supabase.from("prostec_conversas").select("*", { count: "exact", head: true }).eq("exige_atencao", true).gte("created_at", trintaDiasAtras.toISOString()),
+  ]);
+
+  const receitaTotal = (vendas ?? []).reduce((acc, v) => acc + Number(v.amount), 0);
+  const custoIaTotal = (decisoes ?? []).reduce((acc, d) => acc + Number(d.custo_estimado ?? 0), 0);
+
+  return {
+    taxaResposta: (totalConversas ?? 0) > 0 ? Math.round(((totalConversas ?? 0) / Math.max(totalLeads ?? 1, 1)) * 1000) / 10 : 0,
+    taxaInteresse: (totalLeads ?? 0) > 0 ? Math.round(((totalQualificados ?? 0) / (totalLeads ?? 1)) * 1000) / 10 : 0,
+    taxaConversao: (totalLeads ?? 0) > 0 ? Math.round(((totalVendas ?? 0) / (totalLeads ?? 1)) * 1000) / 10 : 0,
+    ticketMedio: (totalVendas ?? 0) > 0 ? receitaTotal / (totalVendas ?? 1) : 0,
+    receitaTotal,
+    custoIaTotal,
+    custoPorLead: (totalLeads ?? 0) > 0 ? custoIaTotal / (totalLeads ?? 1) : 0,
+    decisoesTotal: (decisoes ?? []).length,
+    escaladasParaHumano: escaladas ?? 0,
+  };
+}
+
+export interface ExperimentoProstec {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  status: string;
+  amostra_minima: number;
+  variante_vencedora: string | null;
+  created_at: string;
+  variantes: { id: string; nome: string; texto_mensagem: string; enviadas: number; respondidas: number; interessadas: number; vendidas: number }[];
+}
+
+export async function listarExperimentosProstec(): Promise<ExperimentoProstec[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("prostec_experimentos").select("*, variantes:prostec_experimento_variantes(*)").order("created_at", { ascending: false });
+  return data ?? [];
+}
+
 export interface VendedorProstec {
   id: string;
   nome: string;
@@ -464,10 +630,12 @@ export interface ConfigWhatsappProstec {
   modo_operacao: string;
   iara_ativa: boolean;
   mensagens_hoje: number;
+  pausado_automaticamente: boolean;
+  motivo_pausa_automatica: string | null;
 }
 
 export async function buscarConfigWhatsappProstec(): Promise<ConfigWhatsappProstec | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("integracoes_whatsapp_prostec").select("numero, status, qr_code, ultima_conexao, modo_operacao, iara_ativa, mensagens_hoje").maybeSingle();
+  const { data } = await supabase.from("integracoes_whatsapp_prostec").select("numero, status, qr_code, ultima_conexao, modo_operacao, iara_ativa, mensagens_hoje, pausado_automaticamente, motivo_pausa_automatica").maybeSingle();
   return data ?? null;
 }

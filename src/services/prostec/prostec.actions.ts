@@ -226,7 +226,17 @@ export async function executarBuscaProstecAction(formData: FormData): Promise<Ac
     const { buscarEmpresasGooglePlaces, buildDedupeKey } = await import("./lib/google-places");
     const { analyzeSite } = await import("./lib/site-analyzer");
     const { computeScore, buildReasons, generateApproach } = await import("./lib/score-engine");
-    const { SCORE_WEIGHTS_PADRAO, SEGMENTOS_ALTA_NECESSIDADE } = await import("./lib/settings-padrao");
+    const { SCORE_WEIGHTS_PADRAO, SEGMENTOS_ALTA_NECESSIDADE, SEGMENTOS_DISPONIVEIS } = await import("./lib/settings-padrao");
+
+    const { data: settingsRow } = await supabase.from("prostec_settings").select("*").eq("id", "default").maybeSingle();
+    const weights = (settingsRow?.score_weights && Object.keys(settingsRow.score_weights).length > 0) ? settingsRow.score_weights : SCORE_WEIGHTS_PADRAO;
+    const segmentosAltaNecessidade = settingsRow?.segmentos_alta_necessidade?.length ? settingsRow.segmentos_alta_necessidade : SEGMENTOS_ALTA_NECESSIDADE;
+    const scoreQuenteMin = settingsRow?.score_quente_min ?? 80;
+    const scoreMornoMin = settingsRow?.score_morno_min ?? 60;
+    // Segmentos configurados pelo operador no painel — nunca mais a
+    // constante fixa no código, a não ser que o painel ainda não
+    // tenha nada salvo (fallback de segurança).
+    const segmentosPadrao = settingsRow?.segmentos_disponiveis?.length ? settingsRow.segmentos_disponiveis : SEGMENTOS_DISPONIVEIS;
 
     const { data: search, error: erroSearch } = await supabase
       .from("prostec_prospecting_searches")
@@ -237,17 +247,12 @@ export async function executarBuscaProstecAction(formData: FormData): Promise<Ac
 
     let raw;
     try {
-      raw = await buscarEmpresasGooglePlaces({ city, state, segments, quantity });
+      raw = await buscarEmpresasGooglePlaces({ city, state, segments, quantity, segmentosPadrao });
     } catch (err) {
       await supabase.from("prostec_prospecting_searches").update({ status: "erro" }).eq("id", search.id);
       throw err;
     }
 
-    const { data: settingsRow } = await supabase.from("prostec_settings").select("*").eq("id", "default").maybeSingle();
-    const weights = (settingsRow?.score_weights && Object.keys(settingsRow.score_weights).length > 0) ? settingsRow.score_weights : SCORE_WEIGHTS_PADRAO;
-    const segmentosAltaNecessidade = settingsRow?.segmentos_alta_necessidade?.length ? settingsRow.segmentos_alta_necessidade : SEGMENTOS_ALTA_NECESSIDADE;
-    const scoreQuenteMin = settingsRow?.score_quente_min ?? 80;
-    const scoreMornoMin = settingsRow?.score_morno_min ?? 60;
 
     let criados = 0;
     let atualizados = 0;
@@ -504,7 +509,10 @@ export async function pausarOuAtivarIaraAction(ativa: boolean): Promise<ActionRe
     const supabase = await createClient();
     const { data: linha } = await supabase.from("integracoes_whatsapp_prostec").select("id").maybeSingle();
     if (!linha) return { success: false, error: "Configuração não encontrada" };
-    await supabase.from("integracoes_whatsapp_prostec").update({ iara_ativa: ativa }).eq("id", linha.id);
+    await supabase.from("integracoes_whatsapp_prostec").update({
+      iara_ativa: ativa,
+      ...(ativa ? { pausado_automaticamente: false, motivo_pausa_automatica: null } : {}),
+    }).eq("id", linha.id);
     revalidatePath("/prostec/configuracoes");
     return { success: true, data: undefined };
   } catch (err) {
@@ -610,4 +618,51 @@ export async function distribuirLeadAutomaticamente(leadId: string): Promise<voi
 
   const { data: vendedor } = await supabase.from("usuarios").select("nome").eq("id", escolhido.usuarioId).maybeSingle();
   await supabase.from("prostec_atividades").insert({ lead_id: leadId, tipo: "atribuicao", descricao: `🎯 Atribuído automaticamente pra ${vendedor?.nome ?? "vendedor"} (distribuição por carga)` });
+}
+
+export async function criarExperimentoProstecAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const nome = String(formData.get("nome") ?? "").trim();
+    const textoA = String(formData.get("texto_a") ?? "").trim();
+    const textoB = String(formData.get("texto_b") ?? "").trim();
+    const amostraMinima = Number(formData.get("amostra_minima") ?? 30);
+    if (!nome || !textoA || !textoB) return { success: false, error: "Preenche nome e as duas mensagens" };
+
+    const { data: experimento, error } = await supabase.from("prostec_experimentos").insert({ nome, amostra_minima: amostraMinima, status: "ativo" }).select("id").single();
+    if (error) throw new Error(error.message);
+
+    await supabase.from("prostec_experimento_variantes").insert([
+      { experimento_id: experimento.id, nome: "A", texto_mensagem: textoA },
+      { experimento_id: experimento.id, nome: "B", texto_mensagem: textoB },
+    ]);
+
+    revalidatePath("/prostec/experimentos");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao criar experimento" };
+  }
+}
+
+export async function encerrarExperimentoProstecAction(experimentoId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { data: variantes } = await supabase.from("prostec_experimento_variantes").select("nome, enviadas, vendidas").eq("experimento_id", experimentoId);
+
+    // Nunca declara vencedor com amostra insuficiente — pedido explícito do documento.
+    const { data: experimento } = await supabase.from("prostec_experimentos").select("amostra_minima").eq("id", experimentoId).maybeSingle();
+    const totalEnviadas = (variantes ?? []).reduce((acc, v) => acc + v.enviadas, 0);
+
+    let vencedora: string | null = null;
+    if (totalEnviadas >= (experimento?.amostra_minima ?? 30)) {
+      const melhor = (variantes ?? []).sort((a, b) => (b.vendidas / Math.max(b.enviadas, 1)) - (a.vendidas / Math.max(a.enviadas, 1)))[0];
+      vencedora = melhor?.nome ?? null;
+    }
+
+    await supabase.from("prostec_experimentos").update({ status: "concluido", variante_vencedora: vencedora, encerrado_em: new Date().toISOString() }).eq("id", experimentoId);
+    revalidatePath("/prostec/experimentos");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao encerrar experimento" };
+  }
 }

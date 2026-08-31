@@ -15,6 +15,21 @@ import { enviarMensagemProstec } from "./prostec-whatsapp.provider";
 
 const LIMITE_MENSAGENS_POR_HORA = 20; // trava de segurança — muitas mensagens seguidas geralmente indica erro de loop, não conversa real
 
+// Duplicado de src/services/ia/ia.service.ts de propósito — evita
+// mexer no arquivo compartilhado da loja só por causa da Prostec.
+const CUSTO_POR_MIL_TOKENS: Record<string, { entrada: number; saida: number }> = {
+  "gpt-4o-mini": { entrada: 0.00015, saida: 0.0006 },
+  "gpt-4o": { entrada: 0.0025, saida: 0.01 },
+  "claude-sonnet-4-5": { entrada: 0.003, saida: 0.015 },
+  "claude-haiku-4-5": { entrada: 0.0008, saida: 0.004 },
+};
+
+function estimarCustoIara(modelo: string, tokensEntrada?: number, tokensSaida?: number): number | null {
+  const precos = CUSTO_POR_MIL_TOKENS[modelo];
+  if (!precos || tokensEntrada == null || tokensSaida == null) return null;
+  return (tokensEntrada / 1000) * precos.entrada + (tokensSaida / 1000) * precos.saida;
+}
+
 interface DecisaoIara {
   resposta: string;
   intent: string;
@@ -28,6 +43,8 @@ interface DecisaoIara {
   motivo_atencao: string | null;
   gerar_proposta: boolean;
   nao_contatar: boolean;
+  /** Percentual de desconto que a resposta menciona oferecer ao cliente — 0 quando não há desconto na resposta. Validado deterministicamente pelo código antes de enviar (nunca confia só na IA calcular isso sozinha). */
+  desconto_oferecido_pct: number;
 }
 
 const STATUS_VALIDOS = ["novo", "contato_realizado", "qualificado", "reuniao", "proposta_enviada", "negociacao", "venda_fechada", "perdido"];
@@ -66,15 +83,23 @@ Responda SEMPRE em JSON válido, sem texto fora do JSON, neste formato exato:
   "exige_atencao_humana": true ou false,
   "motivo_atencao": "motivo se exige_atencao_humana, senão null",
   "gerar_proposta": true ou false (true só se o cliente pediu explicitamente a proposta/orçamento por escrito),
-  "nao_contatar": true ou false
+  "nao_contatar": true ou false,
+  "desconto_oferecido_pct": número (0 se a resposta não menciona nenhum desconto, ou o percentual exato se mencionar)
 }`;
+}
+
+interface ResultadoDecisao {
+  decisao: DecisaoIara;
+  tokensEntrada?: number;
+  tokensSaida?: number;
+  modelo: string;
 }
 
 async function decidirProximaAcao(contexto: {
   empresa: string; segmento: string; cidade: string; score: number; temperatura: string;
   possuiSite: boolean; motivoOportunidade: string; etapaAtual: string; resumoContexto: string | null;
   historico: { remetente: string; conteudo: string }[]; mensagemNova: string;
-}): Promise<DecisaoIara | null> {
+}): Promise<ResultadoDecisao | null> {
   const admin = createAdminClient();
   const { data: oferta } = await admin.from("prostec_oferta").select("*").eq("id", "default").maybeSingle();
   if (!oferta) return null;
@@ -101,7 +126,7 @@ NOVA MENSAGEM DO CLIENTE:
 Decida a resposta e a atualização de CRM, seguindo o formato JSON exato definido no system prompt.`;
 
   try {
-    const { provider } = await getActiveAIProvider();
+    const { provider, config } = await getActiveAIProvider();
     const resultado = await provider.completar({
       sistema: montarPromptSistema(oferta),
       prompt: promptUsuario,
@@ -111,7 +136,19 @@ Decida a resposta e a atualização de CRM, seguindo o formato JSON exato defini
     });
 
     const decisao = JSON.parse(resultado.texto.replace(/```json|```/g, "").trim()) as DecisaoIara;
-    return decisao;
+
+    // Validação determinística — NUNCA confia só na IA calcular sozinha
+    // se o desconto está dentro do limite. Confere o número que ela
+    // mesma retornou contra o limite real configurado; se ultrapassar,
+    // sobrescreve a decisão pra escalar, mesmo que a IA não tenha
+    // marcado pedido_fora_limite corretamente.
+    if (decisao.desconto_oferecido_pct > oferta.desconto_maximo_automatico_pct) {
+      decisao.pedido_fora_limite = true;
+      decisao.exige_atencao_humana = true;
+      decisao.motivo_atencao = `Iara ia oferecer ${decisao.desconto_oferecido_pct}% de desconto, acima do limite configurado (${oferta.desconto_maximo_automatico_pct}%) — bloqueado antes de enviar.`;
+    }
+
+    return { decisao, tokensEntrada: resultado.tokensEntrada, tokensSaida: resultado.tokensSaida, modelo: config.modelo };
   } catch {
     return null; // se a IA falhar, nunca inventa decisão — quem chama trata como "precisa de atenção humana"
   }
@@ -131,8 +168,39 @@ async function registrarMensagem(conversaId: string, remetente: "lead" | "bot" |
 }
 
 /** Inicia a conversa — chamado quando o vendedor "manda pra Iara" um lead. */
+/**
+ * Circuit breaker (Fase 5) — se a IA falhar demais em sequência num
+ * intervalo curto, é sinal de algo genuinamente errado (chave de API
+ * inválida, provedor fora do ar) — não adianta continuar tentando
+ * silenciosamente. Pausa a Iara inteira sozinha, registra o motivo,
+ * deixa pro operador investigar e reativar manualmente.
+ */
+async function verificarCircuitBreakerErroIA(admin: ReturnType<typeof createAdminClient>) {
+  await admin.from("prostec_anomalias").insert({ tipo: "taxa_erro_ia", descricao: "Iara falhou ao processar uma mensagem" });
+
+  const { data: config } = await admin.from("integracoes_whatsapp_prostec").select("id, limite_erro_ia_consecutivo, iara_ativa").maybeSingle();
+  if (!config || !config.iara_ativa) return; // já pausada, não repete o aviso
+
+  const cincoMinAtras = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const { count } = await admin.from("prostec_anomalias").select("*", { count: "exact", head: true }).eq("tipo", "taxa_erro_ia").gte("created_at", cincoMinAtras);
+
+  if ((count ?? 0) >= config.limite_erro_ia_consecutivo) {
+    await admin.from("integracoes_whatsapp_prostec").update({
+      iara_ativa: false, pausado_automaticamente: true,
+      motivo_pausa_automatica: `${count} falhas de IA nos últimos 5 minutos — pausada automaticamente pra evitar mais erro.`,
+    }).eq("id", config.id);
+    await admin.from("prostec_anomalias").insert({
+      tipo: "taxa_erro_ia", descricao: "Sistema pausado automaticamente por excesso de falhas consecutivas",
+      valor_observado: count, limite_configurado: config.limite_erro_ia_consecutivo, pausou_sistema: true,
+    });
+  }
+}
+
 export async function iniciarConversaBot(leadId: string, telefone: string, nomeEmpresa: string): Promise<{ sucesso: boolean; motivo?: string }> {
   const admin = createAdminClient();
+
+  const { data: optOut } = await admin.from("prostec_opt_out").select("telefone").eq("telefone", telefone).maybeSingle();
+  if (optOut) return { sucesso: false, motivo: "Esse número pediu pra não ser mais contatado — bloqueado, não é possível iniciar conversa nova." };
 
   const { data: conversa, error } = await admin.from("prostec_conversas").upsert(
     { lead_id: leadId, telefone, propriedade: "ai", status: "aberta" },
@@ -143,7 +211,16 @@ export async function iniciarConversaBot(leadId: string, telefone: string, nomeE
   const { data: lead } = await admin.from("prostec_leads").select("reasons").eq("id", leadId).maybeSingle();
   const motivoOportunidade = (lead?.reasons as string[] | null)?.[0] ?? "notei uma boa oportunidade de presença digital pra vocês";
 
-  const texto = `Olá! Tudo bem? Falo da Neotec. Posso falar rapidamente com o responsável pela ${nomeEmpresa}? ${motivoOportunidade}.`;
+  // A/B test (Fase 7) — se tiver experimento ativo, escolhe uma
+  // variante aleatória pra mensagem de abertura em vez do texto fixo.
+  // Sem experimento ativo, usa a abordagem padrão normalmente.
+  const { data: experimentoAtivo } = await admin.from("prostec_experimentos").select("id, variantes:prostec_experimento_variantes(*)").eq("status", "ativo").limit(1).maybeSingle();
+  const variantes = (experimentoAtivo?.variantes as { id: string; texto_mensagem: string }[] | undefined) ?? [];
+  const varianteEscolhida = variantes.length > 0 ? variantes[Math.floor(Math.random() * variantes.length)] : null;
+
+  const texto = varianteEscolhida
+    ? varianteEscolhida.texto_mensagem.replace("{empresa}", nomeEmpresa).replace("{motivo}", motivoOportunidade)
+    : `Olá! Tudo bem? Falo da Neotec. Posso falar rapidamente com o responsável pela ${nomeEmpresa}? ${motivoOportunidade}.`;
 
   if (!(await podeEnviarMensagemReal())) {
     await registrarMensagem(conversa.id, "bot", `[MODO TESTE — não enviado de verdade] ${texto}`, true);
@@ -154,7 +231,13 @@ export async function iniciarConversaBot(leadId: string, telefone: string, nomeE
   if (!resultado.enviado) return { sucesso: false, motivo: resultado.motivo };
 
   await registrarMensagem(conversa.id, "bot", texto, true);
-  await admin.from("prostec_leads").update({ status: "contato_realizado" }).eq("id", leadId);
+  await admin.from("prostec_leads").update({
+    status: "contato_realizado", experimento_variante_id: varianteEscolhida?.id ?? null,
+  }).eq("id", leadId);
+  if (varianteEscolhida) {
+    const { data: atual } = await admin.from("prostec_experimento_variantes").select("enviadas").eq("id", varianteEscolhida.id).maybeSingle();
+    await admin.from("prostec_experimento_variantes").update({ enviadas: (atual?.enviadas ?? 0) + 1 }).eq("id", varianteEscolhida.id);
+  }
   await admin.from("prostec_atividades").insert({ lead_id: leadId, tipo: "contato", descricao: "🤖 Iara iniciou contato via WhatsApp" });
 
   return { sucesso: true };
@@ -174,6 +257,16 @@ export async function processarMensagemRecebidaIara(telefone: string, textoReceb
   await registrarMensagem(conversa.id, "lead", textoRecebido, false);
   await admin.from("prostec_conversas").update({ nao_lidas: conversa.nao_lidas + 1 }).eq("id", conversa.id);
 
+  // A/B test (Fase 7) — conta como "respondida" só na primeira resposta do lead nessa conversa.
+  const { data: leadDados } = await admin.from("prostec_leads").select("experimento_variante_id").eq("id", conversa.lead_id ?? "").maybeSingle();
+  if (leadDados?.experimento_variante_id) {
+    const { count: totalRespostasLead } = await admin.from("prostec_mensagens").select("*", { count: "exact", head: true }).eq("conversa_id", conversa.id).eq("remetente", "lead");
+    if (totalRespostasLead === 1) {
+      const { data: varianteAtual } = await admin.from("prostec_experimento_variantes").select("respondidas").eq("id", leadDados.experimento_variante_id).maybeSingle();
+      await admin.from("prostec_experimento_variantes").update({ respondidas: (varianteAtual?.respondidas ?? 0) + 1 }).eq("id", leadDados.experimento_variante_id);
+    }
+  }
+
   if (conversa.nao_contatar) return; // cliente pediu pra não receber mensagem — nunca mais responde automaticamente
   if (conversa.propriedade !== "ai") return; // conversa com humano ou pausada — Iara não interfere
 
@@ -192,7 +285,7 @@ export async function processarMensagemRecebidaIara(telefone: string, textoReceb
 
   const { data: historico } = await admin.from("prostec_mensagens").select("remetente, conteudo").eq("conversa_id", conversa.id).order("enviada_em", { ascending: false }).limit(20);
 
-  const decisao = await decidirProximaAcao({
+  const resultadoDecisao = await decidirProximaAcao({
     empresa: lead?.company?.name ?? "essa empresa",
     segmento: lead?.segment ?? "não informado",
     cidade: lead?.company?.city ?? "não informada",
@@ -206,15 +299,22 @@ export async function processarMensagemRecebidaIara(telefone: string, textoReceb
     mensagemNova: textoRecebido,
   });
 
-  if (!decisao) {
+  if (!resultadoDecisao) {
     // IA falhou — nunca decide sozinha, escala.
     await admin.from("prostec_conversas").update({ exige_atencao: true, motivo_atencao: "Iara não conseguiu processar essa mensagem — verificar manualmente" }).eq("id", conversa.id);
+    await verificarCircuitBreakerErroIA(admin);
     return;
   }
+
+  const { decisao, tokensEntrada, tokensSaida, modelo } = resultadoDecisao;
+  const custoEstimado = estimarCustoIara(modelo, tokensEntrada, tokensSaida);
 
   await admin.from("prostec_ia_decisoes").insert({
     conversa_id: conversa.id, mensagem_recebida: textoRecebido, intent: decisao.intent,
     decisao: decisao.proxima_acao, acao: decisao.gerar_proposta ? "gerar_proposta" : "responder",
+    tokens_entrada: tokensEntrada ?? null, tokens_saida: tokensSaida ?? null, custo_estimado: custoEstimado,
+    desconto_solicitado_pct: decisao.desconto_oferecido_pct || null,
+    desconto_validado: decisao.desconto_oferecido_pct > 0 ? !decisao.pedido_fora_limite : null,
   });
 
   // Atualiza CRM conforme a decisão — nunca sozinha em status fora da lista permitida.
@@ -241,6 +341,13 @@ export async function processarMensagemRecebidaIara(telefone: string, textoReceb
     nao_contatar: decisao.nao_contatar,
     propriedade: decisao.exige_atencao_humana || decisao.pedido_fora_limite ? "paused" : conversa.propriedade,
   }).eq("id", conversa.id);
+
+  if (decisao.nao_contatar) {
+    // Registro GLOBAL por telefone — nunca mais entra em campanha
+    // nenhuma, não só essa conversa. Pedido explícito: opt-out precisa
+    // bloquear reentrada de verdade.
+    await admin.from("prostec_opt_out").upsert({ telefone, motivo: "Cliente pediu pra não receber mais mensagens", origem: "cliente_solicitou" }, { onConflict: "telefone" });
+  }
 
   // Só manda a resposta se não precisar escalar pro humano ANTES de falar (evita a Iara prometer algo indevido).
   if (!decisao.pedido_fora_limite) {

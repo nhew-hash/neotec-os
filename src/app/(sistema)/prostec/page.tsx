@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Rocket, Flame, DollarSign, TrendingUp, Percent, Building2, HandCoins, Settings, Trophy, Clock, MessageCircle } from "lucide-react";
+import { Rocket, Flame, DollarSign, TrendingUp, Percent, Building2, HandCoins, Settings, Trophy, Clock, MessageCircle, Brain, FlaskConical } from "lucide-react";
 import {
-  listarLeadsProstec, obterDashboardProstec, obterFunilProstec, listarAtividadesProstec, obterResumoFollowupsProstec,
+  listarLeadsProstec, obterDashboardProstec, obterFunilProstec, listarAtividadesProstec, obterResumoFollowupsProstec, buscarConfiguracoesProstec,
 } from "@/services/prostec/prostec.service";
 import { LeadsProstecTable } from "@/components/prostec/leads-prostec-table";
 import { NovaBuscaForm } from "@/components/prostec/nova-busca-form";
@@ -14,8 +14,8 @@ const FUNIL_LABELS: Record<string, string> = {
 };
 
 export default async function ProstecPage() {
-  const [dashboard, leads, funil, atividades, followups] = await Promise.all([
-    obterDashboardProstec(), listarLeadsProstec(), obterFunilProstec(), listarAtividadesProstec(10), obterResumoFollowupsProstec(),
+  const [dashboard, leads, funil, atividades, followups, config] = await Promise.all([
+    obterDashboardProstec(), listarLeadsProstec(), obterFunilProstec(), listarAtividadesProstec(10), obterResumoFollowupsProstec(), buscarConfiguracoesProstec(),
   ]);
 
   const etapasFunil = ["novo", "contato_realizado", "qualificado", "reuniao", "proposta_enviada", "negociacao", "venda_fechada"] as const;
@@ -34,6 +34,8 @@ export default async function ProstecPage() {
         <div className="flex gap-2">
           <Link href="/prostec/empresas" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Building2 className="h-3.5 w-3.5" />Empresas</Link>
           <Link href="/prostec/inbox" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><MessageCircle className="h-3.5 w-3.5" />Inbox</Link>
+          <Link href="/prostec/decisoes" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Brain className="h-3.5 w-3.5" />Decisões da Iara</Link>
+          <Link href="/prostec/experimentos" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><FlaskConical className="h-3.5 w-3.5" />Experimentos</Link>
           <Link href="/prostec/ranking" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Trophy className="h-3.5 w-3.5" />Ranking</Link>
           <Link href="/prostec/comissoes" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><HandCoins className="h-3.5 w-3.5" />Comissões</Link>
           <Link href="/prostec/configuracoes" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Settings className="h-3.5 w-3.5" />Configurações</Link>
@@ -90,7 +92,7 @@ export default async function ProstecPage() {
         </div>
       </div>
 
-      <NovaBuscaForm />
+      <NovaBuscaForm cidadesSugeridas={config.cidades_sugeridas} />
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-foreground">Pipeline</h2>
