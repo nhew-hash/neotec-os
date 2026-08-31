@@ -22,6 +22,8 @@ interface CapturaAssinaturaProps {
  * detecção de dispositivo nem biblioteca externa. É o padrão moderno
  * unificado, suportado por todo navegador relevante hoje.
  */
+const LABEL_ASSINANTE: Record<string, string> = { cliente: "do cliente", tecnico: "do técnico", fiador: "do fiador", neotec: "da Neotec" };
+
 export function CapturaAssinatura({ aberto, onFechar, tipoDocumento, referenciaId, tipoAssinante, onSalvo }: CapturaAssinaturaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const desenhando = useRef(false);
@@ -103,7 +105,7 @@ export function CapturaAssinatura({ aberto, onFechar, tipoDocumento, referenciaI
     <Dialog open={aberto} onOpenChange={(v) => !v && onFechar()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Assinatura {tipoAssinante === "cliente" ? "do cliente" : "do técnico"}</DialogTitle>
+          <DialogTitle>Assinatura {LABEL_ASSINANTE[tipoAssinante] ?? tipoAssinante}</DialogTitle>
         </DialogHeader>
 
         <canvas

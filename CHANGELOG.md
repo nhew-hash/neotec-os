@@ -4,6 +4,69 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 205] - Modulo de Contratos (Neotec Assinatura)
+
+Escopo estrito, conforme pedido: geracao, assinatura, armazenamento,
+versionamento e auditoria de contrato. NAO inclui credito, cobranca,
+WhatsApp ou pagamento - fica pra entrega separada.
+
+### Achado importante - reaproveitado, nao reinventado
+Ja existia um sistema de captura de assinatura em canvas
+(CapturaAssinatura + salvarAssinatura, usado em OS/venda) - reaproveitado
+direto pro contrato, so estendendo os enums existentes
+(tipo_documento_impressao ganhou 'contrato'/'aditivo',
+tipo_assinante_documento ganhou 'fiador'/'neotec'). Corrigido de
+passagem um rotulo fixo nesse componente ("do tecnico" aparecia pra
+qualquer assinante que nao fosse cliente).
+
+### Schema completo (9 tabelas novas)
+contratos_modelos (versionado), contratos, contratos_signatarios,
+contratos_documentos, contratos_eventos (auditoria), contratos_aditivos,
+contratos_termos_entrega, contratos_termos_devolucao,
+contratos_termos_aquisicao. Bucket de storage privado proprio
+("contratos"), mesmo padrao ja usado pra assinaturas.
+
+Tambem: lojas ganhou razao_social/cnpj/cidade/estado - faltavam pra
+popular o contrato sem dado hardcoded.
+
+### Motor de template
+Substituicao de {{PLACEHOLDER}} e blocos condicionais
+{{SE_FIADOR}}...{{FIM_FIADOR}} / {{SE_OPCAO_AQUISICAO}}...{{FIM_OPCAO_AQUISICAO}}.
+Confere se sobrou placeholder nao resolvido antes de gerar - nunca
+deixa contrato incompleto sair.
+
+### Modelo provisorio - MARCADO CLARAMENTE COMO RASCUNHO
+Seed automatico de um modelo "[MODELO PARA REVISAO JURIDICA - NAO
+UTILIZAR EM PRODUCAO]" - pedido explicito do documento, nunca inventa
+clausula juridica definitiva. Aviso visivel tambem no PDF gerado e na
+tela do contrato enquanto o modelo ativo nao for marcado como revisado.
+
+### Assinatura eletronica - camada desacoplada
+Interface SignatureProvider, nao amarrada a nenhum fornecedor
+especifico. Hoje so existe o provider "manual" (staff colhe assinatura
+via canvas presencial) - quando Clicksign ou outro provedor for
+contratado, basta criar a implementacao concreta e trocar no resolver,
+sem tocar no resto do modulo.
+
+### Imutabilidade
+Documento vira imutavel (nunca mais editavel) automaticamente quando
+todos os signatarios necessarios ja assinaram. Qualquer mudanca depois
+disso precisa de aditivo novo - nunca sobrescreve o original.
+
+### Telas
+/contratos (lista), /contratos/novo (criar), /contratos/[id] (detalhe
+completo - condicoes, signatarios, documentos, timeline de auditoria),
+/contratos/modelos (editor de template versionado).
+
+### Limitacao conhecida
+Formulario de novo contrato pede o UUID do cliente/aparelho colado
+manualmente (sem busca visual ainda) - funcional, mas nao e a
+experiencia ideal. Proximo passo natural de melhoria.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 204] - Evolucao completa da Iara: Fases 1-7 aprovadas (exceto Instagram API)
 
 Implementadas todas as fases do plano de evolucao aprovado, exceto
