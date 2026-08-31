@@ -8,6 +8,7 @@ import {
   Package,
   Wrench,
   ShoppingCart,
+  ShoppingBag,
   Wallet,
   Landmark,
   HandCoins,
@@ -64,11 +65,21 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
       { label: "Cotações", href: "/cotacoes", icon: Tags, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Catálogo de fotos", href: "/catalogo-fotos", icon: Camera, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Vendas", href: "/vendas", icon: ShoppingCart, cargos: ["admin", "gerente", "vendedor"] },
+      { label: "Assistência", href: "/assistencia", icon: Wrench, cargos: ["admin", "gerente", "tecnico"] },
+    ],
+  },
+  {
+    label: "Loja Virtual",
+    items: [
       { label: "Central da Loja", href: "/loja-admin", icon: Store, cargos: ["admin", "gerente"] },
       { label: "Analytics da Loja", href: "/loja-admin/analytics", icon: BarChart3, cargos: ["admin", "gerente"] },
-      { label: "Neotec Prostec", href: "/prostec", icon: Rocket, cargos: ["admin", "gerente", "vendedor_prostec"] },
-      { label: "Pedidos da Loja", href: "/pedidos-loja", icon: Store, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Assistência", href: "/assistencia", icon: Wrench, cargos: ["admin", "gerente", "tecnico"] },
+      { label: "Pedidos da Loja", href: "/pedidos-loja", icon: ShoppingBag, cargos: ["admin", "gerente", "vendedor"] },
+    ],
+  },
+  {
+    label: "Neotec Prostec",
+    items: [
+      { label: "Prostec", href: "/prostec", icon: Rocket, cargos: ["admin", "gerente", "vendedor_prostec"] },
     ],
   },
   {

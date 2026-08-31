@@ -424,8 +424,11 @@ export async function enviarMensagemManualProstecAction(conversaId: string, tele
     if (!resultado.enviado) return { success: false, error: resultado.motivo ?? "Não foi possível enviar" };
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
     await supabase.from("prostec_mensagens").insert({ conversa_id: conversaId, remetente: "vendedor", conteudo: texto });
-    await supabase.from("prostec_conversas").update({ ultima_mensagem_em: new Date().toISOString(), nao_lidas: 0 }).eq("id", conversaId);
+    await supabase.from("prostec_conversas").update({
+      ultima_mensagem_em: new Date().toISOString(), nao_lidas: 0, propriedade: "human", responsavel_id: user?.id ?? null,
+    }).eq("id", conversaId);
 
     revalidatePath("/prostec/inbox");
     return { success: true, data: undefined };
@@ -444,27 +447,65 @@ export async function marcarConversaLidaProstecAction(conversaId: string): Promi
   }
 }
 
-export async function salvarConfigWhatsappProstecAction(formData: FormData): Promise<ActionResult> {
+export async function conectarWhatsappProstecAction(): Promise<ActionResult> {
   try {
-    const supabase = await createClient();
-    const { data: existente } = await supabase.from("integracoes_whatsapp_prostec").select("id").maybeSingle();
-
-    const dados = {
-      phone_number_id: String(formData.get("phone_number_id") ?? "").trim() || null,
-      access_token: String(formData.get("access_token") ?? "").trim() || null,
-      numero: String(formData.get("numero") ?? "").trim() || null,
-    };
-
-    if (existente) {
-      await supabase.from("integracoes_whatsapp_prostec").update(dados).eq("id", existente.id);
-    } else {
-      await supabase.from("integracoes_whatsapp_prostec").insert(dados);
-    }
-
+    const { conectarWhatsappProstec } = await import("./whatsapp/prostec-whatsapp.provider");
+    const resultado = await conectarWhatsappProstec();
+    if (!resultado.ok) return { success: false, error: resultado.erro ?? "Não foi possível conectar" };
     revalidatePath("/prostec/configuracoes");
     return { success: true, data: undefined };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar configuração" };
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao conectar" };
+  }
+}
+
+export async function desconectarWhatsappProstecAction(): Promise<ActionResult> {
+  try {
+    const { desconectarWhatsappProstec } = await import("./whatsapp/prostec-whatsapp.provider");
+    const resultado = await desconectarWhatsappProstec();
+    if (!resultado.ok) return { success: false, error: resultado.erro ?? "Não foi possível desconectar" };
+    revalidatePath("/prostec/configuracoes");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao desconectar" };
+  }
+}
+
+export async function definirModoOperacaoProstecAction(modo: "teste" | "piloto" | "autonomo"): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { data: linha } = await supabase.from("integracoes_whatsapp_prostec").select("id").maybeSingle();
+    if (!linha) return { success: false, error: "Configuração não encontrada" };
+    await supabase.from("integracoes_whatsapp_prostec").update({ modo_operacao: modo }).eq("id", linha.id);
+    revalidatePath("/prostec/configuracoes");
+    revalidatePath("/prostec/iara");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao definir modo" };
+  }
+}
+
+export async function pausarOuAtivarIaraAction(ativa: boolean): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { data: linha } = await supabase.from("integracoes_whatsapp_prostec").select("id").maybeSingle();
+    if (!linha) return { success: false, error: "Configuração não encontrada" };
+    await supabase.from("integracoes_whatsapp_prostec").update({ iara_ativa: ativa }).eq("id", linha.id);
+    revalidatePath("/prostec/iara");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar" };
+  }
+}
+
+export async function devolverConversaParaIaraAction(conversaId: string): Promise<ActionResult> {
+  try {
+    const { devolverConversaParaIara } = await import("./whatsapp/prostec-bot.service");
+    await devolverConversaParaIara(conversaId);
+    revalidatePath("/prostec/inbox");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao devolver conversa" };
   }
 }
 

@@ -369,25 +369,34 @@ export interface ConversaProstec {
   id: string;
   telefone: string;
   status: string;
-  bot_ativo: boolean;
-  etapa_bot: string;
+  propriedade: string;
   nao_lidas: number;
   ultima_mensagem_em: string | null;
   lead_empresa_nome: string | null;
   lead_id: string | null;
+  exige_atencao: boolean;
+  motivo_atencao: string | null;
+  ultima_intencao: string | null;
+  proxima_acao: string | null;
+}
+
+const CAMPOS_CONVERSA = "id, telefone, status, propriedade, nao_lidas, ultima_mensagem_em, lead_id, exige_atencao, motivo_atencao, ultima_intencao, proxima_acao, lead:prostec_leads(company:prostec_companies(name))";
+
+function mapearConversa(c: Record<string, unknown>): ConversaProstec {
+  const lead = c.lead as unknown as { company: { name: string } | null } | null;
+  return {
+    id: c.id as string, telefone: c.telefone as string, status: c.status as string, propriedade: c.propriedade as string,
+    nao_lidas: c.nao_lidas as number, ultima_mensagem_em: c.ultima_mensagem_em as string | null, lead_id: c.lead_id as string | null,
+    exige_atencao: c.exige_atencao as boolean, motivo_atencao: c.motivo_atencao as string | null,
+    ultima_intencao: c.ultima_intencao as string | null, proxima_acao: c.proxima_acao as string | null,
+    lead_empresa_nome: lead?.company?.name ?? null,
+  };
 }
 
 export async function listarConversasProstec(): Promise<ConversaProstec[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("prostec_conversas")
-    .select("id, telefone, status, bot_ativo, etapa_bot, nao_lidas, ultima_mensagem_em, lead_id, lead:prostec_leads(company:prostec_companies(name))")
-    .order("ultima_mensagem_em", { ascending: false, nullsFirst: false });
-
-  return (data ?? []).map((c) => {
-    const lead = c.lead as unknown as { company: { name: string } | null } | null;
-    return { id: c.id, telefone: c.telefone, status: c.status, bot_ativo: c.bot_ativo, etapa_bot: c.etapa_bot, nao_lidas: c.nao_lidas, ultima_mensagem_em: c.ultima_mensagem_em, lead_id: c.lead_id, lead_empresa_nome: lead?.company?.name ?? null };
-  });
+  const { data } = await supabase.from("prostec_conversas").select(CAMPOS_CONVERSA).order("ultima_mensagem_em", { ascending: false, nullsFirst: false });
+  return (data ?? []).map(mapearConversa);
 }
 
 export interface MensagemProstec {
@@ -401,27 +410,26 @@ export interface MensagemProstec {
 export async function buscarConversaComMensagens(conversaId: string): Promise<{ conversa: ConversaProstec; mensagens: MensagemProstec[] } | null> {
   const supabase = await createClient();
   const [{ data: conversa }, { data: mensagens }] = await Promise.all([
-    supabase.from("prostec_conversas").select("id, telefone, status, bot_ativo, etapa_bot, nao_lidas, ultima_mensagem_em, lead_id, lead:prostec_leads(company:prostec_companies(name))").eq("id", conversaId).maybeSingle(),
+    supabase.from("prostec_conversas").select(CAMPOS_CONVERSA).eq("id", conversaId).maybeSingle(),
     supabase.from("prostec_mensagens").select("id, remetente, conteudo, ia_gerada, enviada_em").eq("conversa_id", conversaId).order("enviada_em"),
   ]);
   if (!conversa) return null;
 
-  const lead = conversa.lead as unknown as { company: { name: string } | null } | null;
-  return {
-    conversa: { id: conversa.id, telefone: conversa.telefone, status: conversa.status, bot_ativo: conversa.bot_ativo, etapa_bot: conversa.etapa_bot, nao_lidas: conversa.nao_lidas, ultima_mensagem_em: conversa.ultima_mensagem_em, lead_id: conversa.lead_id, lead_empresa_nome: lead?.company?.name ?? null },
-    mensagens: mensagens ?? [],
-  };
+  return { conversa: mapearConversa(conversa), mensagens: mensagens ?? [] };
 }
 
 export interface ConfigWhatsappProstec {
-  phone_number_id: string | null;
-  access_token: string | null;
   numero: string | null;
   status: string;
+  qr_code: string | null;
+  ultima_conexao: string | null;
+  modo_operacao: string;
+  iara_ativa: boolean;
+  mensagens_hoje: number;
 }
 
 export async function buscarConfigWhatsappProstec(): Promise<ConfigWhatsappProstec | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("integracoes_whatsapp_prostec").select("phone_number_id, access_token, numero, status").maybeSingle();
+  const { data } = await supabase.from("integracoes_whatsapp_prostec").select("numero, status, qr_code, ultima_conexao, modo_operacao, iara_ativa, mensagens_hoje").maybeSingle();
   return data ?? null;
 }

@@ -1,59 +1,104 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { salvarConfigWhatsappProstecAction } from "@/services/prostec/prostec.actions";
+import { conectarWhatsappProstecAction, desconectarWhatsappProstecAction, definirModoOperacaoProstecAction } from "@/services/prostec/prostec.actions";
+
+// Tipo duplicado — nunca importar (nem tipo) de prostec.service.ts num "use client".
 interface ConfigWhatsappProstec {
-  phone_number_id: string | null;
-  access_token: string | null;
   numero: string | null;
   status: string;
+  qr_code: string | null;
+  ultima_conexao: string | null;
+  modo_operacao: string;
+  iara_ativa: boolean;
+  mensagens_hoje: number;
 }
+
+const STATUS_LABELS: Record<string, string> = {
+  conectado: "Conectado", desconectado: "Desconectado", aguardando_qr: "Aguardando escanear o QR Code", conectando: "Conectando...", erro: "Erro",
+};
 
 export function WhatsappProstecForm({ config }: { config: ConfigWhatsappProstec | null }) {
   const [isPending, startTransition] = useTransition();
-  const [salvo, setSalvo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
-  function handleSubmit(formData: FormData) {
-    setSalvo(false);
+  function handleConectar() {
+    setErro(null);
     startTransition(async () => {
-      const result = await salvarConfigWhatsappProstecAction(formData);
-      if (result.success) setSalvo(true);
+      const result = await conectarWhatsappProstecAction();
+      if (!result.success) setErro(result.error);
     });
   }
 
+  function handleDesconectar() {
+    setErro(null);
+    startTransition(async () => {
+      const result = await desconectarWhatsappProstecAction();
+      if (!result.success) setErro(result.error);
+    });
+  }
+
+  function handleModo(modo: "teste" | "piloto" | "autonomo") {
+    startTransition(async () => { await definirModoOperacaoProstecAction(modo); });
+  }
+
   return (
-    <form action={handleSubmit} className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-white p-5 shadow-sm">
+    <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2">
         <MessageCircle className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-semibold text-foreground">WhatsApp da Prostec</h2>
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium ${config?.status === "conectado" ? "bg-success/10 text-success-text" : "bg-secondary text-muted-foreground"}`}>
-          {config?.status === "conectado" ? "Conectado" : "Desconectado"}
+          {STATUS_LABELS[config?.status ?? "desconectado"]}
         </span>
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Número PRÓPRIO da Prostec — nunca o mesmo da loja. Cria um app novo no Meta for Developers, WhatsApp Business API, e configura o webhook pra:
-        <code className="ml-1 rounded bg-secondary px-1 py-0.5">/api/prostec/whatsapp/webhook</code>
+        Número PRÓPRIO da Prostec, mesma arquitetura de QR Code já usada pela loja — precisa de um segundo processo de Bridge rodando
+        (endereço diferente do Bridge da loja), configurado com <code className="rounded bg-secondary px-1 py-0.5">WHATSAPP_PROSTEC_BRIDGE_URL</code> e{" "}
+        <code className="rounded bg-secondary px-1 py-0.5">WHATSAPP_PROSTEC_BRIDGE_SECRET</code>.
       </p>
 
-      <div>
-        <label className="text-xs font-medium text-muted-foreground">Phone Number ID</label>
-        <Input name="phone_number_id" defaultValue={config?.phone_number_id ?? ""} className="mt-1" placeholder="Ex: 123456789012345" />
-      </div>
-      <div>
-        <label className="text-xs font-medium text-muted-foreground">Access Token</label>
-        <Input name="access_token" type="password" defaultValue={config?.access_token ?? ""} className="mt-1" placeholder="Token permanente do WhatsApp Business" />
-      </div>
-      <div>
-        <label className="text-xs font-medium text-muted-foreground">Número (só pra exibição)</label>
-        <Input name="numero" defaultValue={config?.numero ?? ""} className="mt-1" placeholder="Ex: (34) 9XXXX-XXXX" />
+      {config?.numero && <p className="text-sm text-foreground">Número conectado: <strong>{config.numero}</strong></p>}
+
+      {config?.status === "aguardando_qr" && config.qr_code && (
+        <div className="flex flex-col items-center gap-2 rounded-xl bg-secondary/40 p-4">
+          <QrCode className="h-5 w-5 text-primary" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={config.qr_code} alt="QR Code do WhatsApp da Prostec" className="h-48 w-48" />
+          <p className="text-xs text-muted-foreground">Escaneia com o WhatsApp que vai ser o número da Prostec</p>
+        </div>
+      )}
+
+      {erro && <p className="text-xs text-danger">{erro}</p>}
+
+      <div className="flex gap-2">
+        {config?.status !== "conectado" ? (
+          <Button type="button" size="sm" onClick={handleConectar} disabled={isPending}>{isPending ? "Conectando..." : "Conectar (gerar QR Code)"}</Button>
+        ) : (
+          <Button type="button" size="sm" variant="outline" onClick={handleDesconectar} disabled={isPending}>Desconectar</Button>
+        )}
       </div>
 
-      {salvo && <p className="text-xs font-medium text-success">Configuração salva.</p>}
-      <Button type="submit" disabled={isPending} className="self-start">{isPending ? "Salvando..." : "Salvar"}</Button>
-    </form>
+      <div className="border-t border-black/[0.06] pt-3">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Modo de operação</p>
+        <div className="flex gap-1.5">
+          {(["teste", "piloto", "autonomo"] as const).map((modo) => (
+            <button
+              key={modo} type="button" onClick={() => handleModo(modo)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${config?.modo_operacao === modo ? "bg-primary text-white" : "bg-secondary text-muted-foreground hover:bg-secondary/70"}`}
+            >
+              {modo === "teste" ? "🧪 Teste" : modo === "piloto" ? "🟡 Piloto" : "🟢 Autônomo"}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          {config?.modo_operacao === "teste" && "Nenhuma mensagem real é enviada."}
+          {config?.modo_operacao === "piloto" && "Quantidade limitada de leads."}
+          {config?.modo_operacao === "autonomo" && "Iara operando dentro dos limites configurados."}
+        </p>
+      </div>
+    </div>
   );
 }

@@ -1,30 +1,32 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { Bot, User, Send } from "lucide-react";
+import { Bot, User, Send, AlertTriangle, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   assumirConversaProstecAction, enviarMensagemManualProstecAction, marcarConversaLidaProstecAction,
-  listarConversasProstecAction, buscarConversaComMensagensAction,
+  listarConversasProstecAction, buscarConversaComMensagensAction, devolverConversaParaIaraAction,
 } from "@/services/prostec/prostec.actions";
 import { formatDateTime } from "@/utils";
 
-// Tipos duplicados aqui de propósito — mesmo "import type" do
-// prostec.service.ts causava o bundler arrastar o arquivo inteiro
-// (que usa next/headers) pro bundle do cliente. Nunca importar nada
-// desse arquivo, nem tipo, de um "use client".
+// Tipos duplicados aqui de propósito — import (mesmo "type") de
+// prostec.service.ts arrasta o arquivo inteiro (usa next/headers)
+// pro bundle do cliente.
 interface ConversaProstec {
   id: string;
   telefone: string;
   status: string;
-  bot_ativo: boolean;
-  etapa_bot: string;
+  propriedade: string;
   nao_lidas: number;
   ultima_mensagem_em: string | null;
   lead_empresa_nome: string | null;
   lead_id: string | null;
+  exige_atencao: boolean;
+  motivo_atencao: string | null;
+  ultima_intencao: string | null;
+  proxima_acao: string | null;
 }
 
 interface MensagemProstec {
@@ -35,10 +37,7 @@ interface MensagemProstec {
   enviada_em: string;
 }
 
-const ETAPA_LABELS: Record<string, string> = {
-  abertura: "Iniciando", descobrir_responsavel: "Confirmando responsável", perguntar_site: "Perguntando sobre site",
-  apresentar_oportunidade: "Apresentando oportunidade", qualificado: "Qualificado 🔥", encerrado: "Encerrado",
-};
+const PROPRIEDADE_LABELS: Record<string, string> = { ai: "Iara conduzindo", human: "Com você", paused: "Pausada" };
 
 export function InboxProstecCliente({ conversasIniciais }: { conversasIniciais: ConversaProstec[] }) {
   const [conversas, setConversas] = useState(conversasIniciais);
@@ -60,7 +59,7 @@ export function InboxProstecCliente({ conversasIniciais }: { conversasIniciais: 
     })();
   }, [conversaAtivaId]);
 
-  // Atualiza a lista de conversas periodicamente — pra ver mensagem nova do bot/lead sem precisar recarregar a página inteira.
+  // Atualiza a lista de conversas periodicamente — pra ver mensagem nova da Iara/lead sem precisar recarregar a página inteira.
   useEffect(() => {
     const intervalo = setInterval(async () => {
       const resultLista = await listarConversasProstecAction();
@@ -95,8 +94,17 @@ export function InboxProstecCliente({ conversasIniciais }: { conversasIniciais: 
     });
   }
 
+  function handleDevolverParaIara() {
+    if (!conversaAtiva) return;
+    startTransition(async () => {
+      await devolverConversaParaIaraAction(conversaAtiva.id);
+      const atualizado = await buscarConversaComMensagensAction(conversaAtiva.id);
+      if (atualizado.success) setConversaAtiva(atualizado.data.conversa);
+    });
+  }
+
   return (
-    <div className="grid flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[280px_1fr]">
+    <div className="grid flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[300px_1fr]">
       <div className="flex flex-col gap-1.5 overflow-y-auto rounded-2xl border border-black/[0.06] bg-white p-2">
         {conversas.length === 0 && <p className="p-4 text-center text-xs text-muted-foreground">Nenhuma conversa ainda.</p>}
         {conversas.map((c) => (
@@ -106,11 +114,14 @@ export function InboxProstecCliente({ conversasIniciais }: { conversasIniciais: 
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-foreground">{c.lead_empresa_nome ?? c.telefone}</span>
-              {c.nao_lidas > 0 && <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-white">{c.nao_lidas}</span>}
+              <div className="flex items-center gap-1">
+                {c.exige_atencao && <AlertTriangle className="h-3 w-3 text-warning-text" />}
+                {c.nao_lidas > 0 && <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-white">{c.nao_lidas}</span>}
+              </div>
             </div>
             <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              {c.bot_ativo ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}
-              {ETAPA_LABELS[c.etapa_bot] ?? c.etapa_bot}
+              {c.propriedade === "ai" ? <Bot className="h-3 w-3" /> : c.propriedade === "paused" ? <Pause className="h-3 w-3" /> : <User className="h-3 w-3" />}
+              {c.ultima_intencao ?? PROPRIEDADE_LABELS[c.propriedade] ?? c.propriedade}
             </span>
           </button>
         ))}
@@ -125,11 +136,17 @@ export function InboxProstecCliente({ conversasIniciais }: { conversasIniciais: 
               <div>
                 <p className="text-sm font-medium text-foreground">{conversaAtiva.lead_empresa_nome ?? conversaAtiva.telefone}</p>
                 <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  {conversaAtiva.bot_ativo ? <><Bot className="h-3 w-3" />Bot conduzindo</> : <><User className="h-3 w-3" />Com você</>}
-                  {" · "}{ETAPA_LABELS[conversaAtiva.etapa_bot] ?? conversaAtiva.etapa_bot}
+                  {conversaAtiva.propriedade === "ai" ? <><Bot className="h-3 w-3" />Iara conduzindo</> : conversaAtiva.propriedade === "paused" ? <><Pause className="h-3 w-3" />Pausada</> : <><User className="h-3 w-3" />Com você</>}
+                  {conversaAtiva.proxima_acao && <span> · Próxima ação: {conversaAtiva.proxima_acao}</span>}
                 </p>
+                {conversaAtiva.exige_atencao && (
+                  <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-warning-text">
+                    <AlertTriangle className="h-3 w-3" />{conversaAtiva.motivo_atencao ?? "Precisa da sua atenção"}
+                  </p>
+                )}
               </div>
-              {conversaAtiva.bot_ativo && <Button type="button" size="sm" variant="outline" onClick={handleAssumir} disabled={isPending}>Assumir conversa</Button>}
+              {conversaAtiva.propriedade !== "human" && <Button type="button" size="sm" variant="outline" onClick={handleAssumir} disabled={isPending}>Assumir conversa</Button>}
+              {conversaAtiva.propriedade === "human" && <Button type="button" size="sm" variant="outline" onClick={handleDevolverParaIara} disabled={isPending}>Devolver pra Iara</Button>}
             </div>
 
             <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-3">

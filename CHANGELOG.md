@@ -4,6 +4,107 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 202] - Bug real achado: menu da Central da Loja "expulsava" o usuario
+
+### O bug
+Investigado o relato "entra numa aba, aperta um botao, sai de la" -
+achado na Central da Loja: 8 dos 19 itens do menu interno levavam pra
+FORA da secao completamente (pra /estoque, /clientes, /pedidos-loja,
+/financeiro, /configuracoes), fazendo a sidebar da Central da Loja
+sumir sem nenhum aviso claro - so uma setinha bem discreta (↗) que
+era facil de nao perceber.
+
+### Corrigido
+Menu da Central da Loja reorganizado em 2 blocos visualmente
+separados:
+- "Central da Loja" - so paginas que realmente vivem dentro dessa
+  secao (Dashboard, Analytics, Marcas, Colecoes, Cupons, Avaliacoes,
+  Fretes, SEO) - clicar aqui NUNCA tira voce do contexto
+- "Ferramentas relacionadas" - separado por linha, com aviso de texto
+  explicito ("essas telas ficam em outra area - ao clicar, voce sai
+  da Central da Loja") e icone de seta mais visivel
+
+Tambem removidas 3 entradas duplicadas que apontavam pro mesmo lugar
+com nomes diferentes (Categorias/Promocoes/Estoque todos iam pra
+/estoque).
+
+### Menu principal tambem reorganizado
+"Neotec Prostec" (negocio completamente diferente - venda de site,
+nao celular) estava misturado dentro do grupo "Operacao" da loja de
+celular - virou grupo proprio. Itens da loja virtual (Central da
+Loja, Analytics da Loja, Pedidos da Loja) que estavam espalhados
+dentro de "Operacao" agora tem grupo proprio "Loja Virtual" - fica
+mais facil de achar e entender o que e o que.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 202] - Iara: correcao de arquitetura + motor conversacional real (parcial)
+
+### Auditoria (Fase 1 do prompt) - achado critico
+O WhatsApp da Prostec (Fase 201) foi construido com Meta Cloud API
+oficial - a loja usa Bridge externo + Baileys (QR Code). Corrigido
+pra usar a MESMA arquitetura, como pedido explicitamente:
+- `integracoes_whatsapp_prostec` ganhou os campos certos (qr_code,
+  session_id, modo_operacao, iara_ativa) via ALTER (nunca DROP -
+  mantendo o padrao de migracao sempre aditiva deste projeto)
+- Provider reescrito pra falar com um Bridge PROPRIO da Prostec
+  (`WHATSAPP_PROSTEC_BRIDGE_URL`/`WHATSAPP_PROSTEC_BRIDGE_SECRET`) -
+  precisa de uma SEGUNDA instancia do mesmo software de Bridge
+  rodando, conectada a um numero diferente
+- 3 rotas novas espelhando o padrao da loja: /qr, /status, /mensagem
+
+### Iara - motor conversacional real (substitui o bot scripted)
+- Nao e mais maquina de estado fixa - cada mensagem manda o CONTEXTO
+  COMPLETO pra IA (empresa, score, oportunidade, historico da
+  conversa, etapa do CRM) e recebe de volta resposta natural +
+  decisao estruturada em JSON
+- Oferta comercial centralizada (`prostec_oferta`) - unica fonte de
+  verdade de preco/condicao, a Iara nunca inventa numero
+- Limite de desconto configuravel - pedido fora do limite pausa a
+  automacao e escala pro operador ANTES de responder qualquer coisa
+- Log de decisao (`prostec_ia_decisoes`) - auditavel, "por que a Iara
+  fez isso"
+- Propriedade da conversa (ai/human/paused) - nunca duas respostas
+  simultaneas. Vendedor manda mensagem manual = assume automatico.
+  Botao de devolver pra Iara
+- Memoria persistente por conversa (resumo, ultima intencao, proxima
+  acao, objecoes) - nunca so a ultima mensagem
+- Trava de seguranca: limite de mensagens por hora (detecta loop),
+  campo nao_contatar (opt-out respeitado de verdade)
+- 3 modos de operacao: teste (nunca envia de verdade), piloto,
+  autonomo - modo teste JA IMPLEMENTADO no codigo, nao so na UI
+
+### Reaproveitado, nao duplicado (como exigido)
+CRM, propostas, score, autenticacao, cron - nada disso foi tocado
+ou duplicado. So o "cerebro" da conversa mudou.
+
+---
+
+## Bloqueio real (nao e falta de credencial - e infraestrutura)
+Precisa de uma SEGUNDA instancia do processo de Bridge (o mesmo
+software Baileys que a loja usa) rodando em endereco separado. Isso
+e infraestrutura de servidor (nao e so uma variavel de ambiente) -
+fora do que consigo provisionar por aqui.
+
+## Nao implementado ainda (escopo do prompt e muito maior que uma sessao)
+Fila de prospeccao assincrona, tela de historico de score, aba "Iara"
+central dedicada, dashboard com abas dinamicas por contador, secao
+"precisa da minha atencao" agregada no dashboard principal,
+analytics avancado (conversao por segmento/horario/abordagem),
+estrutura de experimentos A/B, follow-up verdadeiramente contextual
+(hoje ainda e por tempo fixo 1/3/7 dias, a Iara ainda nao decide
+follow-up dinamicamente).
+
+## Nao testado
+Todo o fluxo depende do segundo Bridge existir de verdade - nao
+testado em producao.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 201] - WhatsApp + Bot SDR da Prostec (peca final da visao)
 
 Ultimo grande gap da auditoria vs. o documento de visao. Numero
