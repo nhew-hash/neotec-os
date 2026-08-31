@@ -13,16 +13,18 @@ export const SEGMENTOS_ALTA_NECESSIDADE = [
 
 export const CIDADES_SUGERIDAS = ["Araguari - MG", "Uberlândia - MG", "Patrocínio - MG", "Uberaba - MG", "Araxá - MG"];
 
-/** 10 status reais do sistema original — corrige a versão simplificada (5 status) que usei antes por engano. */
+/** Pipeline alinhado com a visão do documento: NOVO → CONTATADO →
+ * QUALIFICADO → REUNIÃO → PROPOSTA → NEGOCIAÇÃO → FECHADO, com PERDIDO
+ * (sempre com motivo) podendo acontecer em qualquer etapa. */
 export const STATUS_DISPONIVEIS = [
-  "novo", "contato_realizado", "nao_atendeu", "retornar_depois", "interessado",
-  "proposta_enviada", "negociacao", "venda_fechada", "sem_interesse", "numero_invalido",
+  "novo", "contato_realizado", "qualificado", "reuniao",
+  "proposta_enviada", "negociacao", "venda_fechada", "perdido",
 ];
 
 export const STATUS_LABELS: Record<string, string> = {
-  novo: "Novo", contato_realizado: "Contato realizado", nao_atendeu: "Não atendeu",
-  retornar_depois: "Retornar depois", interessado: "Interessado", proposta_enviada: "Proposta enviada",
-  negociacao: "Negociação", venda_fechada: "Venda fechada", sem_interesse: "Sem interesse", numero_invalido: "Número inválido",
+  novo: "Novo", contato_realizado: "Contatado", qualificado: "Qualificado",
+  reuniao: "Reunião", proposta_enviada: "Proposta enviada", negociacao: "Negociação",
+  venda_fechada: "Fechado", perdido: "Perdido",
 };
 
 export interface ScoreWeights {

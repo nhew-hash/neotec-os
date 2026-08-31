@@ -24,6 +24,62 @@ export async function listarLeadsProstec(): Promise<ProstecLead[]> {
   return (data ?? []) as unknown as ProstecLead[];
 }
 
+export interface FunilProstec {
+  novo: number; contato_realizado: number; qualificado: number; reuniao: number;
+  proposta_enviada: number; negociacao: number; venda_fechada: number; perdido: number;
+}
+
+export async function obterFunilProstec(): Promise<FunilProstec> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("prostec_leads").select("status");
+
+  const funil: FunilProstec = { novo: 0, contato_realizado: 0, qualificado: 0, reuniao: 0, proposta_enviada: 0, negociacao: 0, venda_fechada: 0, perdido: 0 };
+  for (const lead of data ?? []) {
+    if (lead.status in funil) funil[lead.status as keyof FunilProstec]++;
+  }
+  return funil;
+}
+
+export interface AtividadeProstec {
+  id: string;
+  tipo: string;
+  descricao: string;
+  created_at: string;
+  lead_empresa_nome: string | null;
+  usuario_nome: string | null;
+}
+
+export async function listarAtividadesProstec(limite = 20): Promise<AtividadeProstec[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("prostec_atividades")
+    .select("id, tipo, descricao, created_at, lead:prostec_leads(company:prostec_companies(name)), usuario:usuarios(nome)")
+    .order("created_at", { ascending: false })
+    .limit(limite);
+
+  return (data ?? []).map((a) => {
+    const lead = a.lead as unknown as { company: { name: string } | null } | null;
+    const usuario = a.usuario as unknown as { nome: string } | null;
+    return { id: a.id, tipo: a.tipo, descricao: a.descricao, created_at: a.created_at, lead_empresa_nome: lead?.company?.name ?? null, usuario_nome: usuario?.nome ?? null };
+  });
+}
+
+/** Follow-ups atrasados/hoje — pro dashboard nunca deixar o vendedor esquecer, pedido explícito do documento. */
+export async function obterResumoFollowupsProstec(): Promise<{ atrasados: number; hoje: number; proximos: number }> {
+  const supabase = await createClient();
+  const agora = new Date();
+  const hojeInicio = new Date(agora); hojeInicio.setHours(0, 0, 0, 0);
+  const hojeFim = new Date(agora); hojeFim.setHours(23, 59, 59, 999);
+
+  const [{ count: atrasados }, { count: hoje }, { count: proximos }] = await Promise.all([
+    supabase.from("prostec_lead_followups").select("*", { count: "exact", head: true }).eq("done", false).lt("next_contact_date", hojeInicio.toISOString().slice(0, 10)),
+    supabase.from("prostec_lead_followups").select("*", { count: "exact", head: true }).eq("done", false).eq("next_contact_date", hojeInicio.toISOString().slice(0, 10)),
+    supabase.from("prostec_lead_followups").select("*", { count: "exact", head: true }).eq("done", false).gt("next_contact_date", hojeInicio.toISOString().slice(0, 10)),
+  ]);
+
+  return { atrasados: atrasados ?? 0, hoje: hoje ?? 0, proximos: proximos ?? 0 };
+}
+
 export interface DashboardProstec {
   totalLeads: number;
   leadsQuentes: number;
@@ -52,6 +108,144 @@ export async function obterDashboardProstec(): Promise<DashboardProstec> {
     faturamentoMes: (vendasMesData ?? []).reduce((acc, v) => acc + Number(v.amount), 0),
     comissaoMes: (comissoesMesData ?? []).reduce((acc, c) => acc + Number(c.amount), 0),
   };
+}
+
+export interface RankingVendedor {
+  usuario_id: string;
+  nome: string;
+  metaMes: number;
+  faturamentoMes: number;
+  vendasMes: number;
+  progressoPct: number;
+}
+
+/** Ranking do mês atual — meta configurada + faturamento realizado, ordenado por quem vendeu mais. Pedido explícito do documento pra criar "competição saudável". */
+export async function obterRankingVendedores(): Promise<RankingVendedor[]> {
+  const supabase = await createClient();
+  const inicioMes = new Date();
+  inicioMes.setDate(1);
+  inicioMes.setHours(0, 0, 0, 0);
+  const mesRef = inicioMes.toISOString().slice(0, 10);
+
+  const [{ data: vendedores }, { data: metas }, { data: vendas }] = await Promise.all([
+    supabase.from("usuarios").select("id, nome").eq("cargo", "vendedor_prostec"),
+    supabase.from("prostec_metas").select("usuario_id, valor_meta").eq("mes", mesRef),
+    supabase.from("prostec_sales").select("user_id, amount").gte("closed_at", inicioMes.toISOString()),
+  ]);
+
+  const mapaMetas = new Map((metas ?? []).map((m) => [m.usuario_id, Number(m.valor_meta)]));
+  const ranking: RankingVendedor[] = (vendedores ?? []).map((v) => {
+    const vendasDoVendedor = (vendas ?? []).filter((s) => s.user_id === v.id);
+    const faturamentoMes = vendasDoVendedor.reduce((acc, s) => acc + Number(s.amount), 0);
+    const metaMes = mapaMetas.get(v.id) ?? 0;
+    return { usuario_id: v.id, nome: v.nome, metaMes, faturamentoMes, vendasMes: vendasDoVendedor.length, progressoPct: metaMes > 0 ? Math.round((faturamentoMes / metaMes) * 100) : 0 };
+  });
+
+  return ranking.sort((a, b) => b.faturamentoMes - a.faturamentoMes);
+}
+
+export interface ProstecProposta {
+  id: string;
+  produto: string;
+  valor: number;
+  forma_pagamento: string | null;
+  status: string;
+  token_publico: string;
+  visualizacoes: number;
+  primeira_visualizacao_em: string | null;
+  created_at: string;
+}
+
+export async function listarPropostasDoLead(leadId: string): Promise<ProstecProposta[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("prostec_propostas").select("*").eq("lead_id", leadId).order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+export interface PropostaPublica {
+  id: string;
+  produto: string;
+  valor: number;
+  forma_pagamento: string | null;
+  status: string;
+  empresa_nome: string | null;
+}
+
+/** Busca proposta pelo token público — sem exigir login, é o link que o cliente recebe. Já registra a visualização na mesma consulta. */
+export async function buscarPropostaPublicaPorToken(token: string): Promise<PropostaPublica | null> {
+  const supabase = await createClient();
+  const { data: proposta } = await supabase.from("prostec_propostas").select("id, produto, valor, forma_pagamento, status, visualizacoes, primeira_visualizacao_em, lead:prostec_leads(company:prostec_companies(name))").eq("token_publico", token).maybeSingle();
+  if (!proposta) return null;
+
+  await supabase.from("prostec_propostas").update({
+    visualizacoes: proposta.visualizacoes + 1,
+    primeira_visualizacao_em: proposta.primeira_visualizacao_em ?? new Date().toISOString(),
+    ultima_visualizacao_em: new Date().toISOString(),
+    status: proposta.status === "enviada" ? "visualizada" : proposta.status,
+  }).eq("id", proposta.id);
+
+  const lead = proposta.lead as unknown as { company: { name: string } | null } | null;
+  return { id: proposta.id, produto: proposta.produto, valor: proposta.valor, forma_pagamento: proposta.forma_pagamento, status: proposta.status, empresa_nome: lead?.company?.name ?? null };
+}
+
+/**
+ * Follow-up automático — pedido explícito do documento: dia 1, 3 e 7
+ * depois de proposta enviada sem resposta, cria um lembrete de
+ * follow-up com sugestão de mensagem pronta. Nunca duplica (confere
+ * se já existe um follow-up pendente pra aquele dia antes de criar).
+ */
+export async function gerarFollowupsAutomaticosProstec(): Promise<{ criados: number }> {
+  const supabase = await createClient();
+  const agora = new Date();
+
+  const { data: propostasPendentes } = await supabase
+    .from("prostec_propostas")
+    .select("id, lead_id, produto, created_at")
+    .in("status", ["enviada", "visualizada"]);
+
+  const MENSAGENS_POR_DIA: Record<number, string> = {
+    1: "Oi, tudo bem? Conseguiu dar uma olhada na proposta que te enviei?",
+    3: "Passando pra saber se ficou alguma dúvida sobre o projeto.",
+    7: "Ainda faz sentido conversarmos sobre o site da empresa?",
+  };
+
+  let criados = 0;
+
+  for (const proposta of propostasPendentes ?? []) {
+    const diasPassados = Math.floor((agora.getTime() - new Date(proposta.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    if (![1, 3, 7].includes(diasPassados)) continue;
+
+    const dataAlvo = new Date(proposta.created_at);
+    dataAlvo.setDate(dataAlvo.getDate() + diasPassados);
+    const dataAlvoStr = dataAlvo.toISOString().slice(0, 10);
+
+    const { data: jaExiste } = await supabase
+      .from("prostec_lead_followups")
+      .select("id")
+      .eq("lead_id", proposta.lead_id)
+      .eq("next_contact_date", dataAlvoStr)
+      .eq("observation", MENSAGENS_POR_DIA[diasPassados])
+      .maybeSingle();
+    if (jaExiste) continue;
+
+    await supabase.from("prostec_lead_followups").insert({
+      lead_id: proposta.lead_id, next_contact_date: dataAlvoStr, observation: MENSAGENS_POR_DIA[diasPassados],
+    });
+    criados++;
+  }
+
+  // Dia 15 sem resposta — registra como atividade (nutrição futura),
+  // não move de status sozinho (decisão do vendedor, não automática).
+  for (const proposta of propostasPendentes ?? []) {
+    const diasPassados = Math.floor((agora.getTime() - new Date(proposta.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    if (diasPassados !== 15) continue;
+    await supabase.from("prostec_atividades").insert({
+      lead_id: proposta.lead_id, tipo: "nutricao",
+      descricao: `⏳ 15 dias sem resposta na proposta "${proposta.produto}" — considera mover pra nutrição ou marcar como perdido.`,
+    });
+  }
+
+  return { criados };
 }
 
 export interface ProstecCompany {
@@ -169,4 +363,65 @@ export async function obterComissaoPorVendedor(): Promise<ComissaoPorVendedor[]>
   }
 
   return Array.from(mapa.values()).sort((a, b) => b.comissaoTotal - a.comissaoTotal);
+}
+
+export interface ConversaProstec {
+  id: string;
+  telefone: string;
+  status: string;
+  bot_ativo: boolean;
+  etapa_bot: string;
+  nao_lidas: number;
+  ultima_mensagem_em: string | null;
+  lead_empresa_nome: string | null;
+  lead_id: string | null;
+}
+
+export async function listarConversasProstec(): Promise<ConversaProstec[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("prostec_conversas")
+    .select("id, telefone, status, bot_ativo, etapa_bot, nao_lidas, ultima_mensagem_em, lead_id, lead:prostec_leads(company:prostec_companies(name))")
+    .order("ultima_mensagem_em", { ascending: false, nullsFirst: false });
+
+  return (data ?? []).map((c) => {
+    const lead = c.lead as unknown as { company: { name: string } | null } | null;
+    return { id: c.id, telefone: c.telefone, status: c.status, bot_ativo: c.bot_ativo, etapa_bot: c.etapa_bot, nao_lidas: c.nao_lidas, ultima_mensagem_em: c.ultima_mensagem_em, lead_id: c.lead_id, lead_empresa_nome: lead?.company?.name ?? null };
+  });
+}
+
+export interface MensagemProstec {
+  id: string;
+  remetente: string;
+  conteudo: string;
+  ia_gerada: boolean;
+  enviada_em: string;
+}
+
+export async function buscarConversaComMensagens(conversaId: string): Promise<{ conversa: ConversaProstec; mensagens: MensagemProstec[] } | null> {
+  const supabase = await createClient();
+  const [{ data: conversa }, { data: mensagens }] = await Promise.all([
+    supabase.from("prostec_conversas").select("id, telefone, status, bot_ativo, etapa_bot, nao_lidas, ultima_mensagem_em, lead_id, lead:prostec_leads(company:prostec_companies(name))").eq("id", conversaId).maybeSingle(),
+    supabase.from("prostec_mensagens").select("id, remetente, conteudo, ia_gerada, enviada_em").eq("conversa_id", conversaId).order("enviada_em"),
+  ]);
+  if (!conversa) return null;
+
+  const lead = conversa.lead as unknown as { company: { name: string } | null } | null;
+  return {
+    conversa: { id: conversa.id, telefone: conversa.telefone, status: conversa.status, bot_ativo: conversa.bot_ativo, etapa_bot: conversa.etapa_bot, nao_lidas: conversa.nao_lidas, ultima_mensagem_em: conversa.ultima_mensagem_em, lead_id: conversa.lead_id, lead_empresa_nome: lead?.company?.name ?? null },
+    mensagens: mensagens ?? [],
+  };
+}
+
+export interface ConfigWhatsappProstec {
+  phone_number_id: string | null;
+  access_token: string | null;
+  numero: string | null;
+  status: string;
+}
+
+export async function buscarConfigWhatsappProstec(): Promise<ConfigWhatsappProstec | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("integracoes_whatsapp_prostec").select("phone_number_id, access_token, numero, status").maybeSingle();
+  return data ?? null;
 }

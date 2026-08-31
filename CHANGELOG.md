@@ -4,6 +4,148 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 201] - WhatsApp + Bot SDR da Prostec (peca final da visao)
+
+Ultimo grande gap da auditoria vs. o documento de visao. Numero
+PROPRIO da Prostec - nunca compartilhado com o WhatsApp da loja
+(publicos completamente diferentes: cliente final vs lead B2B).
+
+### Infraestrutura nova
+- `integracoes_whatsapp_prostec` - config propria (phone_number_id,
+  access_token), completamente separada de `integracoes_whatsapp` (loja)
+- `prostec_conversas` / `prostec_mensagens` - espelham a estrutura ja
+  usada na loja, mas vinculadas a `prostec_leads`, nao a `clientes`
+- Webhook proprio: `/api/prostec/whatsapp/webhook` - verify token e
+  app secret proprios (`WHATSAPP_PROSTEC_VERIFY_TOKEN` /
+  `WHATSAPP_PROSTEC_APP_SECRET`), nunca o mesmo endpoint da loja
+
+### Bot SDR - segue o roteiro exato do documento
+Abertura -> confirma responsavel -> pergunta se tem site -> apresenta
+oportunidade -> qualifica -> passa pro vendedor. O bot NUNCA tenta
+vender sozinho (regra explicita do documento) - so qualifica e
+entrega pronto. Usa a MESMA infraestrutura de IA ja existente
+(configuracoes_ia / Anthropic-OpenAI-Gemini) so pra CLASSIFICAR a
+resposta do lead (positivo/negativo/incerto) - se a IA falhar ou ficar
+incerta, nunca decide sozinho, deixa pro vendedor ver a conversa.
+
+### Inbox
+Central de conversas propria da Prostec - lista + chat, mostra se e o
+bot ou um vendedor conduzindo, "Assumir conversa" a qualquer momento,
+atualiza sozinho a cada 8s (sem precisar de infraestrutura de
+realtime nova).
+
+### Handoff automatico
+Quando o lead responde positivo na etapa final, o bot desliga sozinho
+(bot_ativo = false), lead vira "qualificado" + temperatura "quente",
+e gera atividade no feed do dashboard pro vendedor ver.
+
+---
+
+## Status final vs. o documento de visao original
+
+Com essa entrega, TODAS as pecas principais do documento foram
+construidas: prospeccao real, score, CRM, pipeline visual, dashboard,
+follow-up automatico, metas, ranking, propostas rastreaveis, WhatsApp
+com bot SDR qualificando sozinho.
+
+### Ainda fora do escopo (deliberadamente, menor prioridade)
+- Analise de conversa por IA pos-atendimento (sentimento, objecao,
+  probabilidade de fechamento) - o bot QUALIFICA, mas nao faz analise
+  retrospectiva ainda
+- Distribuicao automatica de leads entre vendedores (round robin /
+  por desempenho) - hoje e manual
+- Campanhas com metricas proprias por campanha
+- Modulo de clientes/onboarding pos-venda (briefing, projeto, entrega)
+- Rebranding pra "Nexora" (decisao de negocio, nao tecnica - nao
+  aplicada)
+
+### Antes de usar de verdade
+1. Precisa criar um App novo no Meta for Developers, numero de
+   WhatsApp Business PROPRIO da Prostec (nao o da loja)
+2. Configurar o webhook no painel da Meta apontando pra
+   `/api/prostec/whatsapp/webhook`
+3. Preencher phone_number_id + access_token em Prostec ->
+   Configuracoes -> WhatsApp da Prostec
+4. Adicionar as variaveis de ambiente `WHATSAPP_PROSTEC_VERIFY_TOKEN`
+   e `WHATSAPP_PROSTEC_APP_SECRET` no Vercel
+
+### Nao testado (mesma ressalva de sempre)
+Todo o fluxo de bot/WhatsApp depende de credenciais reais da Meta que
+nao tenho acesso pra testar em producao. Recomendo fortemente um teste
+controlado (1 numero de teste, 1 lead de teste) antes de usar com
+lead real.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 200] - Prostec: pipeline visual, dashboard completo, metas/ranking, propostas rastreaveis, follow-up automatico
+
+Grande expansao do Prostec, comparado contra o documento de visao
+completo (Nexora Sales OS). Rebranding NAO aplicado (usuario decidiu
+manter Neotec Prostec por enquanto).
+
+### Pipeline novo (alinhado com a visao)
+Trocado o pipeline anterior (10 status genericos) por um mais proximo
+do documento: Novo -> Contatado -> Qualificado -> Reuniao -> Proposta
+-> Negociacao -> Fechado, com Perdido (sempre com motivo obrigatorio -
+Preco, Sem interesse, Ja possui fornecedor, Ja possui site, Nao
+respondeu, Momento inadequado, Concorrente, Outro). Leads existentes
+migrados pro pipeline novo automaticamente.
+
+### Pipeline visual (kanban)
+Quadro com as 7 colunas do funil, mover lead entre colunas direto (sem
+arrastar - por botao de seta, dado o tempo).
+
+### Dashboard completo
+Funil visual (barra por etapa), atividade recente (feed automatico -
+lead criado, status mudou, venda, proposta), aviso de follow-up
+atrasado/hoje/proximo.
+
+### Metas e Ranking
+Meta mensal por vendedor (editavel direto na tabela), ranking com
+podio (🏆🥈🥉) ordenado por faturamento do mes, barra de progresso.
+
+### Propostas rastreaveis
+Gerar proposta -> link publico (sem login) -> cliente abre, ve
+produto/valor/pagamento, aceita ou recusa. Sistema registra quantas
+vezes abriu, quando abriu primeiro/ultimo, e status muda sozinho
+(enviada -> visualizada -> aceita/recusada). Aceitar move o lead
+automaticamente pra negociacao.
+
+### Follow-up automatico (dia 1/3/7 depois de proposta)
+Reaproveita o MESMO cron diario que ja existia (nao criou rota nova -
+Vercel Hobby so permite 2 crons). Gera lembrete automatico nos dias
+1/3/7 sem resposta, com a mensagem sugerida do documento. Dia 15,
+registra atividade de "considerar nutricao" (nao move sozinho, fica a
+criterio do vendedor).
+
+### Atividades - feed automatico
+Toda acao importante (lead criado, status mudou, venda, proposta
+enviada/respondida) agora gera uma linha no feed de atividades,
+alimentando o dashboard.
+
+---
+
+## ❌ Ainda NAO construido (maior gap da visao)
+
+**WhatsApp + Bot SDR com IA** - o coracao da visao do documento (secoes
+6, 8, 9, 13). Nao construi isso nessa entrega porque:
+1. Precisa de um numero de WhatsApp PROPRIO da Prostec (nao pode
+   misturar com o numero da loja - cliente de loja e lead B2B sao
+   publicos completamente diferentes)
+2. E o modulo de maior complexidade isolada (webhook, IA qualificando
+   sozinha, handoff bot->vendedor, inbox compartilhada) - merece uma
+   entrega dedicada, nao "encaixado" no fim de uma sessao ja enorme
+
+Tambem nao construidos: analise de conversa por IA (depende do
+WhatsApp existir primeiro), campanhas com metricas por campanha,
+modulo de clientes/onboarding pos-venda.
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 199] - CRITICO: estoque zerado continuava aparecendo disponivel no site
 
 ### O bug real

@@ -9,11 +9,10 @@ import { Input } from "@/components/ui/input";
 import { atualizarStatusLeadProstecAction, registrarVendaProstecAction } from "@/services/prostec/prostec.actions";
 import type { ProstecLead } from "@/services/prostec/prostec.service";
 
-const STATUS_DISPONIVEIS = ["novo", "contato_realizado", "nao_atendeu", "retornar_depois", "interessado", "proposta_enviada", "negociacao", "venda_fechada", "sem_interesse", "numero_invalido"];
+const STATUS_DISPONIVEIS = ["novo", "contato_realizado", "qualificado", "reuniao", "proposta_enviada", "negociacao", "venda_fechada", "perdido"];
 const STATUS_LABELS: Record<string, string> = {
-  novo: "Novo", contato_realizado: "Contato realizado", nao_atendeu: "Não atendeu",
-  retornar_depois: "Retornar depois", interessado: "Interessado", proposta_enviada: "Proposta enviada",
-  negociacao: "Negociação", venda_fechada: "Venda fechada", sem_interesse: "Sem interesse", numero_invalido: "Número inválido",
+  novo: "Novo", contato_realizado: "Contatado", qualificado: "Qualificado", reuniao: "Reunião",
+  proposta_enviada: "Proposta enviada", negociacao: "Negociação", venda_fechada: "Fechado", perdido: "Perdido",
 };
 const COR_TEMPERATURA: Record<string, string> = { quente: "text-danger bg-danger/10", morno: "text-warning bg-warning/10", frio: "text-muted-foreground bg-secondary" };
 
@@ -42,6 +41,13 @@ function LinhaLead({ lead }: { lead: ProstecLead }) {
   const [salvando, setSalvando] = useState(false);
 
   async function handleMudarStatus(novoStatus: string) {
+    if (novoStatus === "perdido") {
+      const motivo = window.prompt("Por que esse lead foi perdido? (Preço, Sem interesse, Já possui fornecedor, Já possui site, Não respondeu, Momento inadequado, Concorrente, Outro)");
+      if (!motivo?.trim()) return; // sem motivo, não marca como perdido — pedido explícito, precisa saber o porquê
+      setStatus(novoStatus);
+      await atualizarStatusLeadProstecAction(lead.id, novoStatus, motivo.trim());
+      return;
+    }
     setStatus(novoStatus);
     await atualizarStatusLeadProstecAction(lead.id, novoStatus);
   }

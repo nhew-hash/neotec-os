@@ -1,13 +1,15 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { buscarLeadProstecPorId } from "@/services/prostec/prostec.service";
+import { buscarLeadProstecPorId, listarPropostasDoLead } from "@/services/prostec/prostec.service";
 import { LeadDetalhePainel } from "@/components/prostec/lead-detalhe-painel";
+import { PropostaLeadPanel } from "@/components/prostec/proposta-lead-panel";
+import { EnviarBotButton } from "@/components/prostec/enviar-bot-button";
 import { formatDateTime } from "@/utils";
 
 export default async function LeadProstecDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const lead = await buscarLeadProstecPorId(id);
+  const [lead, propostas] = await Promise.all([buscarLeadProstecPorId(id), listarPropostasDoLead(id)]);
   if (!lead) notFound();
 
   return (
@@ -25,9 +27,11 @@ export default async function LeadProstecDetailPage({ params }: { params: Promis
         <LeadDetalhePainel lead={lead} />
 
         <div className="flex flex-col gap-4">
+          <PropostaLeadPanel leadId={id} propostas={propostas} />
+
           <div className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-sm font-semibold text-foreground">Dados da empresa</h2>
-            <dl className="flex flex-col gap-1.5 text-xs">
+            <dl className="mb-3 flex flex-col gap-1.5 text-xs">
               <Item label="Telefone" valor={lead.company_full?.phone} />
               <Item label="WhatsApp" valor={lead.company_full?.whatsapp} />
               <Item label="Site" valor={lead.company_full?.website} />
@@ -35,6 +39,7 @@ export default async function LeadProstecDetailPage({ params }: { params: Promis
               <Item label="Avaliação" valor={lead.company_full?.rating ? `${lead.company_full.rating} (${lead.company_full.reviews_count} avaliações)` : null} />
               <Item label="Endereço" valor={lead.company_full?.address} />
             </dl>
+            <EnviarBotButton leadId={id} telefone={lead.company_full?.whatsapp ?? lead.company_full?.phone ?? null} nomeEmpresa={lead.company_full?.name ?? "essa empresa"} />
           </div>
 
           <div className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-sm">

@@ -4,18 +4,25 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/types";
 
-export async function atualizarStatusLeadProstecAction(leadId: string, novoStatus: string): Promise<ActionResult> {
+export async function atualizarStatusLeadProstecAction(leadId: string, novoStatus: string, motivoPerda?: string): Promise<ActionResult> {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     const { data: leadAtual } = await supabase.from("prostec_leads").select("status").eq("id", leadId).maybeSingle();
 
-    const { error } = await supabase.from("prostec_leads").update({ status: novoStatus, updated_at: new Date().toISOString() }).eq("id", leadId);
+    const { error } = await supabase.from("prostec_leads").update({
+      status: novoStatus, motivo_perda: novoStatus === "perdido" ? (motivoPerda ?? null) : null, updated_at: new Date().toISOString(),
+    }).eq("id", leadId);
     if (error) throw new Error(error.message);
 
     await supabase.from("prostec_lead_status_history").insert({
       lead_id: leadId, from_status: leadAtual?.status ?? null, to_status: novoStatus, changed_by: user?.id ?? null,
+    });
+
+    await supabase.from("prostec_atividades").insert({
+      lead_id: leadId, usuario_id: user?.id ?? null, tipo: "status_mudou",
+      descricao: novoStatus === "perdido" ? `Marcado como perdido — ${motivoPerda}` : `Status mudou pra "${novoStatus}"`,
     });
 
     revalidatePath("/prostec");
@@ -121,6 +128,10 @@ export async function registrarVendaProstecAction(leadId: string, product: strin
 
     await supabase.from("prostec_leads").update({ status: "venda_fechada" }).eq("id", leadId);
 
+    await supabase.from("prostec_atividades").insert({
+      lead_id: leadId, usuario_id: user.id, tipo: "venda", descricao: `💰 Venda fechada — ${product} (${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount)})`,
+    });
+
     revalidatePath("/prostec");
     return { success: true, data: undefined };
   } catch (err) {
@@ -169,6 +180,11 @@ export async function cadastrarEmpresaManualAction(formData: FormData): Promise<
       .select("id")
       .single();
     if (erroLead) throw new Error(erroLead.message);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from("prostec_atividades").insert({
+      lead_id: lead.id, usuario_id: user?.id ?? null, tipo: "lead_criado", descricao: `Lead cadastrado manualmente — ${nome}`,
+    });
 
     revalidatePath("/prostec/empresas");
     revalidatePath("/prostec");
@@ -304,5 +320,149 @@ export async function executarBuscaProstecAction(formData: FormData): Promise<Ac
     return { success: true, data: { leadsCriados: criados, leadsAtualizados: atualizados, totalEncontrado: raw.length } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao executar busca" };
+  }
+}
+
+export async function definirMetaVendedorAction(usuarioId: string, valorMeta: number): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const mesRef = new Date();
+    mesRef.setDate(1);
+    const { error } = await supabase.from("prostec_metas").upsert(
+      { usuario_id: usuarioId, mes: mesRef.toISOString().slice(0, 10), valor_meta: valorMeta },
+      { onConflict: "usuario_id,mes" }
+    );
+    if (error) throw new Error(error.message);
+    revalidatePath("/prostec/ranking");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao definir meta" };
+  }
+}
+
+export async function criarPropostaProstecAction(leadId: string, produto: string, valor: number, formaPagamento: string): Promise<ActionResult<{ token: string }>> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data: proposta, error } = await supabase.from("prostec_propostas").insert({
+      lead_id: leadId, criado_por: user?.id ?? null, produto, valor, forma_pagamento: formaPagamento || null,
+    }).select("token_publico").single();
+    if (error) throw new Error(error.message);
+
+    await supabase.from("prostec_leads").update({ status: "proposta_enviada" }).eq("id", leadId);
+    await supabase.from("prostec_atividades").insert({
+      lead_id: leadId, usuario_id: user?.id ?? null, tipo: "proposta_enviada", descricao: `📄 Proposta enviada — ${produto}`,
+    });
+
+    revalidatePath(`/prostec/leads/${leadId}`);
+    revalidatePath("/prostec");
+    return { success: true, data: { token: proposta.token_publico } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao criar proposta" };
+  }
+}
+
+/** Chamado pela página pública da proposta — sem login, o cliente clica aceitar/recusar. */
+export async function responderPropostaPublicaAction(token: string, resposta: "aceita" | "recusada"): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { data: proposta } = await supabase.from("prostec_propostas").select("id, lead_id, produto").eq("token_publico", token).maybeSingle();
+    if (!proposta) return { success: false, error: "Proposta não encontrada" };
+
+    await supabase.from("prostec_propostas").update({ status: resposta, respondida_em: new Date().toISOString() }).eq("id", proposta.id);
+
+    if (resposta === "aceita") {
+      await supabase.from("prostec_leads").update({ status: "negociacao" }).eq("id", proposta.lead_id);
+    }
+
+    await supabase.from("prostec_atividades").insert({
+      lead_id: proposta.lead_id, tipo: "proposta_visualizada",
+      descricao: resposta === "aceita" ? `✅ Cliente aceitou a proposta — ${proposta.produto}` : `❌ Cliente recusou a proposta — ${proposta.produto}`,
+    });
+
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao registrar resposta" };
+  }
+}
+
+export async function iniciarBotProstecAction(leadId: string, telefone: string, nomeEmpresa: string): Promise<ActionResult> {
+  try {
+    const { iniciarConversaBot } = await import("./whatsapp/prostec-bot.service");
+    const resultado = await iniciarConversaBot(leadId, telefone, nomeEmpresa);
+    if (!resultado.sucesso) return { success: false, error: resultado.motivo ?? "Erro ao iniciar bot" };
+    revalidatePath("/prostec/inbox");
+    revalidatePath(`/prostec/leads/${leadId}`);
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao iniciar bot" };
+  }
+}
+
+export async function assumirConversaProstecAction(conversaId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Sessão expirada" };
+
+    const { assumirConversaProstec } = await import("./whatsapp/prostec-bot.service");
+    await assumirConversaProstec(conversaId, user.id);
+    revalidatePath("/prostec/inbox");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao assumir conversa" };
+  }
+}
+
+export async function enviarMensagemManualProstecAction(conversaId: string, telefone: string, texto: string): Promise<ActionResult> {
+  if (!texto.trim()) return { success: false, error: "Escreve alguma coisa" };
+  try {
+    const { enviarMensagemProstec } = await import("./whatsapp/prostec-whatsapp.provider");
+    const resultado = await enviarMensagemProstec(telefone, texto);
+    if (!resultado.enviado) return { success: false, error: resultado.motivo ?? "Não foi possível enviar" };
+
+    const supabase = await createClient();
+    await supabase.from("prostec_mensagens").insert({ conversa_id: conversaId, remetente: "vendedor", conteudo: texto });
+    await supabase.from("prostec_conversas").update({ ultima_mensagem_em: new Date().toISOString(), nao_lidas: 0 }).eq("id", conversaId);
+
+    revalidatePath("/prostec/inbox");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao enviar mensagem" };
+  }
+}
+
+export async function marcarConversaLidaProstecAction(conversaId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    await supabase.from("prostec_conversas").update({ nao_lidas: 0 }).eq("id", conversaId);
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro" };
+  }
+}
+
+export async function salvarConfigWhatsappProstecAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { data: existente } = await supabase.from("integracoes_whatsapp_prostec").select("id").maybeSingle();
+
+    const dados = {
+      phone_number_id: String(formData.get("phone_number_id") ?? "").trim() || null,
+      access_token: String(formData.get("access_token") ?? "").trim() || null,
+      numero: String(formData.get("numero") ?? "").trim() || null,
+    };
+
+    if (existente) {
+      await supabase.from("integracoes_whatsapp_prostec").update(dados).eq("id", existente.id);
+    } else {
+      await supabase.from("integracoes_whatsapp_prostec").insert(dados);
+    }
+
+    revalidatePath("/prostec/configuracoes");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar configuração" };
   }
 }
