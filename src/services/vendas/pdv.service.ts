@@ -97,6 +97,7 @@ export async function criarVendaPDV(input: PdvVendaValues, usuarioId: string): P
       quantidade: item.quantidade,
       valor: item.valor,
       custo: item.custo,
+      eh_brinde: item.ehBrinde ?? false,
     });
 
     if (item.tipo === "aparelho") {

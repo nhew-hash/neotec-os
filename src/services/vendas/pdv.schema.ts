@@ -6,6 +6,7 @@ export const pdvItemSchema = z.object({
   nome: z.string(), // só pra exibição no carrinho, não é gravado
   quantidade: z.coerce.number().int().positive().default(1),
   valor: z.coerce.number().min(0, "Informe um valor válido"),
+  ehBrinde: z.boolean().optional().default(false),
 });
 export type PdvItemValues = z.infer<typeof pdvItemSchema>;
 

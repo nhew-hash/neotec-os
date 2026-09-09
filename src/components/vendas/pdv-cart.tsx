@@ -100,7 +100,7 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
     // Adiciona direto no carrinho — não precisa buscar de novo na lista.
     setItens((prev) => [
       ...prev,
-      { tipo: "aparelho", id: result.data.id, nome: `${result.data.nome} — ${result.data.imei}`, quantidade: 1, valor: result.data.preco_venda },
+      { tipo: "aparelho", id: result.data.id, nome: `${result.data.nome} — ${result.data.imei}`, quantidade: 1, valor: result.data.preco_venda, ehBrinde: false },
     ]);
 
     setMostrarCadastroAparelho(false);
@@ -148,6 +148,7 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
         nome: `${aparelho.produto?.nome ?? "Aparelho"} — ${aparelho.imei}`,
         quantidade: 1,
         valor: aparelho.preco_venda ?? 0,
+        ehBrinde: false,
       },
     ]);
   }
@@ -160,7 +161,7 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
     }
     setItens((prev) => [
       ...prev,
-      { tipo: "produto", id: produto.id, nome: produto.nome, quantidade: 1, valor: produto.preco_venda ?? 0 },
+      { tipo: "produto", id: produto.id, nome: produto.nome, quantidade: 1, valor: produto.preco_venda ?? 0, ehBrinde: false },
     ]);
   }
 
@@ -170,6 +171,14 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
 
   function atualizarItem(index: number, campo: "quantidade" | "valor", valor: number) {
     setItens((prev) => prev.map((item, i) => (i === index ? { ...item, [campo]: Math.max(campo === "quantidade" ? 1 : 0, valor) } : item)));
+  }
+
+  function alternarBrinde(index: number) {
+    setItens((prev) => prev.map((item, i) => {
+      if (i !== index) return item;
+      const novoEhBrinde = !item.ehBrinde;
+      return { ...item, ehBrinde: novoEhBrinde, valor: novoEhBrinde ? 0 : item.valor };
+    }));
   }
 
   async function handleCriarCliente() {
@@ -453,10 +462,20 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
                       </Button>
                     </div>
                   )}
+                  <button
+                    type="button" onClick={() => alternarBrinde(index)}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-medium transition-colors",
+                      item.ehBrinde ? "border-success bg-success/10 text-success-text" : "border-border text-muted-foreground hover:border-foreground/20"
+                    )}
+                    title="Marcar como brinde (dado de graça)"
+                  >
+                    <Gift className="h-3 w-3" />{item.ehBrinde ? "Brinde" : ""}
+                  </button>
                   <Input
-                    type="number" step="0.01" value={item.valor}
+                    type="number" step="0.01" value={item.valor} disabled={item.ehBrinde}
                     onChange={(e) => atualizarItem(index, "valor", Number(e.target.value) || 0)}
-                    className="h-7 w-20 text-xs"
+                    className={cn("h-7 w-20 text-xs", item.ehBrinde && "opacity-50")}
                   />
                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => removerItem(index)}>
                     <Trash2 className="h-3.5 w-3.5 text-danger" />

@@ -23,7 +23,7 @@ export async function montarHtmlComprovanteAparelho(input: {
   const [{ data: venda }, { data: itens }, template] = await Promise.all([
     supabase.from("vw_vendas_seguro").select("*, cliente:clientes(nome, cpf, whatsapp, endereco), vendedor:usuarios(nome)").eq("id", input.vendaId).maybeSingle(),
     supabase.from("venda_itens").select(`
-      quantidade, valor, aparelho_id, produto_id,
+      quantidade, valor, aparelho_id, produto_id, eh_brinde,
       aparelho:aparelhos(imei, numero_serie, cor, memoria, bateria, condicao, produto:produtos(nome)),
       produto:produtos(nome)
     `).eq("venda_id", input.vendaId),
@@ -43,12 +43,14 @@ export async function montarHtmlComprovanteAparelho(input: {
       const descricao = aparelhoInfo?.produto?.nome ?? produtoInfo?.nome ?? "Item";
       const identificacao = aparelhoInfo?.imei ? `IMEI: ${aparelhoInfo.imei}` : "—";
       const total = item.valor * item.quantidade;
+      const valorExibido = item.eh_brinde ? "BRINDE" : formatCurrency(item.valor);
+      const totalExibido = item.eh_brinde ? "BRINDE" : formatCurrency(total);
       return `<tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 5px 2px;">${escaparCelula(descricao)}</td>
+        <td style="padding: 5px 2px;">${escaparCelula(descricao)}${item.eh_brinde ? ' <span style="color:#0F7A3D;font-weight:700;">(brinde)</span>' : ""}</td>
         <td style="padding: 5px 2px; font-size:10px; color:#666;">${escaparCelula(identificacao)}</td>
         <td style="padding: 5px 2px; text-align:center;">${item.quantidade}</td>
-        <td style="padding: 5px 2px; text-align:right;">${formatCurrency(item.valor)}</td>
-        <td style="padding: 5px 2px; text-align:right;">${formatCurrency(total)}</td>
+        <td style="padding: 5px 2px; text-align:right;">${valorExibido}</td>
+        <td style="padding: 5px 2px; text-align:right;">${totalExibido}</td>
       </tr>`;
     })
     .join("");
