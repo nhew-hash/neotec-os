@@ -1,0 +1,187 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+import { paraFormatoLocalBR } from "@/utils/telefone";
+
+/**
+ * Automação da Central de Comunicação:
+ * Nova mensagem → Criar Lead → Relacionar cliente → Criar CRM → Follow-up
+ *
+ * Usa Service Role porque é acionada pelo webhook da Meta.
+ */
+export async function processarAutomacaoNovaMensagem(params: {
+  telefone: string;
+  nomeContato?: string;
+  conversaId: string;
+}): Promise<{ clienteId: string; cardId: string }> {
+  const supabase = createAdminClient();
+
+  // Mensagem chega com o telefone completo (com "55", tanto da Meta
+  // quanto do WhatsApp Web) — mas clientes.whatsapp nunca tem o "55".
+  // Sem normalizar aqui, nunca casava com cliente já cadastrado.
+  const telefoneLocal = paraFormatoLocalBR(params.telefone);
+
+  // 1) Buscar cliente pelo WhatsApp
+  const { data: clienteExistente } = await supabase
+    .from("clientes")
+    .select("id")
+    .eq("whatsapp", telefoneLocal)
+    .maybeSingle();
+
+  let clienteId: string | undefined = clienteExistente?.id;
+
+  // Criar cliente caso não exista
+  if (!clienteId) {
+    const { data: novoCliente, error: erroCliente } = await supabase
+      .from("clientes")
+      .insert({
+        nome: params.nomeContato || `Contato ${telefoneLocal}`,
+        whatsapp: telefoneLocal,
+      })
+      .select("id")
+      .single();
+
+    if (erroCliente || !novoCliente) {
+      // Duas mensagens quase simultâneas do mesmo número novo podem
+      // corrida aqui — a primeira já criou o cliente entre o SELECT
+      // e o INSERT dessa chamada. Em vez de derrubar o processamento
+      // do webhook inteiro, busca o cliente que a outra chamada
+      // acabou de criar.
+      if (erroCliente?.code === "23505") {
+        const { data: clienteDaCorrida } = await supabase
+          .from("clientes")
+          .select("id")
+          .eq("whatsapp", telefoneLocal)
+          .maybeSingle();
+        if (clienteDaCorrida) {
+          clienteId = clienteDaCorrida.id;
+        } else {
+          throw new Error(`Cliente duplicado detectado, mas não consegui recuperar o registro: ${erroCliente.message}`);
+        }
+      } else {
+        throw new Error(
+          `Não foi possível criar o cliente automaticamente: ${erroCliente?.message}`
+        );
+      }
+    } else {
+      clienteId = novoCliente.id;
+    }
+  }
+
+  // Garantia para o TypeScript
+  if (!clienteId) {
+    throw new Error("Cliente não encontrado ou não criado");
+  }
+
+  // Relacionar conversa ao cliente
+  await supabase
+    .from("whatsapp_conversas")
+    .update({
+      cliente_id: clienteId,
+    })
+    .eq("id", params.conversaId);
+
+
+  // 2) Buscar card existente no CRM
+  const { data: cardExistente } = await supabase
+    .from("crm_cards")
+    .select("id")
+    .eq("cliente_id", clienteId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let cardId: string | undefined = cardExistente?.id;
+
+
+  // Criar card caso não exista
+  if (!cardId) {
+    const { data: etapaLead } = await supabase
+      .from("crm_etapas")
+      .select("id")
+      .eq("nome", "Lead")
+      .order("ordem")
+      .limit(1)
+      .maybeSingle();
+
+    if (!etapaLead) {
+      throw new Error("Etapa 'Lead' não encontrada no CRM");
+    }
+
+
+    const { data: novoCard, error: erroCard } = await supabase
+      .from("crm_cards")
+      .insert({
+        cliente_id: clienteId,
+        etapa_id: etapaLead.id,
+        titulo: `Contato via WhatsApp — ${
+          params.nomeContato || telefoneLocal
+        }`,
+      })
+      .select("id")
+      .single();
+
+
+    if (erroCard || !novoCard) {
+      throw new Error(
+        `Não foi possível criar card CRM: ${erroCard?.message}`
+      );
+    }
+
+    cardId = novoCard.id;
+  }
+
+
+  // Garantia final
+  if (!cardId) {
+    throw new Error("Card CRM não encontrado ou não criado");
+  }
+
+
+  // Relacionar conversa ao CRM
+  await supabase
+    .from("whatsapp_conversas")
+    .update({
+      card_id: cardId,
+    })
+    .eq("id", params.conversaId);
+
+  // Marca quando o cliente respondeu por último — independente do
+  // atendimento automático estar ligado ou não agora. Sem isso, se a IA
+  // for ativada depois, o follow-up de recuperação não teria de onde
+  // contar o tempo decorrido pra esse lead. Também reseta a sequência de
+  // recuperação — cliente respondendo de novo tira o card de
+  // "sem_retorno", mesmo com a IA desligada nesse momento.
+  const { data: cardAntesDoReset } = await supabase
+    .from("crm_cards")
+    .select("sequencia_followup")
+    .eq("id", cardId)
+    .maybeSingle();
+
+  await supabase
+    .from("crm_cards")
+    .update({
+      ultima_resposta_cliente_em: new Date().toISOString(),
+      sequencia_followup: 0,
+      status_recuperacao: (cardAntesDoReset?.sequencia_followup ?? 0) > 0 ? "recuperado" : "ativo",
+    })
+    .eq("id", cardId);
+
+
+  // 3) Criar follow-up automático
+  const dataFollowup = new Date();
+  dataFollowup.setHours(dataFollowup.getHours() + 24);
+
+
+  await supabase
+    .from("crm_followups")
+    .insert({
+      card_id: cardId,
+      data_agendada: dataFollowup.toISOString(),
+      motivo: "Responder novo contato recebido pelo WhatsApp",
+    });
+
+
+  return {
+    clienteId,
+    cardId,
+  };
+}
