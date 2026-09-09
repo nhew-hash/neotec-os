@@ -86,7 +86,7 @@ export default async function OSDetailPage({ params }: { params: Promise<{ id: s
 
               <div className="border-t border-border pt-4">
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Diagnóstico técnico</p>
-                <DiagnosticoForm osId={os.id} diagnosticoAtual={os.diagnostico} />
+                <DiagnosticoForm osId={os.id} diagnosticoAtual={os.diagnostico} valorAtual={os.valor} />
               </div>
             </CardContent>
           </Card>

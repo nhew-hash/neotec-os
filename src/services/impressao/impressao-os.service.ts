@@ -64,10 +64,36 @@ export async function montarHtmlImpressaoOS(id: string, formato: FormatoImpressa
     anuncio: "Anúncio", cliente_antigo: "Cliente antigo",
   };
 
+  const LABEL_METODO: Record<string, string> = { pix: "Pix", cartao_credito: "Cartão de crédito", cartao_debito: "Cartão de débito", dinheiro: "Dinheiro", boleto: "Boleto" };
+
+  function labelFormaPagamento(forma: string): string {
+    if (forma === "misto") return "Misto";
+    const [base, parcelasTag] = forma.split("_credito_");
+    if (base === "cartao" && parcelasTag) return `Cartão de crédito — ${parcelasTag}`;
+    return LABEL_METODO[forma] ?? forma;
+  }
+
+  let blocoDetalhamentoMisto = "";
+  if (os.forma_pagamento === "misto") {
+    const { data: pagamentos } = await supabase.from("os_pagamentos").select("metodo, valor").eq("os_id", id);
+    if (pagamentos && pagamentos.length > 0) {
+      const linhas = pagamentos.map((p) => `<div>${LABEL_METODO[p.metodo] ?? p.metodo}: R$ ${Number(p.valor).toFixed(2)}</div>`).join("");
+      blocoDetalhamentoMisto = `<div style="font-size:11px; margin-top:4px; padding-left:8px; border-left:2px solid #0F7A3D;">${linhas}</div>`;
+    }
+  }
+
+  const blocoOrcamento = os.valor && !os.forma_pagamento
+    ? `<div style="background:#FDF3E7; border-radius:6px; padding:10px 12px; margin-bottom:12px; font-size:12px;">
+        <strong>Orçamento do reparo:</strong> R$ ${Number(os.valor).toFixed(2)}
+        <div style="font-size:10px; color:#B45F04; margin-top:2px;">Sujeito a confirmação — valor final só é definido ao concluir o serviço.</div>
+      </div>`
+    : "";
+
   const blocoPagamento = os.forma_pagamento
     ? `<div style="background:#f0fdf4; border-radius:6px; padding:10px 12px; margin-bottom:12px; font-size:12px;">
-        <strong>Pagamento:</strong> ${os.forma_pagamento === "pix" ? "Pix" : os.forma_pagamento === "cartao_credito" ? "Cartão de crédito" : os.forma_pagamento === "cartao_debito" ? "Cartão de débito" : "Dinheiro"}
+        <strong>Pagamento:</strong> ${labelFormaPagamento(os.forma_pagamento)}
         ${os.valor_cobrado ? ` — R$ ${Number(os.valor_cobrado).toFixed(2)}` : ""}
+        ${blocoDetalhamentoMisto}
       </div>`
     : "";
 
@@ -87,6 +113,7 @@ export async function montarHtmlImpressaoOS(id: string, formato: FormatoImpressa
     observacoes: checklistRecebimento?.observacoes ?? "—",
     garantia: os.garantia_dias ? `${os.garantia_dias} dias após a entrega` : "Sem garantia definida",
     origem_cliente: os.origem_cliente ? ORIGEM_LABEL[os.origem_cliente] ?? "—" : "—",
+    bloco_orcamento: blocoOrcamento,
     bloco_pagamento: blocoPagamento,
     qr_code: qrCodeHtml,
     assinatura_cliente: assinaturaCliente,
