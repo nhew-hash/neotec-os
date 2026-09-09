@@ -4,6 +4,61 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 217] - Pre-Analise de Crediario (formulario publico)
+
+Modulo novo completo, conforme especificacao. NAO e aprovacao de
+credito - so triagem inicial que vira notificacao de WhatsApp pro
+vendedor continuar o atendimento.
+
+### Decisao de arquitetura importante
+O documento sugeria /crediario ou /crediario/pre-analise como URL
+publica - mas /crediario ja e usado pelas telas INTERNAS da equipe
+(dashboard, propostas, fiadores). Se tornasse /crediario publico,
+todas as telas internas ficariam publicas tambem. Usado /pre-analise
+como caminho publico (mesmo padrao ja usado pra proposta da Prostec -
+/proposta, separado de /prostec).
+
+### Formulario publico (/pre-analise)
+12 etapas, uma pergunta ou pequeno grupo por vez, barra de progresso,
+mobile-first. Aparelho desejado puxa do catalogo real (categoria
+'iphone' em produtos), nunca lista fixa. Entrada/parcela/renda sempre
+digitados pelo cliente, nunca faixa. NUNCA pede CPF, RG, documento,
+comprovante, foto, dado bancario - exatamente como pedido. Termo de
+aceite obrigatorio antes de enviar.
+
+### Envio pro WhatsApp - reaproveitado, nao criado do zero
+Usa enviarTexto() que ja existe (integracao Meta Cloud API da loja) -
+nunca criou uma integracao de WhatsApp nova so pra isso. Numero de
+destino configuravel em Crediario -> Configuracoes. Se o envio falhar,
+nunca bloqueia o cadastro (o lead fica salvo mesmo assim, vendedor ve
+na tela).
+
+### Indicador interno - nunca aprovacao automatica
+Heuristica simples e transparente (soma pontos por sinal positivo:
+entrada vs parcela, parcela vs renda, estabilidade profissional, tempo
+de moradia, aparelho na troca) -> 🟢 Bom potencial / 🟡 Analise manual /
+🔴 Baixo potencial. NUNCA mostrado ao cliente, NUNCA rejeita/aprova
+sozinho - so ajuda o vendedor a priorizar.
+
+### Painel administrativo (Crediario -> Pre-analises)
+Lista com indicador visivel, WhatsApp/entrada/parcela/renda/status.
+Detalhe com todos os campos organizados por bloco, botao de WhatsApp
+direto, mudanca de status (8 estados: novo, em_analise,
+contatar_cliente, aguardando_documentos, aprovado, reprovado,
+venda_fechada, perdido), campo de observacao interna. Link publico com
+botao de copiar, pra mandar por WhatsApp/Instagram.
+
+### Seguranca
+RLS: qualquer um pode CRIAR (insert publico), ninguem sem cargo de
+staff pode LER o que ja foi enviado. Validacao Zod no schema, aplicada
+tanto no client quanto de novo no servidor (nunca confia so na tela).
+Nao coletado nenhum dado da lista de "nao incluir" do documento (CPF,
+RG, documento, comprovante, referencias, dados bancarios).
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 216] - Impressao de orcamento na Assistencia Tecnica
 
 Investigado: venda ja tinha impressao de orcamento funcionando
