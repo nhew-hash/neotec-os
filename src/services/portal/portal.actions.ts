@@ -61,3 +61,30 @@ export async function portalCadastroAction(formData: FormData): Promise<ActionRe
 
   redirect("/portal/dashboard");
 }
+
+export async function portalLoginAction(formData: FormData): Promise<ActionResult> {
+  const email = String(formData.get("email") ?? "");
+  const senha = String(formData.get("senha") ?? "");
+  if (!email || !senha) return { success: false, error: "Informe e-mail e senha" };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
+  if (error || !data.user) return { success: false, error: "E-mail ou senha incorretos" };
+
+  // Confirma que é conta de Portal do Cliente (nunca deixa staff cair
+  // aqui achando que é o mesmo login) — mesma lógica inversa do login
+  // da equipe.
+  const { data: cliente } = await supabase.from("clientes").select("id").eq("portal_user_id", data.user.id).maybeSingle();
+  if (!cliente) {
+    await supabase.auth.signOut();
+    return { success: false, error: "Esta conta não tem acesso ao Portal do Cliente" };
+  }
+
+  redirect("/portal/dashboard");
+}
+
+export async function portalLogoutAction(): Promise<void> {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/portal/login");
+}

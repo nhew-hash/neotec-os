@@ -20,8 +20,8 @@ const DESTAQUES_LACRADO = [
   { icon: ShieldCheck, texto: "Produto novo, lacrado de fábrica, com garantia Apple." },
   { icon: FileText, texto: "Acompanha comprovante de compra." },
   { icon: Wallet, texto: "Parcelamento disponível." },
-  { icon: MapPin, texto: "Retirada na loja em Araguari." },
-  { icon: Truck, texto: "Ou entrega combinada pelo WhatsApp." },
+  { icon: MapPin, texto: "Retirada grátis na loja em Araguari." },
+  { icon: Truck, texto: "Ou frete grátis pra todo o Brasil." },
 ];
 
 export default async function LacradoProdutoPage({ params }: { params: Promise<{ modelo: string }> }) {

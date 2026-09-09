@@ -169,3 +169,41 @@ export async function autoCadastrarCliente(input: {
 
   return { clienteId };
 }
+
+export interface ClientePortal {
+  id: string;
+  nome: string;
+  whatsapp: string;
+  senha_provisoria: boolean;
+}
+
+/** Busca o cliente vinculado ao usuário de portal logado — usa a sessão atual, nunca um id passado de fora. */
+export async function buscarClientePortalLogado(): Promise<ClientePortal | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase.from("clientes").select("id, nome, whatsapp, senha_provisoria").eq("portal_user_id", user.id).maybeSingle();
+  return data ?? null;
+}
+
+export interface PedidoPortal {
+  id: string;
+  valor_total: number;
+  status: string;
+  created_at: string;
+  itens: { nome: string; quantidade: number }[];
+}
+
+export async function listarPedidosDoClientePortal(clienteId: string): Promise<PedidoPortal[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("pedidos_loja")
+    .select("id, valor_total, status, created_at, itens:pedido_loja_itens(nome_exibido, quantidade)")
+    .eq("cliente_id", clienteId)
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((p) => ({
+    id: p.id, valor_total: p.valor_total, status: p.status, created_at: p.created_at,
+    itens: (p.itens as unknown as { nome_exibido: string; quantidade: number }[]).map((i) => ({ nome: i.nome_exibido, quantidade: i.quantidade })),
+  }));
+}

@@ -963,7 +963,7 @@ export interface BarraTopoItem {
 }
 
 export type TipoSeloConfianca =
-  | "produto_original" | "garantia" | "nota_fiscal" | "loja_fisica" | "assistencia_tecnica" | "pagamento_seguro";
+  | "produto_original" | "garantia" | "nota_fiscal" | "loja_fisica" | "assistencia_tecnica" | "pagamento_seguro" | "frete_gratis";
 
 export interface SeloConfianca {
   id: string;
@@ -1063,7 +1063,7 @@ export interface Cupom {
   valido_de: string | null; valido_ate: string | null; ativo: boolean; created_at: string;
 }
 
-export interface RegraFrete { id: string; loja_id: string; regiao: string; valor: number; prazo_dias_uteis: number; ativo: boolean; ordem: number }
+export interface RegraFrete { id: string; loja_id: string; regiao: string; valor: number; prazo_dias_uteis: number; ativo: boolean; ordem: number; nacional: boolean }
 
 export interface AvaliacaoLoja {
   id: string; loja_id: string; produto_id: string | null; nome_cliente: string; cidade: string | null;

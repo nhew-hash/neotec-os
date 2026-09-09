@@ -4,6 +4,159 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 212] - Bug critico: TODA a impressao redirecionava pro login + pagamento misto de verdade
+
+### Bug critico corrigido - /impressao inteiro bloqueado
+Achado a partir do link quebrado reportado
+(comprovante_aparelho/[id]). Causa raiz: `/impressao` nunca estava na
+lista de rotas publicas do middleware - isso significa que TODAS as
+paginas de impressao (venda, recibo, OS, orcamento, comprovante)
+sempre exigiram login, mesmo sendo links pra COMPARTILHAR com cliente
+externo. Corrigido: /impressao e /api/impressao adicionados as rotas
+publicas.
+
+### Pagina que faltava - comprovante_aparelho
+Alem do bug do middleware, a pagina em si nunca tinha sido construida
+- so existia o service (`montarHtmlComprovanteAparelho`), sem
+nenhuma rota puxando ele. Criada
+`/impressao/comprovante_aparelho/[id]`, mesmo padrao ja usado em
+recibo/venda/os.
+
+### Pagamento misto de verdade
+"Misto" ja existia como opcao na lista de forma de pagamento do PDV,
+mas era so um rotulo - nao tinha como dizer quanto foi em dinheiro,
+quanto em Pix, quanto em cartao. Agora:
+- Nova tabela `venda_pagamentos` (metodo + valor, varias linhas por venda)
+- Selecionar "Misto" no PDV mostra formulario pra adicionar quantas
+  formas quiser, com soma validada em tempo real contra o total da venda
+- Validado nos dois lados (tela E servidor) - nunca deixa finalizar
+  venda com soma que nao bate com o total (tolerancia de 1 centavo
+  pra arredondamento)
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 211] - Frete gratis anunciado em todo lugar (nao so no checkout)
+
+Funcionar de verdade (Fase 210) e uma coisa, aparecer anunciado em
+todo lugar que gera confianca e outra - pedido explicito.
+
+### Novo tipo de selo: frete_gratis
+A faixa de selos de confianca (ja usada na home, pagina de produto e
+lacrado) e configuravel pelo admin em Configuracoes -> Marketing.
+Adicionado o tipo novo "Frete Gratis Brasil" - aparece automaticamente
+em TODO lugar que essa faixa ja e renderizada, sem precisar editar
+pagina por pagina.
+
+Migracao dividida em duas (211a so cria o valor do enum, 211b semeia
+o selo) - restricao do Postgres, ALTER TYPE ADD VALUE nao pode ser
+usado na mesma transacao que referencia o valor novo.
+
+### Texto desatualizado corrigido
+Pagina de lacrado ainda dizia "entrega combinada pelo WhatsApp" - de
+antes do checkout ter frete de verdade. Atualizado pra "frete gratis
+pra todo o Brasil".
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 210] - Frete gratis pra todo o Brasil
+
+### Antes
+So Araguari e Uberlandia entregavam - qualquer outra cidade do Brasil
+era recusada no checkout ("ainda nao entregamos nessa cidade").
+
+### Agora
+Adicionada uma regra "nacional" (fallback) em regras_frete - quando o
+CEP nao bate com nenhuma cidade especifica configurada, cai
+automaticamente nessa regra (grátis, 7 dias uteis). Cidade especifica
+continua podendo ter regra propria se um dia quiserem preco/prazo
+diferente pra local - a nacional so entra quando nao tem regra mais
+especifica pra aquele CEP.
+
+Mantido configuravel (nunca hardcoded) - o mesmo painel de admin que
+ja existia (Loja Admin -> Fretes) mostra a nova linha automaticamente,
+sem precisar de tela nova.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 209] - Checkout: endereco completo via CEP quando for entrega
+
+### Antes
+Entrega so tinha uma lista de "regiao" solta configurada no admin -
+nenhum CEP, nenhum endereco de verdade era coletado em lugar nenhum.
+
+### Agora
+Ao escolher "Entrega", pede CEP primeiro. Busca automatica (ViaCEP,
+publico, sem chave de API) preenche rua/bairro/cidade/estado sozinho.
+A cidade retornada e comparada com as regioes de frete ja configuradas
+- se bater, mostra o preco e libera o resto do formulario (numero,
+complemento); se nao bater, avisa que ainda nao entrega naquela
+cidade em vez de deixar escolher uma regiao que nao tem nada a ver
+com o endereco real informado.
+
+Endereco completo (CEP, rua, numero, complemento, bairro, cidade,
+estado) agora e salvo no pedido - migracao fase209 adiciona os campos
+em pedidos_loja. Validado nos dois lados (tela E servidor) - nunca
+aceita finalizar entrega sem endereco completo.
+
+### Conecta com a auditoria de fraude anterior
+Isso e o mesmo ponto que apareceu como risco na auditoria de
+seguranca: Mercado Pago exige o endereco de entrega bater com o
+cadastrado no comprador pra cobertura em chargeback. Agora pelo menos
+existe um endereco de verdade registrado pra comparar - antes nao
+tinha absolutamente nada.
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 208] - Checkout: frete revalidado no servidor, CPF obrigatorio, Portal do Cliente
+
+### Bug de seguranca corrigido - frete manipulavel
+Cupom e cashback ja eram revalidados no servidor (nunca confiavam no
+navegador) - frete era o UNICO que nao passava por essa mesma
+protecao. Um usuario com DevTools conseguia mandar valorFrete: 0 e
+pagar sem frete mesmo escolhendo entrega. Corrigido: servidor busca o
+valor real em regras_frete pela regiao escolhida, nunca aceita o
+valor vindo do cliente. Parametro valorFrete removido de vez das
+actions (nao da so pra ignorar, precisa parar de existir, senao
+alguem reintroduz o bug sem querer no futuro).
+
+### CPF obrigatorio no checkout
+Antes era so "recomendado". Agora obrigatorio (11 digitos), validado
+no client E no servidor (nunca confia so na validacao de tela).
+
+### Portal do Cliente - paginas que faltavam
+O backend ja existia inteiro (criarAcessoPortal, autoCadastrarCliente,
+trocarSenhaPrimeiroAcesso) mas NENHUMA pagina nunca foi construida -
+login/cadastro redirecionavam pra rotas que nao existiam. Construido:
+/portal/login, /portal/cadastro, /portal/dashboard (historico de
+pedidos). Convite de criar conta aparece SO depois do pagamento
+aprovado (nunca antes - preserva conversao, decisao deliberada em vez
+de forcar login antes do carrinho).
+
+### RLS critico que faltava
+Nenhuma policy deixava o cliente logado no portal ver os PROPRIOS
+pedidos - o dashboard sempre voltaria vazio mesmo com o codigo certo.
+Corrigido com 3 policies novas (pedidos_loja, pedido_loja_itens,
+clientes - todas restritas a portal_user_id = auth.uid()).
+
+### Duvida em aberto - preciso que confirme
+Nao encontrei em nenhuma migracao visivel onde RLS foi ativado na
+tabela `clientes` em si (pode ser de uma migracao bem antiga, fora do
+historico acessivel). Rodar `select relrowsecurity from pg_class
+where relname = 'clientes';` no Supabase pra confirmar - se vier
+"false", e serio (qualquer autenticado leria todo cliente hoje).
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 206] - Modulo de Crediario completo
 
 Resto do documento original (tudo exceto Contratos, ja entregue na

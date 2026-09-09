@@ -12,7 +12,7 @@ import { finalizarVendaPDVAction, buscarSaldoCashbackAction } from "@/services/v
 import { criarClienteAction } from "@/services/clientes/clientes.actions";
 import { criarAparelhoRapidoVendaAction } from "@/services/estoque/estoque.actions";
 import { formatCurrency, getInitials } from "@/utils";
-import type { PdvItemValues, PdvVendaValues } from "@/services/vendas/pdv.schema";
+import type { PdvItemValues, PdvVendaValues, PdvPagamentoValues } from "@/services/vendas/pdv.schema";
 import type { Cliente, Produto, Indicador } from "@/types";
 import type { AparelhoComProduto } from "@/services/estoque/estoque.service";
 
@@ -41,6 +41,9 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
   const [itens, setItens] = useState<PdvItemValues[]>([]);
   const [clienteId, setClienteId] = useState<string>("");
   const [formaPagamento, setFormaPagamento] = useState<string>("pix");
+  const [pagamentosMisto, setPagamentosMisto] = useState<{ metodo: string; valor: string }[]>([
+    { metodo: "dinheiro", valor: "" }, { metodo: "pix", valor: "" },
+  ]);
   const [desconto, setDesconto] = useState<number>(0);
   const [busca, setBusca] = useState("");
 
@@ -195,10 +198,20 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
     setErro(null);
     if (itens.length === 0) return setErro("Adicione pelo menos um item à venda");
 
+    let pagamentosParaEnviar: PdvVendaValues["pagamentos"];
+    if (formaPagamento === "misto") {
+      const linhasPreenchidas = pagamentosMisto.filter((p) => Number(p.valor) > 0);
+      if (linhasPreenchidas.length < 2) return setErro("Pagamento misto precisa de pelo menos 2 formas com valor preenchido");
+      const soma = linhasPreenchidas.reduce((acc, p) => acc + Number(p.valor), 0);
+      if (Math.abs(soma - total) > 0.01) return setErro(`A soma dos pagamentos (${formatCurrency(soma)}) não bate com o total da venda (${formatCurrency(total)})`);
+      pagamentosParaEnviar = linhasPreenchidas.map((p) => ({ metodo: p.metodo as PdvPagamentoValues["metodo"], valor: Number(p.valor) }));
+    }
+
     startTransition(async () => {
       const payload: PdvVendaValues = {
         cliente_id: clienteId || undefined,
         forma_pagamento: formaPagamento as PdvVendaValues["forma_pagamento"],
+        pagamentos: pagamentosParaEnviar,
         desconto,
         garantia_dias: garantiaDias > 0 ? garantiaDias : undefined,
         indicador_id: indicadorId || undefined,
@@ -472,6 +485,44 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
                 </button>
               ))}
             </div>
+
+            {formaPagamento === "misto" && (
+              <div className="mt-2 flex flex-col gap-2 rounded-lg border border-border p-2.5">
+                <p className="text-[11px] font-medium text-muted-foreground">Detalha quanto foi em cada forma — a soma precisa bater com o total ({formatCurrency(total)})</p>
+                {pagamentosMisto.map((p, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <Select value={p.metodo} onValueChange={(v) => setPagamentosMisto((prev) => prev.map((item, idx) => idx === i ? { ...item, metodo: v } : item))}>
+                      <SelectTrigger className="h-8 flex-1 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {FORMAS_PAGAMENTO.filter((f) => f.value !== "misto").map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number" step="0.01" placeholder="Valor" value={p.valor}
+                      onChange={(e) => setPagamentosMisto((prev) => prev.map((item, idx) => idx === i ? { ...item, valor: e.target.value } : item))}
+                      className="h-8 w-24 text-xs"
+                    />
+                    {pagamentosMisto.length > 2 && (
+                      <button type="button" onClick={() => setPagamentosMisto((prev) => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-danger">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPagamentosMisto((prev) => [...prev, { metodo: "cartao_credito", valor: "" }])}
+                  className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+                >
+                  <Plus className="h-3 w-3" />Adicionar forma
+                </button>
+                {(() => {
+                  const soma = pagamentosMisto.reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
+                  const bateComTotal = Math.abs(soma - total) <= 0.01;
+                  return <p className={cn("text-[11px] font-medium", bateComTotal ? "text-success-text" : "text-warning-text")}>Soma: {formatCurrency(soma)} {bateComTotal ? "✓" : `(falta ${formatCurrency(total - soma)})`}</p>;
+                })()}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">

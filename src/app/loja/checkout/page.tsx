@@ -9,13 +9,15 @@ import { validarCupomAction } from "@/services/loja/cupom.actions";
 import { calcularDescontoCupom } from "@/services/loja/cupom.utils";
 import { CardPaymentBrick } from "@/components/loja/card-payment-brick";
 import { PixPagamento } from "@/components/loja/pix-pagamento";
-import { SeletorEntrega } from "@/components/loja/seletor-entrega";
+import { SeletorEntrega, type SelecaoEntrega } from "@/components/loja/seletor-entrega";
 import { listarRegrasFretePublicoAction } from "@/services/loja-admin/central-loja.actions";
 import { formatCurrency } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import type { RegraFrete } from "@/types";
+
+import { CriarContaPosCompra } from "@/components/loja/criar-conta-pos-compra";
 
 type MetodoPagamento = "pix" | "cartao";
 type EtapaCheckout = "dados" | "pagamento" | "aprovado" | "recusado";
@@ -29,12 +31,12 @@ export default function CheckoutPage() {
   const [cpf, setCpf] = useState("");
   const [processando, setProcessando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [camposInvalidos, setCamposInvalidos] = useState<{ nome?: boolean; telefone?: boolean }>({});
+  const [camposInvalidos, setCamposInvalidos] = useState<{ nome?: boolean; telefone?: boolean; cpf?: boolean }>({});
 
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [gatewayAtivo, setGatewayAtivo] = useState(true);
-  const [regrasFrete, setRegrasFrete] = useState<Pick<RegraFrete, "id" | "regiao" | "valor" | "prazo_dias_uteis">[]>([]);
-  const [entregaSelecionada, setEntregaSelecionada] = useState<{ tipo: "retirada" } | { tipo: "entrega"; regiaoId: string }>({ tipo: "retirada" });
+  const [regrasFrete, setRegrasFrete] = useState<Pick<RegraFrete, "id" | "regiao" | "valor" | "prazo_dias_uteis" | "nacional">[]>([]);
+  const [entregaSelecionada, setEntregaSelecionada] = useState<SelecaoEntrega>({ tipo: "retirada" });
 
   const [dadosPix, setDadosPix] = useState<{ pagamentoId: string; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null } | null>(null);
   const [cupomInput, setCupomInput] = useState("");
@@ -80,10 +82,18 @@ export default function CheckoutPage() {
   }, []);
 
   function validarDados(): boolean {
-    if (!nome.trim() || !telefone.trim()) {
-      setErro("Informe nome e telefone");
-      setCamposInvalidos({ nome: !nome.trim(), telefone: !telefone.trim() });
+    const cpfDigitos = cpf.replace(/\D/g, "");
+    if (!nome.trim() || !telefone.trim() || cpfDigitos.length !== 11) {
+      setErro(!nome.trim() || !telefone.trim() ? "Informe nome e telefone" : "CPF inválido — precisa ter 11 dígitos");
+      setCamposInvalidos({ nome: !nome.trim(), telefone: !telefone.trim(), cpf: cpfDigitos.length !== 11 });
       return false;
+    }
+    if (entregaSelecionada.tipo === "entrega") {
+      const { cep, rua, numero, bairro, cidade, estado } = entregaSelecionada.endereco;
+      if (cep.length !== 8 || !rua.trim() || !numero.trim() || !bairro.trim() || !cidade.trim() || !estado.trim()) {
+        setErro("Preenche o endereço completo (CEP, rua, número e bairro) pra continuar com entrega");
+        return false;
+      }
     }
     setCamposInvalidos({});
     return true;
@@ -124,7 +134,8 @@ export default function CheckoutPage() {
     setProcessando(true);
     const result = await iniciarCheckoutPixAction({
       nomeContato: nome, telefoneContato: telefone, itens, cpf: cpf.trim() || undefined, cupomCodigo: cupomAplicado?.codigo, usarCashback: cashbackAplicavel,
-      tipoEntrega: entregaSelecionada.tipo, regiaoEntrega: regraSelecionada?.regiao, valorFrete: valorFreteSelecionado,
+      tipoEntrega: entregaSelecionada.tipo, regiaoEntrega: regraSelecionada?.regiao,
+      endereco: entregaSelecionada.tipo === "entrega" ? entregaSelecionada.endereco : undefined,
     });
     setProcessando(false);
 
@@ -141,7 +152,8 @@ export default function CheckoutPage() {
     const result = await pagarComCartaoAction({
       nomeContato: nome, telefoneContato: telefone, itens,
       token: dados.token, parcelas: dados.installments, metodoPagamentoId: dados.paymentMethodId, cpf: cpf.trim() || undefined, cupomCodigo: cupomAplicado?.codigo, usarCashback: cashbackAplicavel,
-      tipoEntrega: entregaSelecionada.tipo, regiaoEntrega: regraSelecionada?.regiao, valorFrete: valorFreteSelecionado,
+      tipoEntrega: entregaSelecionada.tipo, regiaoEntrega: regraSelecionada?.regiao,
+      endereco: entregaSelecionada.tipo === "entrega" ? entregaSelecionada.endereco : undefined,
     });
     setProcessando(false);
 
@@ -183,6 +195,7 @@ export default function CheckoutPage() {
         </div>
         <h1 className="font-display text-xl font-semibold text-foreground">Pagamento aprovado!</h1>
         <p className="mt-2 text-sm text-muted-foreground">Já recebemos seu pedido e vamos preparar tudo. Você recebe a confirmação pelo WhatsApp.</p>
+        <CriarContaPosCompra nome={nome} whatsapp={telefone} cpf={cpf} />
         <Button asChild size="lg" pill className="mt-6 hover:bg-primary">
           <Link href="/loja">Voltar pra loja</Link>
         </Button>
@@ -226,7 +239,12 @@ export default function CheckoutPage() {
               aria-invalid={camposInvalidos.telefone ? "true" : undefined}
               className={`h-auto rounded-xl px-3.5 py-2.5 ${camposInvalidos.telefone ? "border-danger focus:border-danger" : "focus:border-primary"}`}
             />
-            <Input placeholder="CPF (recomendado — ajuda a aprovar o pagamento mais rápido)" value={cpf} onChange={(e) => setCpf(e.target.value)} className="h-auto rounded-xl px-3.5 py-2.5 focus:border-primary" />
+            <Input
+              placeholder="CPF (obrigatório)" value={cpf} onChange={(e) => setCpf(e.target.value)}
+              aria-invalid={camposInvalidos.cpf ? "true" : undefined}
+              className={`h-auto rounded-xl px-3.5 py-2.5 ${camposInvalidos.cpf ? "border-danger focus:border-danger" : "focus:border-primary"}`}
+            />
+            <p className="text-[11px] text-muted-foreground">O CPF é exigido pelo Mercado Pago pra processar o pagamento com segurança.</p>
 
             {regrasFrete.length > 0 && (
               <SeletorEntrega regras={regrasFrete} selecionado={entregaSelecionada} onSelecionar={setEntregaSelecionada} />

@@ -43,6 +43,16 @@ export async function criarVendaPDV(input: PdvVendaValues, usuarioId: string): P
   const custoTotal = itensComCusto.reduce((acc, i) => acc + i.custo * i.quantidade, 0);
   const lucro = valorTotal - custoTotal;
 
+  // Pagamento misto — a soma do detalhamento precisa bater com o
+  // valor total da venda (nunca sobra, nunca falta). Tolerância de 1
+  // centavo pra arredondamento de ponto flutuante.
+  if (input.forma_pagamento === "misto") {
+    const somaPagamentos = (input.pagamentos ?? []).reduce((acc, p) => acc + p.valor, 0);
+    if (Math.abs(somaPagamentos - valorTotal) > 0.01) {
+      throw new Error(`A soma dos pagamentos (${somaPagamentos.toFixed(2)}) não bate com o valor total da venda (${valorTotal.toFixed(2)})`);
+    }
+  }
+
   const { data: venda, error: erroVenda } = await supabase
     .from("vendas")
     .insert({
@@ -61,6 +71,12 @@ export async function criarVendaPDV(input: PdvVendaValues, usuarioId: string): P
     .single();
 
   if (erroVenda) throw new Error(`Não foi possível registrar a venda: ${erroVenda.message}`);
+
+  if (input.forma_pagamento === "misto" && input.pagamentos) {
+    await supabase.from("venda_pagamentos").insert(
+      input.pagamentos.map((p) => ({ venda_id: venda.id, metodo: p.metodo, valor: p.valor }))
+    );
+  }
 
   // Movimentos de cashback — débito do que foi usado, crédito do que
   // foi concedido nessa compra. Só faz sentido com cliente identificado.

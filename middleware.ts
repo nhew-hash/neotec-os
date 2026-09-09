@@ -17,6 +17,8 @@ export async function middleware(request: NextRequest) {
   "/portal",
   "/consultar-os",
   "/loja",
+  "/impressao",
+  "/api/impressao",
   "/api/whatsapp/webhook",
   "/api/integracoes/whatsapp-web",
   "/api/cron",

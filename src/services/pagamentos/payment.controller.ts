@@ -14,7 +14,17 @@ import type { ItemPedidoLojaInput } from "@/services/loja/loja-pedido.actions";
  * pagamento dentro de componente".
  */
 
-async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number; tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; valorFrete?: number }): Promise<{ pedidoId: string; valorTotal: number }> {
+interface EnderecoEntregaInput { cep: string; rua: string; numero: string; complemento: string; bairro: string; cidade: string; estado: string }
+
+function validarEndereco(tipoEntrega: string | undefined, endereco: EnderecoEntregaInput | undefined): string | null {
+  if (tipoEntrega !== "entrega") return null;
+  if (!endereco || endereco.cep.replace(/\D/g, "").length !== 8 || !endereco.rua.trim() || !endereco.numero.trim() || !endereco.bairro.trim() || !endereco.cidade.trim() || !endereco.estado.trim()) {
+    return "Endereço de entrega incompleto — informa CEP, rua, número e bairro.";
+  }
+  return null;
+}
+
+async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number; tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput }): Promise<{ pedidoId: string; valorTotal: number }> {
   const valorBruto = input.itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
   if (valorBruto <= 0) throw new Error("O valor do pedido está zerado — atualiza a página e tenta de novo.");
 
@@ -93,10 +103,18 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
     valorTotal = Math.max(0, valorTotal - cashbackUsado);
   }
 
-  // Frete soma no total só depois de cupom/cashback já aplicados — o
-  // valor do frete em si nunca entra na base de cálculo de desconto
-  // percentual, só é somado no final.
-  const valorFrete = input.valorFrete && input.valorFrete > 0 ? input.valorFrete : 0;
+  // Frete SEMPRE revalidado aqui contra a tabela real — mesmo padrão
+  // já usado pra cupom e cashback. Antes esse valor vinha direto do
+  // navegador sem checagem, o que permitia manipular o valor do frete
+  // via DevTools. Agora: se o cliente escolheu "entrega", busca a
+  // regra real pelo nome da região e usa o valor de lá, nunca o que
+  // foi enviado no payload.
+  let valorFrete = 0;
+  if (input.tipoEntrega === "entrega" && input.regiaoEntrega) {
+    const { data: regraReal } = await supabase.from("regras_frete").select("valor").eq("regiao", input.regiaoEntrega).eq("ativo", true).maybeSingle();
+    if (!regraReal) throw new Error("Essa opção de entrega não está mais disponível — atualiza a página e escolhe de novo.");
+    valorFrete = Number(regraReal.valor);
+  }
   valorTotal += valorFrete;
 
   const { data: pedido, error } = await supabase
@@ -104,6 +122,9 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
     .insert({
       cliente_id: clienteId, nome_contato: input.nomeContato.trim(), telefone_contato: telefoneLimpo, valor_total: valorTotal, origem_fechamento: "pagamento_online",
       tipo_entrega: input.tipoEntrega ?? "retirada", regiao_entrega: input.regiaoEntrega ?? null, valor_frete: valorFrete,
+      cep_entrega: input.endereco?.cep.replace(/\D/g, "") ?? null, endereco_entrega: input.endereco?.rua.trim() || null,
+      numero_entrega: input.endereco?.numero.trim() || null, complemento_entrega: input.endereco?.complemento.trim() || null,
+      bairro_entrega: input.endereco?.bairro.trim() || null, cidade_entrega: input.endereco?.cidade.trim() || null, estado_entrega: input.endereco?.estado.trim() || null,
     })
     .select("id")
     .single();
@@ -139,9 +160,12 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
 
 export async function iniciarCheckoutPixAction(input: {
   nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cpf?: string; cupomCodigo?: string; usarCashback?: number;
-  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; valorFrete?: number;
+  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput;
 }): Promise<ActionResult<{ pedidoId: string; pagamentoId: string; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
+  if (!input.cpf || input.cpf.replace(/\D/g, "").length !== 11) return { success: false, error: "CPF obrigatório e precisa ter 11 dígitos" };
+  const erroEndereco = validarEndereco(input.tipoEntrega, input.endereco);
+  if (erroEndereco) return { success: false, error: erroEndereco };
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
 
   try {
@@ -156,9 +180,12 @@ export async function iniciarCheckoutPixAction(input: {
 export async function pagarComCartaoAction(input: {
   nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[];
   token: string; parcelas: number; metodoPagamentoId: string; cpf?: string; cupomCodigo?: string; usarCashback?: number;
-  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; valorFrete?: number;
+  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput;
 }): Promise<ActionResult<{ pedidoId: string; status: string; statusDetail: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
+  if (!input.cpf || input.cpf.replace(/\D/g, "").length !== 11) return { success: false, error: "CPF obrigatório e precisa ter 11 dígitos" };
+  const erroEndereco = validarEndereco(input.tipoEntrega, input.endereco);
+  if (erroEndereco) return { success: false, error: erroEndereco };
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
 
   try {

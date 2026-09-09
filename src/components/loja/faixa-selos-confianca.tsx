@@ -1,4 +1,4 @@
-import { ShieldCheck, FileCheck, Building2, Wrench, Lock, BadgeCheck } from "lucide-react";
+import { ShieldCheck, FileCheck, Building2, Wrench, Lock, BadgeCheck, Truck } from "lucide-react";
 import { listarSelosConfiancaPublico } from "@/services/marketing/marketing-publico.service";
 import type { TipoSeloConfianca } from "@/types";
 
@@ -9,6 +9,7 @@ const ICONE_POR_TIPO: Record<TipoSeloConfianca, typeof ShieldCheck> = {
   loja_fisica: Building2,
   assistencia_tecnica: Wrench,
   pagamento_seguro: Lock,
+  frete_gratis: Truck,
 };
 
 export async function FaixaSelosConfianca() {
