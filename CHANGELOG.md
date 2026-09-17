@@ -4,6 +4,29 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 221] - Iara vendedora de verdade + trava de opt-out por engano
+
+Auditoria no prompt comercial e na lógica de "não contatar mais" da
+Iara (Prostec), depois de um teste real bloquear um número por uma
+objeção comum de venda:
+
+- **Personalidade/tom**: prompt reescrito pra soar humana de verdade
+  (frases curtas, contrações naturais, sem linguagem corporativa),
+  varia saudação/fechamento, emoji com moderação.
+- **Técnica de venda**: agora é orientada a consequência de negócio
+  (cliente não te acha no Google, concorrente com site fecha a venda
+  que era sua) em vez de vender recurso técnico. Trata objeção
+  ("vou pensar", "tá caro", "já tenho Instagram") como parte normal
+  da venda, não como motivo pra desistir ou bloquear.
+- **Fix real do bug reportado**: nao_contatar (bloqueio PERMANENTE de
+  contato) agora só é aceito quando o texto do próprio cliente tem um
+  pedido EXPLÍCITO de parar de receber mensagem — validado por regex
+  no código, não só confiando na interpretação da IA (mesmo padrão já
+  usado pra limite de desconto). "Não tenho interesse" deixou de virar
+  bloqueio; vira só "perdido" (pode ser recontatado numa campanha
+  futura). Quando a IA acha que é opt-out mas o texto não confirma,
+  marca exige_atencao_humana em vez de bloquear sozinha.
+
 ## [Fase 220] - Fix: mensagem da Prostec via LID do WhatsApp desaparecia
 
 Caso raro mas real: contato cujo WhatsApp ja migrou pro identificador
