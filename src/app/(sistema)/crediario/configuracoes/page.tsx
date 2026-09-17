@@ -2,15 +2,13 @@ import { listarClasses, listarAparelhosConfigCrediario } from "@/services/credia
 import { ClassesConfigTable } from "@/components/crediario/classes-config-table";
 import { AparelhoConfigForm } from "@/components/crediario/aparelho-config-form";
 import { WhatsappCobrancaForm } from "@/components/crediario/whatsapp-cobranca-form";
-import { WhatsappNotificacaoForm } from "@/components/pre-analise/whatsapp-notificacao-form";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function CrediarioConfiguracoesPage() {
   const supabase = await createClient();
-  const [classes, aparelhos, { data: configWhatsapp }, { data: politica }] = await Promise.all([
+  const [classes, aparelhos, { data: configWhatsapp }] = await Promise.all([
     listarClasses(), listarAparelhosConfigCrediario(),
     supabase.from("integracoes_whatsapp_cobranca").select("*").maybeSingle(),
-    supabase.from("crediario_politicas").select("whatsapp_notificacao_vendedor").eq("id", "default").maybeSingle(),
   ]);
 
   return (
@@ -20,7 +18,6 @@ export default async function CrediarioConfiguracoesPage() {
         <p className="text-sm text-muted-foreground">Tudo aqui é editável sem precisar mexer em código</p>
       </div>
 
-      <WhatsappNotificacaoForm numeroAtual={politica?.whatsapp_notificacao_vendedor ?? null} />
       <WhatsappCobrancaForm config={configWhatsapp} />
 
       <div className="rounded-2xl border border-black/[0.06] bg-white p-5 shadow-sm">

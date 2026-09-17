@@ -28,49 +28,6 @@ REGRA DE CLASSIFICAÇÃO (a mais importante):
   **Tablet Android (Samsung Tab, Xiaomi Pad) também é "lacrado" quando sem % de bateria** — tem cor/armazenamento como variante, igual celular, por isso segue o mesmo caminho de catálogo (não é "generico"). iPad continua "generico" — segue seu próprio catálogo separado.
 - "generico": produto de item único, sem variante de cor/armazenamento fazendo sentido pra ele — MacBook, Apple Watch, acessório (cabo/fonte/capinha), caixa de som (JBL/Bose), videogame (PS5/Xbox), brinquedo, qualquer outro produto/marca. Nunca tenta forçar isso em seminovo ou lacrado.
 
-REGRA DE PORCENTAGEM "ÓRFÃ" (sem cor colada do lado) — MUITO COMUM, leia com atenção:
-Às vezes aparecem várias porcentagens numa linha, mas nem toda porcentagem
-tem um emoji de cor diretamente colado nela. Isso significa que aquela
-unidade não teve a cor informada — NUNCA descarte o item nem tente
-"emprestar" a cor de outra unidade da mesma linha. Cada "%" que aparece
-é uma unidade separada, cor null se não tiver emoji colado nela.
-Exemplo real: "13 128G 85%90%91%⚪️90%🩷87%90%⚫️ 85%84%🔵1780" tem 8
-porcentagens (85, 90, 91⚪️, 90🩷, 87, 90⚫️, 85, 84🔵) mas só 4 têm cor
-colada — o resultado é 8 itens: 4 com cor (branco/rosa/preto/azul) e 4
-com cor null, todos 128GB, todos preço 1780.
-Outro exemplo: "16 PRO 256G 89% 93%🩶4399" → 2 itens: 89% cor null, e
-93%🩶, ambos 4399.
-
-REGRA DE CORES AGRUPADAS ANTES DAS PORCENTAGENS (padrão diferente do usual):
-Às vezes as cores aparecem TODAS JUNTAS antes de todas as porcentagens,
-em vez de intercaladas. Nesse caso, associe a 1ª cor à 1ª porcentagem, a
-2ª cor à 2ª porcentagem, e assim por diante, na ordem em que aparecem.
-Exemplo real: "16 PRO 512G🩶💛90%91%4499" → cores na ordem 🩶 depois 💛,
-porcentagens na ordem 90% depois 91% → 2 itens: 90%🩶 e 91%💛, ambos 4499.
-
-REGRA DE MÚLTIPLAS CORES PRA UMA SÓ PORCENTAGEM/PREÇO (lacrado):
-Se aparecerem 2+ emojis de cor colados um no outro, sem porcentagem
-entre eles nem separação, e só UM preço no final, isso é UM preço só
-que vale pra cada cor — gera um item por cor, todos com esse mesmo
-preço. Exemplo real (lacrado): "17 256G 100% ⚪️⚫️4450,0" → 2 itens,
-"17" 256GB lacrado, branco e preto, ambos 100%... ATENÇÃO: se tiver
-"%" antes das cores nesse padrão (como no exemplo), na verdade é
-SEMINOVO com bateria 100 pra ambas as cores, não lacrado — sempre
-aplica primeiro o teste do "%" (regra de classificação lá em cima)
-antes de decidir o destino.
-
-REGRA DE ARMAZENAMENTO EM TERABYTE:
-"1TERA", "1 TERA", "1TB", "1 TB" são todos a mesma coisa — sempre
-normaliza pra "1TB" no campo "memoria". Nunca deixe "TERA" escrito
-literalmente no campo memoria.
-
-REGRA DE OBSERVAÇÃO NO MEIO DA LINHA (não deixa isso confundir onde
-está o preço): texto livre tipo "tela com um trincadinho", "bat nova",
-"tampa traseira trocada" pode aparecer ENTRE a cor/bateria e o preço,
-não só no fim da linha. O preço continua sendo o ÚLTIMO número da
-linha (geralmente com 3-4 dígitos, às vezes com vírgula/decimais) —
-nunca confunda esse texto livre com parte do preço ou do modelo.
-
 REGRA DE ITENS MÚLTIPLOS NA MESMA LINHA:
 Quando uma linha de seminovo tiver VÁRIOS pares de bateria+cor antes do preço,
 isso significa VÁRIAS UNIDADES diferentes desse mesmo modelo/memória, cada
@@ -138,7 +95,7 @@ function normalizarResposta(bruto: unknown): unknown[] {
 
 function memoriaEmGB(memoria: string | null): number | null {
   if (!memoria) return null;
-  const match = memoria.match(/([\d.,]+)\s*(GB|TB|TERABYTE|TERA|G|T)/i);
+  const match = memoria.match(/([\d.,]+)\s*(GB|TB|G|T)/i);
   if (!match) return null;
   const valor = parseFloat(match[1].replace(",", "."));
   const unidade = match[2].toUpperCase();

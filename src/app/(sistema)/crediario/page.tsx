@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CreditCard, Users, Settings, TrendingUp, Plus, ClipboardList } from "lucide-react";
+import { CreditCard, Users, Settings, TrendingUp, Plus } from "lucide-react";
 import { obterDashboardCrediario, listarPropostas } from "@/services/crediario/crediario.service";
 import { formatCurrency, formatDate } from "@/utils";
 
@@ -22,7 +22,6 @@ export default async function CrediarioDashboardPage() {
         </div>
         <div className="flex gap-2">
           <Link href="/crediario/fiadores" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Users className="h-3.5 w-3.5" />Fiadores</Link>
-          <Link href="/crediario/pre-analises" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><ClipboardList className="h-3.5 w-3.5" />Pré-análises</Link>
           <Link href="/crediario/risco" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><TrendingUp className="h-3.5 w-3.5" />Risco</Link>
           <Link href="/crediario/configuracoes" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Settings className="h-3.5 w-3.5" />Configurações</Link>
           <Link href="/crediario/propostas/nova" className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"><Plus className="h-3.5 w-3.5" />Nova análise</Link>

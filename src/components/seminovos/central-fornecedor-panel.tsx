@@ -209,11 +209,10 @@ export function CentralFornecedorPanel() {
                   <Zap className="h-3.5 w-3.5" />{aplicandoTudo ? "Aplicando tudo..." : `Aplicar tudo (${pendentesCount})`}
                 </Button>
               )}
-              <Button size="sm" variant="destructive" onClick={handlePedirConfirmacaoSubstituicao} disabled={substituindo}>
-                <Trash2 className="h-3.5 w-3.5" />Atualizar lista do dia (substitui a anterior)
+              <Button size="sm" variant="outline" className="border-danger/40 text-danger hover:bg-danger/5" onClick={handlePedirConfirmacaoSubstituicao} disabled={substituindo}>
+                <Trash2 className="h-3.5 w-3.5" />Essa lista substitui a do fornecedor
               </Button>
             </div>
-            <p className="text-[11px] text-muted-foreground">Se você recebe uma lista nova do fornecedor todo dia, use "Atualizar lista do dia" — ela aplica os itens novos E remove os que não estão mais na lista de hoje. "Aplicar tudo" só adiciona, nunca remove.</p>
           </div>
 
           {previaSubstituicao && (

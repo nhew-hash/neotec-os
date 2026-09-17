@@ -5,13 +5,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BotaoImprimir } from "@/components/impressao/botao-imprimir";
 import { salvarDiagnosticoAction, adicionarPecaOSAction } from "@/services/assistencia/assistencia.actions";
 import { formatCurrency } from "@/utils";
 import type { Produto } from "@/types";
 import type { PecaOSComProduto } from "@/services/assistencia/assistencia.service";
 
-export function DiagnosticoForm({ osId, diagnosticoAtual, valorAtual }: { osId: string; diagnosticoAtual: string | null; valorAtual?: number | null }) {
+export function DiagnosticoForm({ osId, diagnosticoAtual }: { osId: string; diagnosticoAtual: string | null }) {
   const [isPending, startTransition] = useTransition();
   const [mensagem, setMensagem] = useState<string | null>(null);
 
@@ -26,14 +25,11 @@ export function DiagnosticoForm({ osId, diagnosticoAtual, valorAtual }: { osId: 
   return (
     <form action={handleSubmit} className="flex flex-col gap-3">
       <Textarea name="diagnostico" placeholder="Descreva o diagnóstico técnico" defaultValue={diagnosticoAtual ?? ""} />
-      <Input name="valor" type="number" step="0.01" placeholder="Valor do orçamento do reparo" defaultValue={valorAtual ?? ""} />
+      <Input name="valor" type="number" step="0.01" placeholder="Valor do orçamento do reparo" />
       {mensagem && <p className="text-xs text-muted-foreground">{mensagem}</p>}
-      <div className="flex items-center gap-2">
-        <Button type="submit" disabled={isPending} className="w-fit">
-          {isPending ? "Salvando..." : "Salvar diagnóstico"}
-        </Button>
-        {valorAtual != null && <BotaoImprimir tipo="os" id={osId} formato="a4" label="Imprimir orçamento" />}
-      </div>
+      <Button type="submit" disabled={isPending} className="w-fit">
+        {isPending ? "Salvando..." : "Salvar diagnóstico"}
+      </Button>
     </form>
   );
 }

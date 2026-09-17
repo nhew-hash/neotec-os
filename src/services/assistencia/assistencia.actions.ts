@@ -210,28 +210,14 @@ export async function salvarChecklistOSAction(
 }
 
 /** Finaliza o atendimento — registra forma de pagamento e valor, marca como encerrado. Impressão é disparada pela tela, não aqui (ação só grava o dado). */
-export async function finalizarAtendimentoOSAction(
-  osId: string, formaPagamento: string, valorCobrado: number, garantiaDias: number,
-  pagamentosMisto?: { metodo: string; valor: number }[],
-): Promise<ActionResult> {
+export async function finalizarAtendimentoOSAction(osId: string, formaPagamento: string, valorCobrado: number, garantiaDias: number): Promise<ActionResult> {
   try {
-    if (formaPagamento === "misto") {
-      const soma = (pagamentosMisto ?? []).reduce((acc, p) => acc + p.valor, 0);
-      if ((pagamentosMisto ?? []).length < 2) return { success: false, error: "Pagamento misto precisa de pelo menos 2 formas diferentes" };
-      if (Math.abs(soma - valorCobrado) > 0.01) return { success: false, error: `A soma dos pagamentos (${soma.toFixed(2)}) não bate com o valor cobrado (${valorCobrado.toFixed(2)})` };
-    }
-
     const supabase = await createClient();
     const { error } = await supabase
       .from("ordens_servico")
       .update({ status: "atendimento_encerrado", forma_pagamento: formaPagamento, valor_cobrado: valorCobrado, garantia_dias: garantiaDias })
       .eq("id", osId);
     if (error) throw new Error(error.message);
-
-    if (formaPagamento === "misto" && pagamentosMisto) {
-      await supabase.from("os_pagamentos").insert(pagamentosMisto.map((p) => ({ os_id: osId, metodo: p.metodo, valor: p.valor })));
-    }
-
     revalidatePath("/assistencia");
     revalidatePath("/crm");
     return { success: true, data: undefined };
@@ -249,7 +235,6 @@ export async function reabrirAtendimentoOSAction(osId: string): Promise<ActionRe
       .update({ status: "recebido", forma_pagamento: null, valor_cobrado: null })
       .eq("id", osId);
     if (error) throw new Error(error.message);
-    await supabase.from("os_pagamentos").delete().eq("os_id", osId);
     revalidatePath("/assistencia");
     revalidatePath("/crm");
     return { success: true, data: undefined };
