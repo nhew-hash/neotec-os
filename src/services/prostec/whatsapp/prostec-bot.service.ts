@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveAIProvider } from "@/services/ia/providers/ia-provider-resolver";
 import { enviarMensagemProstec } from "./prostec-whatsapp.provider";
+import { paraFormatoInternacionalBR } from "@/utils/telefone";
 
 /**
  * IARA — agente comercial de IA da Prostec. Substitui o bot scripted
@@ -196,8 +197,17 @@ async function verificarCircuitBreakerErroIA(admin: ReturnType<typeof createAdmi
   }
 }
 
-export async function iniciarConversaBot(leadId: string, telefone: string, nomeEmpresa: string): Promise<{ sucesso: boolean; motivo?: string }> {
+export async function iniciarConversaBot(leadId: string, telefoneBruto: string, nomeEmpresa: string): Promise<{ sucesso: boolean; motivo?: string }> {
   const admin = createAdminClient();
+
+  // O telefone chega aqui em qualquer formato (o Google Places devolve
+  // "+55 34 99999-8888", com espaços e pontuação). O Bridge, quando uma
+  // resposta chega de verdade, manda só dígitos com "55" na frente (tirado
+  // direto do JID do Baileys). Se guardássemos o formato bruto, a conversa
+  // nunca seria encontrada de novo na hora da resposta — o bot "começava"
+  // mas nunca "continuava". Normaliza pra um formato único (dígitos + 55)
+  // ANTES de gravar ou consultar qualquer coisa por telefone.
+  const telefone = paraFormatoInternacionalBR(telefoneBruto);
 
   const { data: optOut } = await admin.from("prostec_opt_out").select("telefone").eq("telefone", telefone).maybeSingle();
   if (optOut) return { sucesso: false, motivo: "Esse número pediu pra não ser mais contatado — bloqueado, não é possível iniciar conversa nova." };
@@ -244,8 +254,14 @@ export async function iniciarConversaBot(leadId: string, telefone: string, nomeE
 }
 
 /** Processa uma mensagem recebida — a Iara decide, responde, atualiza CRM, registra a decisão. */
-export async function processarMensagemRecebidaIara(telefone: string, textoRecebido: string): Promise<void> {
+export async function processarMensagemRecebidaIara(telefoneBruto: string, textoRecebido: string): Promise<void> {
   const admin = createAdminClient();
+
+  // Mesma normalização de iniciarConversaBot — garante que bate com o
+  // que foi gravado em prostec_conversas.telefone, seja qual for o
+  // formato que o Bridge mandou (normalmente já vem limpo, mas não custa
+  // garantir).
+  const telefone = paraFormatoInternacionalBR(telefoneBruto);
 
   const { data: conversa } = await admin
     .from("prostec_conversas")

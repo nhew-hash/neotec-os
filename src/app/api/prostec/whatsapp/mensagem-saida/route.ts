@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { paraFormatoInternacionalBR } from "@/utils/telefone";
 
 /**
  * Bridge chama quando detecta uma mensagem "fromMe" — pode ser uma
@@ -17,10 +18,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const telefone = body.telefone as string;
+    const telefoneBruto = body.telefone as string | undefined;
     const conteudo = body.conteudo as string;
     const idExterno = body.idExterno as string | undefined;
-    if (!telefone) return NextResponse.json({ ok: false }, { status: 400 });
+    if (!telefoneBruto) return NextResponse.json({ ok: false }, { status: 400 });
+    const telefone = paraFormatoInternacionalBR(telefoneBruto);
 
     const admin = createAdminClient();
 

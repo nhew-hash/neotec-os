@@ -4,6 +4,170 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 219] - Fix: bot da Prostec (Iara) nao continuava a conversa
+
+Causa raiz encontrada: `prostec_conversas.telefone` era gravado com o
+numero BRUTO do Google Places (ex: "+55 34 99999-8888", com espaco e
+pontuacao). Quando o lead respondia de verdade, o Bridge mandava o
+telefone em digitos puros com "55" na frente (extraido do JID do
+Baileys). O `.eq("telefone", telefone)` exato quase nunca batia, entao
+`processarMensagemRecebidaIara()` caia no "numero nao e lead da
+Prostec - ignora" e retornava sem fazer nada, silenciosamente. Por
+isso a Iara mandava a primeira mensagem (isso nao depende de achar a
+conversa) mas nunca respondia a segunda mensagem em diante.
+
+Corrigido usando o mesmo padrao ja usado no WhatsApp da loja
+(`src/utils/telefone.ts` - `paraFormatoInternacionalBR`):
+- `iniciarConversaBot()` normaliza o telefone ANTES de checar opt-out
+  e gravar em `prostec_conversas`.
+- `processarMensagemRecebidaIara()` normaliza o telefone recebido do
+  Bridge antes de buscar a conversa.
+- `/api/prostec/whatsapp/mensagem-saida` (deteccao de resposta manual
+  pelo celular) tinha o mesmo bug — corrigido igual.
+- Migracao `fase219_fix_telefone_prostec_conversas.sql` reformata as
+  linhas ja gravadas erradas em `prostec_conversas` e `prostec_opt_out`,
+  pra conversas que ja estavam "travadas" voltarem a funcionar sem
+  precisar reenviar o primeiro contato.
+
+## [Fase 217] - Pre-Analise de Crediario (formulario publico)
+
+Modulo novo completo, conforme especificacao. NAO e aprovacao de
+credito - so triagem inicial que vira notificacao de WhatsApp pro
+vendedor continuar o atendimento.
+
+### Decisao de arquitetura importante
+O documento sugeria /crediario ou /crediario/pre-analise como URL
+publica - mas /crediario ja e usado pelas telas INTERNAS da equipe
+(dashboard, propostas, fiadores). Se tornasse /crediario publico,
+todas as telas internas ficariam publicas tambem. Usado /pre-analise
+como caminho publico (mesmo padrao ja usado pra proposta da Prostec -
+/proposta, separado de /prostec).
+
+### Formulario publico (/pre-analise)
+12 etapas, uma pergunta ou pequeno grupo por vez, barra de progresso,
+mobile-first. Aparelho desejado puxa do catalogo real (categoria
+'iphone' em produtos), nunca lista fixa. Entrada/parcela/renda sempre
+digitados pelo cliente, nunca faixa. NUNCA pede CPF, RG, documento,
+comprovante, foto, dado bancario - exatamente como pedido. Termo de
+aceite obrigatorio antes de enviar.
+
+### Envio pro WhatsApp - reaproveitado, nao criado do zero
+Usa enviarTexto() que ja existe (integracao Meta Cloud API da loja) -
+nunca criou uma integracao de WhatsApp nova so pra isso. Numero de
+destino configuravel em Crediario -> Configuracoes. Se o envio falhar,
+nunca bloqueia o cadastro (o lead fica salvo mesmo assim, vendedor ve
+na tela).
+
+### Indicador interno - nunca aprovacao automatica
+Heuristica simples e transparente (soma pontos por sinal positivo:
+entrada vs parcela, parcela vs renda, estabilidade profissional, tempo
+de moradia, aparelho na troca) -> 🟢 Bom potencial / 🟡 Analise manual /
+🔴 Baixo potencial. NUNCA mostrado ao cliente, NUNCA rejeita/aprova
+sozinho - so ajuda o vendedor a priorizar.
+
+### Painel administrativo (Crediario -> Pre-analises)
+Lista com indicador visivel, WhatsApp/entrada/parcela/renda/status.
+Detalhe com todos os campos organizados por bloco, botao de WhatsApp
+direto, mudanca de status (8 estados: novo, em_analise,
+contatar_cliente, aguardando_documentos, aprovado, reprovado,
+venda_fechada, perdido), campo de observacao interna. Link publico com
+botao de copiar, pra mandar por WhatsApp/Instagram.
+
+### Seguranca
+RLS: qualquer um pode CRIAR (insert publico), ninguem sem cargo de
+staff pode LER o que ja foi enviado. Validacao Zod no schema, aplicada
+tanto no client quanto de novo no servidor (nunca confia so na tela).
+Nao coletado nenhum dado da lista de "nao incluir" do documento (CPF,
+RG, documento, comprovante, referencias, dados bancarios).
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 216] - Impressao de orcamento na Assistencia Tecnica
+
+Investigado: venda ja tinha impressao de orcamento funcionando
+direito (BotaoImprimir ja conectado em orcamentos-table.tsx, com
+valores). O gap real era so na Assistencia - nao existia nenhuma
+forma de imprimir o orcamento do reparo (diagnostico + valor
+proposto, ANTES do pagamento).
+
+### O que foi criado
+- Novo bloco "Orcamento do reparo" no template de impressao de OS -
+  aparece só quando existe valor orçado E o atendimento ainda não foi
+  finalizado (nunca aparece junto com o bloco de pagamento final, sao
+  momentos diferentes)
+- Botao "Imprimir orcamento" no formulario de diagnostico - aparece
+  assim que o tecnico salva um valor
+- Template atualizado via migracao (replace idempotente, mesmo padrao
+  ja usado antes - seguro rodar de novo)
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 215] - Central de Cadastro: bugs reais de parsing corrigidos
+
+Analisada a lista real do usuario linha por linha - achados varios
+padroes que a IA nao tratava direito ainda.
+
+### Bugs de parsing corrigidos (prompt)
+- **Porcentagem "orfa"**: linha com varias % mas nem toda % tem cor
+  colada do lado (ex: "13 128G 85%90%91%⚪️..."). Antes podia
+  confundir/descartar - agora sempre cria item separado por %, cor
+  null quando nao tiver emoji colado.
+- **Cores agrupadas antes das porcentagens**: padrao diferente do
+  intercalado usual (ex: "16 PRO 512G🩶💛90%91%4499") - agora associa
+  na ordem (1a cor com 1a %, 2a com 2a).
+- **Multiplas cores pra um preco so, sem bateria explicita por cor**
+  em linha que na verdade e seminovo (ex: "17 256G 100% ⚪️⚫️4450,0") -
+  esclarecido que testa classificacao (seminovo/lacrado) ANTES de
+  aplicar a regra de multiplas cores.
+- **"1TERA" nao reconhecido como 1TB** - adicionado na instrucao da
+  IA E no regex determinista de validacao (memoriaEmGB), que tambem
+  so aceitava GB/TB/G/T antes.
+- **Texto de observacao no meio da linha** (ex: "tampa traseira
+  trocada" entre a bateria e o preco) - reforcado que isso nunca deve
+  confundir onde comeca/termina o preco real.
+
+### UI - "Atualizar lista do dia" mais visivel
+O recurso de substituir a lista antiga JA EXISTIA
+(preverSubstituicaoAction/substituirListaFornecedorAction) e ja
+funcionava certo (apaga so seminovo que nao esta na lista nova, zera
+so variante de lacrado que nao esta na lista nova, nunca mexe no tipo
+que nao apareceu na lista colada, nunca apaga reservado/vendido) -
+mas o botao tinha peso visual secundario (outline), fazendo parecer
+op-cional/escondido. Renomeado pra "Atualizar lista do dia (substitui
+a anterior)", virou botao destructive (mais visivel), e adicionado um
+texto explicando a diferenca entre esse e o "Aplicar tudo" (que so
+adiciona, nunca remove).
+
+---
+
+# Changelog - Neotec OS
+
+## [Fase 214] - Pagamento misto tambem na Assistencia Tecnica
+
+Mesmo padrao ja usado na venda do PDV (Fase 212), agora pra ordem de
+servico.
+
+### O que mudou
+- Nova tabela `os_pagamentos` (mesma estrutura de venda_pagamentos)
+- "Misto" adicionado como opcao ao finalizar atendimento
+- Formulario de detalhamento (quantas formas quiser), soma validada
+  em tempo real contra o valor cobrado - nos dois lados (tela e
+  servidor)
+- Reabrir atendimento agora tambem limpa o detalhamento antigo (evita
+  registro velho misturado com o novo ciclo)
+- Comprovante de OS corrigido: antes nao tratava "misto" nem
+  parcelamento de cartao direito no rotulo - agora mostra "Misto" com
+  o detalhamento completo (quanto foi em cada forma), e "Cartao de
+  credito - Nx" corretamente
+
+---
+
+# Changelog - Neotec OS
+
 ## [Fase 212] - Bug critico: TODA a impressao redirecionava pro login + pagamento misto de verdade
 
 ### Bug critico corrigido - /impressao inteiro bloqueado
