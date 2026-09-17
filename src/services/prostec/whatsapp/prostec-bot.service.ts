@@ -254,7 +254,7 @@ export async function iniciarConversaBot(leadId: string, telefoneBruto: string, 
 }
 
 /** Processa uma mensagem recebida — a Iara decide, responde, atualiza CRM, registra a decisão. */
-export async function processarMensagemRecebidaIara(telefoneBruto: string, textoRecebido: string): Promise<void> {
+export async function processarMensagemRecebidaIara(telefoneBruto: string, textoRecebido: string, telefoneConfiavel = true): Promise<void> {
   const admin = createAdminClient();
 
   // Mesma normalização de iniciarConversaBot — garante que bate com o
@@ -268,7 +268,21 @@ export async function processarMensagemRecebidaIara(telefoneBruto: string, texto
     .select("*, lead:prostec_leads(id, segment, score, temperature, status, reasons, site_analysis, company:prostec_companies(name, city))")
     .eq("telefone", telefone)
     .maybeSingle();
-  if (!conversa) return; // número não é lead da Prostec — ignora
+  if (!conversa) {
+    // Antes isso morria em silêncio sempre. Se o telefone não é
+    // confiável (veio de um LID do WhatsApp que o Bridge não conseguiu
+    // resolver pro número real — ver prostec-whatsapp.provider e o
+    // Bridge), registra como anomalia visível em vez de simplesmente
+    // sumir: essa mensagem existiu, chegou, e ninguém vai saber que
+    // existiu se não ficar registrada em algum lugar.
+    if (!telefoneConfiavel) {
+      await admin.from("prostec_anomalias").insert({
+        tipo: "outro",
+        descricao: `Mensagem recebida de um contato com LID não resolvido (telefone real desconhecido) — texto: "${textoRecebido.slice(0, 200)}". Verificar manualmente pelo WhatsApp conectado.`,
+      });
+    }
+    return; // número não é lead da Prostec (ou telefone não resolvido) — ignora
+  }
 
   await registrarMensagem(conversa.id, "lead", textoRecebido, false);
   await admin.from("prostec_conversas").update({ nao_lidas: conversa.nao_lidas + 1 }).eq("id", conversa.id);

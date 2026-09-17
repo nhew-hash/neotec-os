@@ -15,6 +15,10 @@ export async function POST(request: NextRequest) {
     const tipo = body.tipo as string;
     const conteudo = body.conteudo as string;
     const idExterno = body.idExterno as string | undefined;
+    // O Bridge manda false quando "telefone" na verdade é um LID cru do
+    // WhatsApp (não conseguiu resolver o número real) — ver comentário em
+    // processarMensagemRecebidaIara. Ausente (Bridge antigo) = confiável.
+    const telefoneConfiavel = body.telefoneConfiavel !== false;
     if (!telefone) return NextResponse.json({ ok: false, erro: "telefone é obrigatório" }, { status: 400 });
 
     const chaveIdempotencia = idExterno ?? createHash("sha256").update(`${telefone}:${conteudo}:${Math.floor(Date.now() / 60_000)}`).digest("hex");
@@ -35,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { processarMensagemRecebidaIara } = await import("@/services/prostec/whatsapp/prostec-bot.service");
-    await processarMensagemRecebidaIara(telefone, conteudo || "");
+    await processarMensagemRecebidaIara(telefone, conteudo || "", telefoneConfiavel);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

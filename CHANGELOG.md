@@ -4,6 +4,19 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 220] - Fix: mensagem da Prostec via LID do WhatsApp desaparecia
+
+Caso raro mas real: contato cujo WhatsApp ja migrou pro identificador
+interno novo (LID) e cujo mapeamento LID->telefone o WhatsApp nao anexa
+na mensagem. O Bridge (corrigido em paralelo) agora tenta resolver via
+sock.signalRepository.lidMapping antes de desistir, e manda um campo
+`telefoneConfiavel` avisando quando nao conseguiu. `processarMensagemRecebidaIara`
+agora recebe esse aviso e, quando nao acha a conversa E o telefone nao
+e confiavel, registra uma anomalia em `prostec_anomalias` em vez de
+simplesmente ignorar em silencio — a mensagem passa a ficar visivel
+pra alguem investigar, mesmo quando o numero real nao pode ser
+recuperado automaticamente.
+
 ## [Fase 219] - Fix: bot da Prostec (Iara) nao continuava a conversa
 
 Causa raiz encontrada: `prostec_conversas.telefone` era gravado com o
