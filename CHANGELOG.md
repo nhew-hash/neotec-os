@@ -4,6 +4,20 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 226] - Erro do Google Places agora mostra o motivo real, não só a frase genérica
+
+O erro "The caller does not have permission." que a Prostec mostra na
+busca é a mensagem literal que o Google devolve — mas o Google também
+manda, junto, um `status` (código canônico, ex: PERMISSION_DENIED) e
+um `details[].reason` bem mais específico (ex: SERVICE_DISABLED,
+API_KEY_SERVICE_BLOCKED, BILLING_DISABLED, etc.) que o código não
+estava lendo nem mostrando — só a frase genérica chegava até a tela.
+Checagem manual de chave/API/billing/restrição não achou nada errado,
+então precisa desse detalhe extra do próprio Google pra saber qual das
+várias causas possíveis é a real. Agora a mensagem de erro inclui o
+`status` HTTP, o status canônico e o motivo específico, e o corpo
+completo do erro também fica logado nos Runtime Logs da Vercel.
+
 ## [Fase 225] - Taxa de integração + mensalidade de manutenção nos produtos recorrentes
 
 Robô de automação e CRM tinham só um valor mensal fixo — sem separar o

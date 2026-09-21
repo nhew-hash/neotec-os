@@ -14,7 +14,17 @@ interface PlacesApiPlace {
   rating?: number; userRatingCount?: number; googleMapsUri?: string;
   regularOpeningHours?: { weekdayDescriptions?: string[] }; businessStatus?: string;
 }
-interface PlacesApiResponse { places?: PlacesApiPlace[]; nextPageToken?: string; error?: { message?: string } }
+interface PlacesApiResponse {
+  places?: PlacesApiPlace[];
+  nextPageToken?: string;
+  // status/details são exatamente o que o Google devolve num erro —
+  // status é o código canônico (ex: "PERMISSION_DENIED") e details traz
+  // o motivo específico (ex: reason: "API_KEY_SERVICE_BLOCKED",
+  // "SERVICE_DISABLED", etc.) — sem isso só víamos a frase genérica
+  // "The caller does not have permission.", que não diz QUAL das
+  // várias causas possíveis é a real.
+  error?: { message?: string; status?: string; details?: unknown[] };
+}
 
 export interface RawCompany {
   name: string; category: string; city: string; state: string; address: string | null;
@@ -34,7 +44,18 @@ async function searchTextPage(apiKey: string, body: Record<string, unknown>): Pr
     body: JSON.stringify(body),
   });
   const json = (await res.json().catch(() => ({}))) as PlacesApiResponse;
-  if (!res.ok) throw new Error(json?.error?.message || `HTTP ${res.status}`);
+  if (!res.ok) {
+    // Loga o corpo bruto do erro nos logs da Vercel (Runtime Logs) —
+    // fica disponível ali mesmo sem precisar mudar o que aparece pro
+    // usuário na tela.
+    console.error("[google-places] Erro da API:", res.status, JSON.stringify(json?.error ?? json));
+    const motivo = (json?.error?.details ?? [])
+      .map((d) => (d as { reason?: string })?.reason)
+      .filter(Boolean)
+      .join(", ");
+    const detalhe = [json?.error?.status, motivo].filter(Boolean).join(" / ");
+    throw new Error(`HTTP ${res.status}${detalhe ? ` (${detalhe})` : ""} — ${json?.error?.message || "sem mensagem detalhada"}`);
+  }
   return json;
 }
 
