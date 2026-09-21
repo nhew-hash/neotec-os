@@ -30,7 +30,7 @@ export function NovaBuscaForm({ cidadesSugeridas, segmentosDisponiveis }: { cida
   const [segmentoCustom, setSegmentoCustom] = useState("");
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
-  const [resultado, setResultado] = useState<{ leadsCriados: number; leadsAtualizados: number; totalEncontrado: number; botsIniciados: number } | null>(null);
+  const [resultado, setResultado] = useState<{ leadsCriados: number; leadsAtualizados: number; totalEncontrado: number } | null>(null);
 
   function alternarSegmento(segmento: string) {
     setSegmentosSelecionados((atual) =>
@@ -135,7 +135,6 @@ export function NovaBuscaForm({ cidadesSugeridas, segmentosDisponiveis }: { cida
       {resultado && (
         <p className="text-[11px] text-success">
           Busca concluída — {resultado.totalEncontrado} empresa(s) encontrada(s), {resultado.leadsCriados} lead(s) novo(s), {resultado.leadsAtualizados} atualizado(s).
-          {resultado.botsIniciados > 0 && ` A Iara já iniciou conversa com ${resultado.botsIniciados} empresa(s) nova(s).`}
         </p>
       )}
 

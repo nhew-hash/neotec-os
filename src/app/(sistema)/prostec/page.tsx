@@ -92,7 +92,7 @@ export default async function ProstecPage() {
         </div>
       </div>
 
-      <NovaBuscaForm cidadesSugeridas={config.cidades_sugeridas} />
+      <NovaBuscaForm cidadesSugeridas={config.cidades_sugeridas} segmentosDisponiveis={config.segmentos_disponiveis} />
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-foreground">Pipeline</h2>
