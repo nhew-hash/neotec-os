@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { PRODUTOS_PROSTEC_PADRAO, type ProdutoProstecDados } from "./lib/produtos-padrao";
 
 export interface ProstecLead {
   id: string;
@@ -248,31 +249,20 @@ export async function gerarFollowupsAutomaticosProstec(): Promise<{ criados: num
   return { criados };
 }
 
-export interface ProstecOferta {
-  produto: string;
-  preco: number;
-  formas_pagamento: string;
-  prazo_entrega: string;
-  incluso: string;
-  nao_incluso: string;
-  desconto_maximo_automatico_pct: number;
-  parcelamento_maximo: number;
-}
+export type ProstecProduto = ProdutoProstecDados;
 
-/** Única fonte de verdade que a Iara usa pra nunca inventar preço/condição — configurada aqui, lida direto por ela a cada conversa. */
-export async function buscarOfertaProstec(): Promise<ProstecOferta> {
+/**
+ * Catálogo de produtos que a Iara vende (Fase 223) — substitui a
+ * antiga "oferta" única (só site). Única fonte de verdade que ela usa
+ * pra nunca inventar preço/condição de nenhum produto — lida direto
+ * por ela a cada conversa. `somenteAtivos` filtra o que o operador
+ * desligou temporariamente (ex.: ainda não quer vender CRM).
+ */
+export async function listarProdutosProstec(somenteAtivos = false): Promise<ProstecProduto[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from("prostec_oferta").select("*").eq("id", "default").maybeSingle();
-  return {
-    produto: data?.produto ?? "Site institucional profissional",
-    preco: data?.preco ?? 1497,
-    formas_pagamento: data?.formas_pagamento ?? "PIX ou cartão de crédito, em até 12x",
-    prazo_entrega: data?.prazo_entrega ?? "10 dias úteis após aprovação do conteúdo",
-    incluso: data?.incluso ?? "Design profissional, até 5 páginas, formulário de contato, otimização para celular",
-    nao_incluso: data?.nao_incluso ?? "Fotos profissionais, redação de texto, domínio e hospedagem",
-    desconto_maximo_automatico_pct: data?.desconto_maximo_automatico_pct ?? 0,
-    parcelamento_maximo: data?.parcelamento_maximo ?? 12,
-  };
+  const { data } = await supabase.from("prostec_produtos").select("*").order("ordem", { ascending: true });
+  const lista = data && data.length > 0 ? (data as ProstecProduto[]) : PRODUTOS_PROSTEC_PADRAO;
+  return somenteAtivos ? lista.filter((p) => p.ativo) : lista;
 }
 
 /**
@@ -632,10 +622,15 @@ export interface ConfigWhatsappProstec {
   mensagens_hoje: number;
   pausado_automaticamente: boolean;
   motivo_pausa_automatica: string | null;
+  auto_iniciar_bot_apos_busca: boolean;
+  limite_auto_inicio_por_busca: number;
 }
 
 export async function buscarConfigWhatsappProstec(): Promise<ConfigWhatsappProstec | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("integracoes_whatsapp_prostec").select("numero, status, qr_code, ultima_conexao, modo_operacao, iara_ativa, mensagens_hoje, pausado_automaticamente, motivo_pausa_automatica").maybeSingle();
+  const { data } = await supabase
+    .from("integracoes_whatsapp_prostec")
+    .select("numero, status, qr_code, ultima_conexao, modo_operacao, iara_ativa, mensagens_hoje, pausado_automaticamente, motivo_pausa_automatica, auto_iniciar_bot_apos_busca, limite_auto_inicio_por_busca")
+    .maybeSingle();
   return data ?? null;
 }

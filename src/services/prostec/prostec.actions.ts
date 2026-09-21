@@ -209,7 +209,7 @@ export async function cadastrarEmpresaManualAction(formData: FormData): Promise<
  * Recomendo começar com quantidade baixa (15-20) pra não esbarrar no
  * limite de tempo do Vercel.
  */
-export async function executarBuscaProstecAction(formData: FormData): Promise<ActionResult<{ leadsCriados: number; leadsAtualizados: number; totalEncontrado: number }>> {
+export async function executarBuscaProstecAction(formData: FormData): Promise<ActionResult<{ leadsCriados: number; leadsAtualizados: number; totalEncontrado: number; botsIniciados: number }>> {
   const city = String(formData.get("city") ?? "").trim();
   const state = String(formData.get("state") ?? "").trim();
   const quantity = Number(formData.get("quantity") ?? 20);
@@ -244,6 +244,17 @@ export async function executarBuscaProstecAction(formData: FormData): Promise<Ac
       .select("id")
       .single();
     if (erroSearch) throw new Error(erroSearch.message);
+
+    // Fase 223 — depois de achar empresa nova, o bot já entra em ação
+    // sozinho (antes exigia clicar "mandar pra Iara" lead por lead).
+    // limite_auto_inicio_por_busca é uma trava de segurança: no máximo
+    // N primeiras-mensagens por execução, pra não disparar uma rajada
+    // de mensagem idêntica de uma vez (risco real de o WhatsApp marcar
+    // o número da Prostec como spam por comportamento de robô).
+    const { data: configBot } = await supabase.from("integracoes_whatsapp_prostec").select("auto_iniciar_bot_apos_busca, limite_auto_inicio_por_busca").maybeSingle();
+    const autoIniciarPermitido = configBot?.auto_iniciar_bot_apos_busca !== false;
+    const limiteAutoInicio = configBot?.limite_auto_inicio_por_busca ?? 15;
+    let botsIniciados = 0;
 
     let raw;
     try {
@@ -326,6 +337,20 @@ export async function executarBuscaProstecAction(formData: FormData): Promise<Ac
         }).select("id").single();
         leadId = novoLead?.id ?? "";
         criados++;
+
+        // Só dispara automático pra lead genuinamente NOVO (nunca
+        // reabre contato com empresa já cadastrada antes) e que tenha
+        // algum telefone/WhatsApp pra receber mensagem. iniciarConversaBot
+        // já confere opt-out sozinho, então não duplica essa checagem aqui.
+        const telefoneParaBot = rawCompany.whatsapp || rawCompany.phone;
+        if (leadId && telefoneParaBot && autoIniciarPermitido && botsIniciados < limiteAutoInicio) {
+          const { iniciarConversaBot } = await import("./whatsapp/prostec-bot.service");
+          const resultadoBot = await iniciarConversaBot(leadId, telefoneParaBot, rawCompany.name);
+          if (resultadoBot.sucesso) botsIniciados++;
+          // Pequeno intervalo entre disparos — parece humano e evita
+          // rajada de mensagens de abertura idênticas em sequência.
+          await new Promise((resolve) => setTimeout(resolve, 3000 + Math.random() * 4000));
+        }
       }
 
       if (leadId) {
@@ -337,7 +362,7 @@ export async function executarBuscaProstecAction(formData: FormData): Promise<Ac
 
     revalidatePath("/prostec");
     revalidatePath("/prostec/empresas");
-    return { success: true, data: { leadsCriados: criados, leadsAtualizados: atualizados, totalEncontrado: raw.length } };
+    return { success: true, data: { leadsCriados: criados, leadsAtualizados: atualizados, totalEncontrado: raw.length, botsIniciados } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao executar busca" };
   }
@@ -550,24 +575,59 @@ export async function buscarConversaComMensagensAction(conversaId: string): Prom
   }
 }
 
-export async function salvarOfertaProstecAction(formData: FormData): Promise<ActionResult> {
+/**
+ * Salva o catálogo inteiro de produtos da Prostec de uma vez (Fase
+ * 223) — substitui a antiga salvarOfertaProstecAction (só um produto).
+ * O form manda um campo "produtos[]" com a lista de slugs presentes e,
+ * pra cada slug, campos "<slug>__campo" — assim um único submit
+ * atualiza todos os produtos editados na tela.
+ */
+export async function salvarProdutosProstecAction(formData: FormData): Promise<ActionResult> {
   try {
     const supabase = await createClient();
-    const { error } = await supabase.from("prostec_oferta").update({
-      produto: String(formData.get("produto") ?? "").trim(),
-      preco: Number(formData.get("preco") ?? 0),
-      formas_pagamento: String(formData.get("formas_pagamento") ?? "").trim(),
-      prazo_entrega: String(formData.get("prazo_entrega") ?? "").trim(),
-      incluso: String(formData.get("incluso") ?? "").trim(),
-      nao_incluso: String(formData.get("nao_incluso") ?? "").trim(),
-      desconto_maximo_automatico_pct: Number(formData.get("desconto_maximo_automatico_pct") ?? 0),
-      parcelamento_maximo: Number(formData.get("parcelamento_maximo") ?? 12),
-    }).eq("id", "default");
-    if (error) throw new Error(error.message);
+    const slugs = formData.getAll("produtos[]").map(String);
+    if (slugs.length === 0) return { success: false, error: "Nenhum produto encontrado no formulário" };
+
+    for (const slug of slugs) {
+      const campo = (nome: string) => formData.get(`${slug}__${nome}`);
+      const { error } = await supabase.from("prostec_produtos").update({
+        nome: String(campo("nome") ?? "").trim(),
+        descricao_curta: String(campo("descricao_curta") ?? "").trim(),
+        quando_recomendar: String(campo("quando_recomendar") ?? "").trim(),
+        preco: Number(campo("preco") ?? 0),
+        tipo_cobranca: campo("tipo_cobranca") === "mensal" ? "mensal" : "unico",
+        formas_pagamento: String(campo("formas_pagamento") ?? "").trim(),
+        prazo_entrega: String(campo("prazo_entrega") ?? "").trim(),
+        incluso: String(campo("incluso") ?? "").trim(),
+        nao_incluso: String(campo("nao_incluso") ?? "").trim(),
+        desconto_maximo_automatico_pct: Number(campo("desconto_maximo_automatico_pct") ?? 0),
+        parcelamento_maximo: Number(campo("parcelamento_maximo") ?? 1),
+        ativo: campo("ativo") === "on",
+      }).eq("id", slug);
+      if (error) throw new Error(error.message);
+    }
+
     revalidatePath("/prostec/configuracoes");
     return { success: true, data: undefined };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar oferta" };
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar produtos" };
+  }
+}
+
+/** Liga/desliga o início automático do bot depois de uma busca de prospecção, e ajusta a trava de quantidade máxima por execução. */
+export async function salvarAutoInicioBotProstecAction(auto: boolean, limite: number): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { data: linha } = await supabase.from("integracoes_whatsapp_prostec").select("id").maybeSingle();
+    if (!linha) return { success: false, error: "Configuração não encontrada" };
+    await supabase.from("integracoes_whatsapp_prostec").update({
+      auto_iniciar_bot_apos_busca: auto,
+      limite_auto_inicio_por_busca: Number.isFinite(limite) && limite > 0 ? Math.floor(limite) : 15,
+    }).eq("id", linha.id);
+    revalidatePath("/prostec/configuracoes");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar configuração" };
   }
 }
 

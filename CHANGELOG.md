@@ -4,6 +4,49 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 223] - Catálogo de produtos da Prostec + bot entra em ação sozinho após busca
+
+Dois pedidos em conjunto: a Prostec vendia só "site" (era a única coisa
+configurável), mas a Neotec vende bem mais que isso; e o bot só
+começava conversa se alguém clicasse "mandar pra Iara" lead por lead.
+
+- **Catálogo de produtos** (nova tabela `prostec_produtos`, substitui
+  a antiga `prostec_oferta` de produto único — que fica no banco sem
+  uso, por segurança): site institucional, catálogo digital, robô de
+  automação de atendimento (WhatsApp), CRM de vendas e página de link
+  na bio. Cada um com preço, forma de pagamento, prazo, incluso/não
+  incluso e desconto máximo automático PRÓPRIOS — inclusive suporte a
+  cobrança mensal (robô e CRM) além de pagamento único.
+- **Iara vendedora de catálogo, não só de site**: prompt reescrito pra
+  ela recomendar o produto certo pra cada lead (site pra quem não tem
+  presença nenhuma, catálogo digital pra quem manda foto solta de
+  produto no WhatsApp, robô pra quem recebe mensagem repetida demais,
+  CRM pra quem já vende bem mas perde cliente por desorganização, link
+  na bio pra quem só usa Instagram) em vez de empurrar sempre a mesma
+  coisa. Novo campo `produto_interesse` na decisão da IA, validado
+  contra o catálogo real (nunca aceita um código de produto inventado)
+  — usado tanto pra checar limite de desconto do produto certo quanto
+  pra gerar a proposta do produto certo.
+- **Tela de Configurações**: formulário de oferta única virou um
+  catálogo editável (um bloco por produto, com liga/desliga por
+  produto).
+- **Bot automático após busca**: `executarBuscaProstecAction` agora
+  chama a Iara sozinha pra cada empresa nova encontrada (nunca reabre
+  contato com empresa já cadastrada), com uma trava de segurança
+  configurável (padrão: 15 primeiras-mensagens por execução de busca)
+  pra não disparar rajada de mensagem idêntica de uma vez — risco real
+  de o WhatsApp marcar o número como spam. Liga/desliga e ajuste do
+  limite ficaram na tela de Configurações → WhatsApp da Prostec.
+
+## [Fase 222] - Barra de segmentos na busca da Prostec (em vez de digitar)
+
+Campo "Segmentos separados por vírgula" da tela de Nova Busca virou
+uma barra de chips clicáveis (multi-seleção) com a lista já configurada
+em Configurações → Segmentos disponíveis (ou a lista padrão, se nada
+customizado). Mantido um campo pequeno "Outro segmento" pra digitar algo
+fora da lista quando precisar. Contrato com o backend não mudou (ainda
+manda string separada por vírgula).
+
 ## [Fase 221] - Iara vendedora de verdade + trava de opt-out por engano
 
 Auditoria no prompt comercial e na lógica de "não contatar mais" da

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { MessageCircle, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { conectarWhatsappProstecAction, desconectarWhatsappProstecAction, definirModoOperacaoProstecAction, pausarOuAtivarIaraAction } from "@/services/prostec/prostec.actions";
+import { conectarWhatsappProstecAction, desconectarWhatsappProstecAction, definirModoOperacaoProstecAction, pausarOuAtivarIaraAction, salvarAutoInicioBotProstecAction } from "@/services/prostec/prostec.actions";
 
 // Tipo duplicado — nunca importar (nem tipo) de prostec.service.ts num "use client".
 interface ConfigWhatsappProstec {
@@ -16,6 +16,8 @@ interface ConfigWhatsappProstec {
   mensagens_hoje: number;
   pausado_automaticamente: boolean;
   motivo_pausa_automatica: string | null;
+  auto_iniciar_bot_apos_busca: boolean;
+  limite_auto_inicio_por_busca: number;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -25,6 +27,7 @@ const STATUS_LABELS: Record<string, string> = {
 export function WhatsappProstecForm({ config }: { config: ConfigWhatsappProstec | null }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
+  const [limiteAutoInicio, setLimiteAutoInicio] = useState(String(config?.limite_auto_inicio_por_busca ?? 15));
 
   function handleConectar() {
     setErro(null);
@@ -48,6 +51,10 @@ export function WhatsappProstecForm({ config }: { config: ConfigWhatsappProstec 
 
   function handlePausarAtivar() {
     startTransition(async () => { await pausarOuAtivarIaraAction(!config?.iara_ativa); });
+  }
+
+  function handleAutoInicio(auto: boolean) {
+    startTransition(async () => { await salvarAutoInicioBotProstecAction(auto, Number(limiteAutoInicio) || 15); });
   }
 
   return (
@@ -121,6 +128,33 @@ export function WhatsappProstecForm({ config }: { config: ConfigWhatsappProstec 
         <Button type="button" size="sm" variant={config?.iara_ativa !== false ? "outline" : "default"} onClick={handlePausarAtivar} disabled={isPending}>
           {config?.iara_ativa !== false ? "Pausar Iara" : "Ativar Iara"}
         </Button>
+      </div>
+
+      <div className="border-t border-black/[0.06] pt-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-foreground">Iniciar bot automaticamente após buscar empresas</p>
+            <p className="text-[11px] text-muted-foreground">Sem isso, precisa clicar "mandar pra Iara" em cada lead novo, um por um.</p>
+          </div>
+          <Button
+            type="button" size="sm"
+            variant={config?.auto_iniciar_bot_apos_busca !== false ? "outline" : "default"}
+            onClick={() => handleAutoInicio(!(config?.auto_iniciar_bot_apos_busca !== false))}
+            disabled={isPending}
+          >
+            {config?.auto_iniciar_bot_apos_busca !== false ? "Ligado" : "Desligado"}
+          </Button>
+        </div>
+        {config?.auto_iniciar_bot_apos_busca !== false && (
+          <div className="mt-2 flex items-center gap-2">
+            <label className="text-[11px] text-muted-foreground">Máximo de primeiras-mensagens por busca (trava anti-spam):</label>
+            <input
+              type="number" value={limiteAutoInicio} onChange={(e) => setLimiteAutoInicio(e.target.value)}
+              onBlur={() => handleAutoInicio(true)}
+              className="h-7 w-16 rounded-lg border border-black/[0.08] px-2 text-xs"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

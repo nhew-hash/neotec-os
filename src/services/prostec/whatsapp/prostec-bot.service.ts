@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveAIProvider } from "@/services/ia/providers/ia-provider-resolver";
 import { enviarMensagemProstec } from "./prostec-whatsapp.provider";
 import { paraFormatoInternacionalBR } from "@/utils/telefone";
+import { PRODUTOS_PROSTEC_PADRAO, type ProdutoProstecDados } from "../lib/produtos-padrao";
 
 /**
  * IARA — agente comercial de IA da Prostec. Substitui o bot scripted
@@ -46,12 +47,31 @@ interface DecisaoIara {
   nao_contatar: boolean;
   /** Percentual de desconto que a resposta menciona oferecer ao cliente — 0 quando não há desconto na resposta. Validado deterministicamente pelo código antes de enviar (nunca confia só na IA calcular isso sozinha). */
   desconto_oferecido_pct: number;
+  /** Código (slug) do produto do catálogo que a conversa está focada agora — usado pra validar desconto contra o limite DAQUELE produto e pra saber qual gerar quando gerar_proposta=true. null se ainda não decidiu qual produto faz sentido. */
+  produto_interesse: string | null;
 }
 
 const STATUS_VALIDOS = ["novo", "contato_realizado", "qualificado", "reuniao", "proposta_enviada", "negociacao", "venda_fechada", "perdido"];
 
-function montarPromptSistema(oferta: { produto: string; preco: number; formas_pagamento: string; prazo_entrega: string; incluso: string; nao_incluso: string; desconto_maximo_automatico_pct: number; parcelamento_maximo: number }): string {
-  return `Você é a Iara, consultora comercial da Neotec — vende sites profissionais pra empresas locais em Araguari e região.
+function montarCatalogoTexto(produtos: ProdutoProstecDados[]): string {
+  return produtos
+    .map(
+      (p, i) => `${i + 1}. ${p.nome} (código: ${p.id})
+   - O que é: ${p.descricao_curta}
+   - Quando indicar pra esse lead: ${p.quando_recomendar}
+   - Preço: R$ ${p.preco}${p.tipo_cobranca === "mensal" ? "/mês" : " (pagamento único)"}
+   - Pagamento: ${p.formas_pagamento}
+   - Prazo: ${p.prazo_entrega}
+   - Incluso: ${p.incluso}
+   - Não incluso: ${p.nao_incluso}
+   - Desconto máximo que você pode oferecer sozinha nesse produto: ${p.desconto_maximo_automatico_pct}%
+   - Parcelamento máximo: ${p.parcelamento_maximo}x`
+    )
+    .join("\n\n");
+}
+
+function montarPromptSistema(produtos: ProdutoProstecDados[]): string {
+  return `Você é a Iara, consultora comercial da Neotec — vende soluções digitais pra empresas locais em Araguari e região.
 
 PERSONALIDADE E TOM (o objetivo é soar o mais humana possível, nunca robótica):
 - Escreve como gente de verdade manda WhatsApp: frases curtas, direto ao ponto, com contrações naturais ("tá", "pra", "você já", "vi que"). Nunca soa como e-mail corporativo, nunca usa "prezado", "cordialmente", linguagem de departamento de marketing.
@@ -60,9 +80,9 @@ PERSONALIDADE E TOM (o objetivo é soar o mais humana possível, nunca robótica
 - Emoji com moderação (0 ou 1 por mensagem, nunca mais), só quando soar natural.
 - Se perguntarem diretamente se você é uma IA/robô: confirma com naturalidade, sem se desculpar por isso e sem fingir ser humana — e continua a conversa normalmente, sem virar assunto principal.
 
-COMO VENDER DE VERDADE (você é consultora, não folheto):
-- Seu trabalho não é "empurrar site" — é entender rapidinho a situação da empresa e mostrar, com o que você já sabe sobre ela (${"veja o campo \"Oportunidade identificada\" no contexto"}), a consequência PRÁTICA e concreta de não ter presença digital profissional: cliente pesquisa no Google/Instagram antes de comprar e não encontra nada sério, concorrente que tem site fecha venda que era sua, perde venda fora do horário comercial porque não tem como o cliente ver produto/serviço sozinho, passa impressão amadora pra quem nunca ouviu falar da empresa antes.
-- Fale de consequência de negócio (vendas perdidas, credibilidade, concorrência), nunca de recurso técnico (não venda "responsivo", "SEO", "hospedagem" como se isso interessasse ao dono da empresa — traduza tudo pra "cliente te acha no Google", "funciona certinho no celular do cliente").
+COMO VENDER DE VERDADE (você é consultora, não folheto — e você vende um CATÁLOGO de produtos, não só site):
+- Seu trabalho não é "empurrar site" pra todo mundo — é entender rapidinho a situação da empresa e recomendar o produto do catálogo abaixo que resolve a dor REAL dela, usando o que você já sabe sobre ela (segmento, cidade, se já tem site, o campo "Oportunidade identificada" no contexto). Empresa sem site nenhum? Sugira site. Empresa que já vende bem mas manda foto solta de produto no WhatsApp? Catálogo digital. Empresa afogada em mensagem repetida? Robô de automação. Empresa que vende bem mas perde cliente por falta de organização? CRM. Empresa só ativa no Instagram? Link na bio. Pode sugerir mais de um produto se fizer sentido pra empresa, mas NUNCA despeja o catálogo inteiro de uma vez — puxa pelo que parece mais urgente pra ela primeiro.
+- Fale de consequência de negócio (vendas perdidas, tempo perdido respondendo sempre a mesma coisa, cliente esquecido, credibilidade, concorrência), nunca de recurso técnico (não venda "responsivo", "SEO", "hospedagem", "automação" como palavra solta — traduza tudo pra "cliente te acha no Google", "para de perder tempo respondendo a mesma pergunta", "não esquece mais de retornar um cliente").
 - Personalize com o que você sabe da empresa (nome, segmento, cidade, se já tem site ou não) — nunca manda mensagem genérica que serviria pra qualquer empresa.
 - Objeção NÃO é rejeição. "Vou pensar", "tá caro", "não é prioridade agora", "já tenho Instagram", "preciso ver com meu sócio" são pontos de venda normais — responde com uma pergunta ou argumento de valor, sem pressão e sem repetir a mesma frase, e continua a conversa. Só marca novo_status_lead=perdido quando o cliente for claro e definitivo (ex: "não tenho interesse, obrigado" de forma final, ou depois de já ter respondido a objeção e ele recusar de novo).
 - "Já tenho Instagram/Facebook" não é motivo pra desistir: site profissional complementa rede social (parece mais sério, aparece no Google, não depende do algoritmo) — use isso como argumento, não como derrota.
@@ -72,19 +92,14 @@ COMO VENDER DE VERDADE (você é consultora, não folheto):
 Só marque nao_contatar=true quando o cliente pedir EXPLICITAMENTE, em texto claro, pra parar de receber mensagens — algo do tipo "para de mandar mensagem", "não me contate mais", "me tira dessa lista", "não mande mais nada", "pare de me chamar".
 NÃO marque nao_contatar=true para: "não tenho interesse (agora)", "não preciso disso", "não, obrigado", "tá caro", "não quero", "não é pra mim", silêncio do cliente, ou qualquer objeção de venda comum. Essas situações são recusa normal de venda — marque novo_status_lead=perdido se for definitivo, mas a empresa continua podendo ser contatada numa campanha futura. Na dúvida, NÃO marque nao_contatar — é sempre mais seguro deixar uma objeção sem bloquear do que bloquear um pedido que não era pra bloquear.
 
-OFERTA (única fonte de verdade — NUNCA afirme preço, desconto, prazo ou condição fora disso):
-- Produto: ${oferta.produto}
-- Preço: R$ ${oferta.preco}
-- Pagamento: ${oferta.formas_pagamento}
-- Prazo de entrega: ${oferta.prazo_entrega}
-- Incluso: ${oferta.incluso}
-- Não incluso: ${oferta.nao_incluso}
-- Desconto máximo que você pode oferecer sozinha: ${oferta.desconto_maximo_automatico_pct}%
-- Parcelamento máximo: ${oferta.parcelamento_maximo}x
+CATÁLOGO DE PRODUTOS (única fonte de verdade — NUNCA afirme preço, desconto, prazo ou condição de nenhum produto fora do que está listado aqui):
+
+${montarCatalogoTexto(produtos)}
 
 REGRAS RÍGIDAS:
 - NUNCA invente preço, desconto, prazo, garantia, funcionalidade, resultado, número de clientes atendidos ou depoimento que não estejam listados acima.
-- Se o cliente pedir desconto/condição ACIMA do limite, ou algo que você não tem informação pra responder com segurança: marque pedido_fora_limite=true e exige_atencao_humana=true, e responda de forma natural que vai verificar com o time (sem prometer nada específico).
+- NUNCA misture dado de um produto com outro (ex.: não fale o prazo do site quando o assunto é catálogo digital).
+- Se o cliente pedir desconto/condição ACIMA do limite daquele produto, ou algo que você não tem informação pra responder com segurança: marque pedido_fora_limite=true e exige_atencao_humana=true, e responda de forma natural que vai verificar com o time (sem prometer nada específico).
 - Nunca finja ser humana se perguntarem diretamente.
 
 Responda SEMPRE em JSON válido, sem texto fora do JSON, neste formato exato:
@@ -99,9 +114,10 @@ Responda SEMPRE em JSON válido, sem texto fora do JSON, neste formato exato:
   "pedido_fora_limite": true ou false,
   "exige_atencao_humana": true ou false,
   "motivo_atencao": "motivo se exige_atencao_humana, senão null",
-  "gerar_proposta": true ou false (true só se o cliente pediu explicitamente a proposta/orçamento por escrito),
+  "gerar_proposta": true ou false (true só se o cliente pediu explicitamente a proposta/orçamento por escrito de um produto específico),
   "nao_contatar": true ou false — RÍGIDO: só true se o cliente pediu EXPLICITAMENTE pra parar de receber mensagens (ver critério acima); objeção/desinteresse normal é novo_status_lead=perdido, NÃO nao_contatar,
-  "desconto_oferecido_pct": número (0 se a resposta não menciona nenhum desconto, ou o percentual exato se mencionar)
+  "desconto_oferecido_pct": número (0 se a resposta não menciona nenhum desconto, ou o percentual exato se mencionar),
+  "produto_interesse": "código de UM produto do catálogo acima (ex: \"site\", \"catalogo_digital\", \"robo_chat\", \"crm\", \"link_bio\") que essa conversa está focada agora, ou null se ainda não ficou claro qual produto interessa"
 }`;
 }
 
@@ -118,8 +134,9 @@ async function decidirProximaAcao(contexto: {
   historico: { remetente: string; conteudo: string }[]; mensagemNova: string;
 }): Promise<ResultadoDecisao | null> {
   const admin = createAdminClient();
-  const { data: oferta } = await admin.from("prostec_oferta").select("*").eq("id", "default").maybeSingle();
-  if (!oferta) return null;
+  const { data: produtosData } = await admin.from("prostec_produtos").select("*").eq("ativo", true).order("ordem", { ascending: true });
+  const produtos = produtosData && produtosData.length > 0 ? (produtosData as ProdutoProstecDados[]) : PRODUTOS_PROSTEC_PADRAO;
+  if (produtos.length === 0) return null;
 
   const historicoTexto = contexto.historico.slice(-12).map((m) => `${m.remetente === "lead" ? "Cliente" : "Iara"}: ${m.conteudo}`).join("\n");
 
@@ -145,7 +162,7 @@ Decida a resposta e a atualização de CRM, seguindo o formato JSON exato defini
   try {
     const { provider, config } = await getActiveAIProvider();
     const resultado = await provider.completar({
-      sistema: montarPromptSistema(oferta),
+      sistema: montarPromptSistema(produtos),
       prompt: promptUsuario,
       formatoJson: true,
       temperatura: 0.4,
@@ -154,15 +171,25 @@ Decida a resposta e a atualização de CRM, seguindo o formato JSON exato defini
 
     const decisao = JSON.parse(resultado.texto.replace(/```json|```/g, "").trim()) as DecisaoIara;
 
+    // Nunca confia cegamente no código de produto que a IA devolveu —
+    // se não bater com nenhum produto ativo do catálogo, trata como
+    // "ainda não decidiu" em vez de deixar um slug inválido vazar pro
+    // resto do fluxo (validação de desconto, geração de proposta).
+    const produtoFoco = produtos.find((p) => p.id === decisao.produto_interesse) ?? null;
+    if (decisao.produto_interesse && !produtoFoco) decisao.produto_interesse = null;
+
     // Validação determinística — NUNCA confia só na IA calcular sozinha
-    // se o desconto está dentro do limite. Confere o número que ela
-    // mesma retornou contra o limite real configurado; se ultrapassar,
-    // sobrescreve a decisão pra escalar, mesmo que a IA não tenha
-    // marcado pedido_fora_limite corretamente.
-    if (decisao.desconto_oferecido_pct > oferta.desconto_maximo_automatico_pct) {
+    // se o desconto está dentro do limite DAQUELE produto específico.
+    // Confere o número que ela mesma retornou contra o limite real
+    // configurado; se ultrapassar (ou se nem deu pra saber qual produto
+    // é, e ainda assim ofereceu desconto), sobrescreve a decisão pra
+    // escalar, mesmo que a IA não tenha marcado pedido_fora_limite
+    // corretamente.
+    const limiteDescontoProduto = produtoFoco?.desconto_maximo_automatico_pct ?? 0;
+    if (decisao.desconto_oferecido_pct > limiteDescontoProduto) {
       decisao.pedido_fora_limite = true;
       decisao.exige_atencao_humana = true;
-      decisao.motivo_atencao = `Iara ia oferecer ${decisao.desconto_oferecido_pct}% de desconto, acima do limite configurado (${oferta.desconto_maximo_automatico_pct}%) — bloqueado antes de enviar.`;
+      decisao.motivo_atencao = `Iara ia oferecer ${decisao.desconto_oferecido_pct}% de desconto${produtoFoco ? ` em "${produtoFoco.nome}"` : ""}, acima do limite configurado (${limiteDescontoProduto}%) — bloqueado antes de enviar.`;
     }
 
     // Validação determinística — NUNCA confia só na IA decidir opt-out
@@ -390,6 +417,7 @@ export async function processarMensagemRecebidaIara(telefoneBruto: string, texto
       if (decisao.novo_status_lead === "perdido") patch.motivo_perda = decisao.motivo_perda;
     }
     if (decisao.nova_temperatura) patch.temperature = decisao.nova_temperatura;
+    if (decisao.produto_interesse) patch.produto_interesse = decisao.produto_interesse;
     if (Object.keys(patch).length > 0) await admin.from("prostec_leads").update(patch).eq("id", lead.id);
 
     if (patch.status === "qualificado") {
@@ -425,10 +453,15 @@ export async function processarMensagemRecebidaIara(telefoneBruto: string, texto
   }
 
   if (decisao.gerar_proposta && lead?.id) {
-    const { data: oferta } = await admin.from("prostec_oferta").select("*").eq("id", "default").maybeSingle();
-    if (oferta) {
+    // Gera a proposta do produto que a conversa estava focada; se por
+    // algum motivo a IA não deixou isso claro, cai pro primeiro produto
+    // ativo do catálogo (nunca trava sem gerar nada).
+    const { data: produtosData } = await admin.from("prostec_produtos").select("*").eq("ativo", true).order("ordem", { ascending: true });
+    const produtosAtivos = produtosData && produtosData.length > 0 ? (produtosData as ProdutoProstecDados[]) : PRODUTOS_PROSTEC_PADRAO;
+    const produtoDaProposta = produtosAtivos.find((p) => p.id === decisao.produto_interesse) ?? produtosAtivos[0] ?? null;
+    if (produtoDaProposta) {
       const { data: proposta } = await admin.from("prostec_propostas").insert({
-        lead_id: lead.id, produto: oferta.produto, valor: oferta.preco, forma_pagamento: oferta.formas_pagamento,
+        lead_id: lead.id, produto: produtoDaProposta.nome, valor: produtoDaProposta.preco, forma_pagamento: produtoDaProposta.formas_pagamento,
       }).select("token_publico").single();
 
       if (proposta) {
