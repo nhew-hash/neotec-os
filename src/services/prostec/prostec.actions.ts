@@ -385,13 +385,14 @@ export async function definirMetaVendedorAction(usuarioId: string, valorMeta: nu
   }
 }
 
-export async function criarPropostaProstecAction(leadId: string, produto: string, valor: number, formaPagamento: string): Promise<ActionResult<{ token: string }>> {
+export async function criarPropostaProstecAction(leadId: string, produto: string, valor: number, formaPagamento: string, valorManutencaoMensal?: number): Promise<ActionResult<{ token: string }>> {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     const { data: proposta, error } = await supabase.from("prostec_propostas").insert({
       lead_id: leadId, criado_por: user?.id ?? null, produto, valor, forma_pagamento: formaPagamento || null,
+      valor_manutencao_mensal: valorManutencaoMensal && valorManutencaoMensal > 0 ? valorManutencaoMensal : null,
     }).select("token_publico").single();
     if (error) throw new Error(error.message);
 
@@ -596,6 +597,7 @@ export async function salvarProdutosProstecAction(formData: FormData): Promise<A
         quando_recomendar: String(campo("quando_recomendar") ?? "").trim(),
         preco: Number(campo("preco") ?? 0),
         tipo_cobranca: campo("tipo_cobranca") === "mensal" ? "mensal" : "unico",
+        valor_manutencao_mensal: Number(campo("valor_manutencao_mensal") ?? 0),
         formas_pagamento: String(campo("formas_pagamento") ?? "").trim(),
         prazo_entrega: String(campo("prazo_entrega") ?? "").trim(),
         incluso: String(campo("incluso") ?? "").trim(),

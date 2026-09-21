@@ -149,6 +149,8 @@ export interface ProstecProposta {
   id: string;
   produto: string;
   valor: number;
+  /** Mensalidade de manutenção, quando o produto tiver (Fase 225) — null pra produto de pagamento único. */
+  valor_manutencao_mensal: number | null;
   forma_pagamento: string | null;
   status: string;
   token_publico: string;
@@ -167,6 +169,7 @@ export interface PropostaPublica {
   id: string;
   produto: string;
   valor: number;
+  valor_manutencao_mensal: number | null;
   forma_pagamento: string | null;
   status: string;
   empresa_nome: string | null;
@@ -175,7 +178,7 @@ export interface PropostaPublica {
 /** Busca proposta pelo token público — sem exigir login, é o link que o cliente recebe. Já registra a visualização na mesma consulta. */
 export async function buscarPropostaPublicaPorToken(token: string): Promise<PropostaPublica | null> {
   const supabase = await createClient();
-  const { data: proposta } = await supabase.from("prostec_propostas").select("id, produto, valor, forma_pagamento, status, visualizacoes, primeira_visualizacao_em, lead:prostec_leads(company:prostec_companies(name))").eq("token_publico", token).maybeSingle();
+  const { data: proposta } = await supabase.from("prostec_propostas").select("id, produto, valor, valor_manutencao_mensal, forma_pagamento, status, visualizacoes, primeira_visualizacao_em, lead:prostec_leads(company:prostec_companies(name))").eq("token_publico", token).maybeSingle();
   if (!proposta) return null;
 
   await supabase.from("prostec_propostas").update({
@@ -186,7 +189,7 @@ export async function buscarPropostaPublicaPorToken(token: string): Promise<Prop
   }).eq("id", proposta.id);
 
   const lead = proposta.lead as unknown as { company: { name: string } | null } | null;
-  return { id: proposta.id, produto: proposta.produto, valor: proposta.valor, forma_pagamento: proposta.forma_pagamento, status: proposta.status, empresa_nome: lead?.company?.name ?? null };
+  return { id: proposta.id, produto: proposta.produto, valor: proposta.valor, valor_manutencao_mensal: proposta.valor_manutencao_mensal, forma_pagamento: proposta.forma_pagamento, status: proposta.status, empresa_nome: lead?.company?.name ?? null };
 }
 
 /**

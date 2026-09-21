@@ -10,6 +10,7 @@ interface PropostaPublica {
   id: string;
   produto: string;
   valor: number;
+  valor_manutencao_mensal: number | null;
   forma_pagamento: string | null;
   status: string;
   empresa_nome: string | null;
@@ -46,8 +47,14 @@ export function PropostaPublicaCliente({ proposta, token }: { proposta: Proposta
 
       <div className="rounded-xl bg-secondary/50 p-4">
         <p className="text-sm font-medium text-foreground">{proposta.produto}</p>
-        <p className="mt-1 font-display text-2xl font-bold text-foreground">{formatCurrency(proposta.valor)}</p>
-        {proposta.forma_pagamento && <p className="text-xs text-muted-foreground">{proposta.forma_pagamento}</p>}
+        <p className="mt-1 font-display text-2xl font-bold text-foreground">
+          {formatCurrency(proposta.valor)}
+          {proposta.valor_manutencao_mensal ? <span className="text-sm font-normal text-muted-foreground"> (taxa de integração)</span> : null}
+        </p>
+        {proposta.valor_manutencao_mensal ? (
+          <p className="mt-1 text-sm font-semibold text-foreground">+ {formatCurrency(proposta.valor_manutencao_mensal)}/mês <span className="font-normal text-muted-foreground">de manutenção, a partir do 2º mês</span></p>
+        ) : null}
+        {proposta.forma_pagamento && <p className="mt-1 text-xs text-muted-foreground">{proposta.forma_pagamento}</p>}
       </div>
 
       <div className="flex gap-2">

@@ -55,18 +55,24 @@ const STATUS_VALIDOS = ["novo", "contato_realizado", "qualificado", "reuniao", "
 
 function montarCatalogoTexto(produtos: ProdutoProstecDados[]): string {
   return produtos
-    .map(
-      (p, i) => `${i + 1}. ${p.nome} (código: ${p.id})
+    .map((p, i) => {
+      const linhaPreco =
+        p.tipo_cobranca === "mensal"
+          ? p.valor_manutencao_mensal > 0
+            ? `Taxa de integração (cobrança única, na implantação): R$ ${p.preco} | Manutenção mensal (a partir do 2º mês): R$ ${p.valor_manutencao_mensal}/mês`
+            : `R$ ${p.preco}/mês`
+          : `R$ ${p.preco} (pagamento único)`;
+      return `${i + 1}. ${p.nome} (código: ${p.id})
    - O que é: ${p.descricao_curta}
    - Quando indicar pra esse lead: ${p.quando_recomendar}
-   - Preço: R$ ${p.preco}${p.tipo_cobranca === "mensal" ? "/mês" : " (pagamento único)"}
+   - Preço: ${linhaPreco}
    - Pagamento: ${p.formas_pagamento}
    - Prazo: ${p.prazo_entrega}
    - Incluso: ${p.incluso}
    - Não incluso: ${p.nao_incluso}
    - Desconto máximo que você pode oferecer sozinha nesse produto: ${p.desconto_maximo_automatico_pct}%
-   - Parcelamento máximo: ${p.parcelamento_maximo}x`
-    )
+   - Parcelamento máximo: ${p.parcelamento_maximo}x`;
+    })
     .join("\n\n");
 }
 
@@ -99,6 +105,7 @@ ${montarCatalogoTexto(produtos)}
 REGRAS RÍGIDAS:
 - NUNCA invente preço, desconto, prazo, garantia, funcionalidade, resultado, número de clientes atendidos ou depoimento que não estejam listados acima.
 - NUNCA misture dado de um produto com outro (ex.: não fale o prazo do site quando o assunto é catálogo digital).
+- Produto com taxa de integração + manutenção mensal: deixe SEMPRE claro que são dois valores diferentes — quanto se paga uma vez no início (integração/implantação) e quanto se paga por mês depois disso (manutenção). Nunca junte os dois numa frase que soe como um valor único.
 - Se o cliente pedir desconto/condição ACIMA do limite daquele produto, ou algo que você não tem informação pra responder com segurança: marque pedido_fora_limite=true e exige_atencao_humana=true, e responda de forma natural que vai verificar com o time (sem prometer nada específico).
 - Nunca finja ser humana se perguntarem diretamente.
 
@@ -462,6 +469,7 @@ export async function processarMensagemRecebidaIara(telefoneBruto: string, texto
     if (produtoDaProposta) {
       const { data: proposta } = await admin.from("prostec_propostas").insert({
         lead_id: lead.id, produto: produtoDaProposta.nome, valor: produtoDaProposta.preco, forma_pagamento: produtoDaProposta.formas_pagamento,
+        valor_manutencao_mensal: produtoDaProposta.valor_manutencao_mensal > 0 ? produtoDaProposta.valor_manutencao_mensal : null,
       }).select("token_publico").single();
 
       if (proposta) {

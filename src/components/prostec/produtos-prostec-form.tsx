@@ -15,6 +15,7 @@ interface ProstecProduto {
   quando_recomendar: string;
   preco: number;
   tipo_cobranca: "unico" | "mensal";
+  valor_manutencao_mensal: number;
   formas_pagamento: string;
   prazo_entrega: string;
   incluso: string;
@@ -62,6 +63,9 @@ export function ProdutosProstecForm({ produtos }: { produtos: ProstecProduto[] }
 
 function ProdutoCampos({ produto }: { produto: ProstecProduto }) {
   const p = (campo: string) => `${produto.id}__${campo}`;
+  const [tipoCobranca, setTipoCobranca] = useState<"unico" | "mensal">(produto.tipo_cobranca);
+  const ehMensal = tipoCobranca === "mensal";
+
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-black/[0.06] bg-secondary/20 p-4">
       <input type="hidden" name="produtos[]" value={produto.id} />
@@ -86,14 +90,18 @@ function ProdutoCampos({ produto }: { produto: ProstecProduto }) {
 
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="text-xs font-medium text-muted-foreground">Preço (R$)</label>
+          <label className="text-xs font-medium text-muted-foreground">{ehMensal ? "Taxa de integração (R$, cobrança única)" : "Preço (R$)"}</label>
           <Input type="number" name={p("preco")} defaultValue={produto.preco} className="mt-1" />
         </div>
         <div>
           <label className="text-xs font-medium text-muted-foreground">Cobrança</label>
-          <select name={p("tipo_cobranca")} defaultValue={produto.tipo_cobranca} className="mt-1 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-2 text-xs">
+          <select
+            name={p("tipo_cobranca")} value={tipoCobranca}
+            onChange={(e) => setTipoCobranca(e.target.value === "mensal" ? "mensal" : "unico")}
+            className="mt-1 h-9 w-full rounded-lg border border-black/[0.08] bg-white px-2 text-xs"
+          >
             <option value="unico">Pagamento único</option>
-            <option value="mensal">Assinatura mensal</option>
+            <option value="mensal">Integração + mensalidade</option>
           </select>
         </div>
         <div>
@@ -101,6 +109,14 @@ function ProdutoCampos({ produto }: { produto: ProstecProduto }) {
           <Input type="number" name={p("parcelamento_maximo")} defaultValue={produto.parcelamento_maximo} className="mt-1" />
         </div>
       </div>
+
+      {ehMensal && (
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Mensalidade de manutenção (R$/mês, a partir do 2º mês)</label>
+          <Input type="number" name={p("valor_manutencao_mensal")} defaultValue={produto.valor_manutencao_mensal} className="mt-1" />
+        </div>
+      )}
+      {!ehMensal && <input type="hidden" name={p("valor_manutencao_mensal")} value={0} />}
 
       <div>
         <label className="text-xs font-medium text-muted-foreground">Formas de pagamento</label>

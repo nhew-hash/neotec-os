@@ -4,6 +4,27 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 225] - Taxa de integração + mensalidade de manutenção nos produtos recorrentes
+
+Robô de automação e CRM tinham só um valor mensal fixo — sem separar o
+custo de implantação do custo de manter rodando depois. Agora esses
+produtos (e qualquer outro que o operador marcar como "Integração +
+mensalidade") têm dois valores:
+
+- **Taxa de integração**: cobrança única, no início (implantação/configuração).
+- **Mensalidade de manutenção**: cobrada todo mês a partir do 2º mês.
+
+Ajustado em toda a cadeia: catálogo (`prostec_produtos` ganhou
+`valor_manutencao_mensal`), tela de Configurações (rótulo do campo
+"Preço" muda pra "Taxa de integração" quando o produto é
+"Integração + mensalidade", com campo extra pra mensalidade), prompt
+da Iara (catálogo mostra os dois valores separados e ela é instruída a
+nunca misturar os dois numa única frase), e proposta (tanto a gerada
+automaticamente pela Iara quanto a manual do vendedor — banco,
+página pública do cliente e painel do lead mostram os dois valores).
+Valores padrão: robô de automação R$ 697 de integração + R$ 197/mês;
+CRM R$ 497 de integração + R$ 97/mês — editável na hora que quiser.
+
 ## [Fase 224] - Fix: build quebrando por causa de pasta `neotec-os/` duplicada no repo
 
 O deploy quebrou depois da fase 223 com `Module has no exported member

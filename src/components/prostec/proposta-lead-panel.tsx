@@ -10,6 +10,7 @@ interface ProstecProposta {
   id: string;
   produto: string;
   valor: number;
+  valor_manutencao_mensal: number | null;
   forma_pagamento: string | null;
   status: string;
   token_publico: string;
@@ -25,13 +26,14 @@ export function PropostaLeadPanel({ leadId, propostas: propostasIniciais }: { le
   const [aberto, setAberto] = useState(false);
   const [produto, setProduto] = useState("Site institucional");
   const [valor, setValor] = useState("1497");
+  const [valorManutencaoMensal, setValorManutencaoMensal] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("PIX ou cartão");
   const [isPending, startTransition] = useTransition();
   const [linkGerado, setLinkGerado] = useState<string | null>(null);
 
   function handleCriar() {
     startTransition(async () => {
-      const result = await criarPropostaProstecAction(leadId, produto, Number(valor), formaPagamento);
+      const result = await criarPropostaProstecAction(leadId, produto, Number(valor), formaPagamento, Number(valorManutencaoMensal) || undefined);
       if (result.success) {
         const link = `${window.location.origin}/proposta/${result.data.token}`;
         setLinkGerado(link);
@@ -50,7 +52,8 @@ export function PropostaLeadPanel({ leadId, propostas: propostasIniciais }: { le
       {aberto && (
         <div className="mb-3 flex flex-col gap-2 rounded-xl border border-border p-3">
           <Input placeholder="Produto" value={produto} onChange={(e) => setProduto(e.target.value)} className="h-8 text-xs" />
-          <Input type="number" placeholder="Valor" value={valor} onChange={(e) => setValor(e.target.value)} className="h-8 text-xs" />
+          <Input type="number" placeholder="Valor (ou taxa de integração, se tiver mensalidade)" value={valor} onChange={(e) => setValor(e.target.value)} className="h-8 text-xs" />
+          <Input type="number" placeholder="Mensalidade de manutenção (opcional, R$/mês)" value={valorManutencaoMensal} onChange={(e) => setValorManutencaoMensal(e.target.value)} className="h-8 text-xs" />
           <Input placeholder="Forma de pagamento" value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value)} className="h-8 text-xs" />
           <div className="flex gap-2">
             <Button type="button" size="sm" onClick={handleCriar} disabled={isPending}>{isPending ? "Gerando..." : "Gerar proposta"}</Button>
@@ -73,7 +76,7 @@ export function PropostaLeadPanel({ leadId, propostas: propostasIniciais }: { le
           {propostas.map((p) => (
             <div key={p.id} className="flex items-center justify-between rounded-xl bg-secondary/40 p-2.5 text-xs">
               <div>
-                <p className="font-medium text-foreground">{p.produto} — {formatCurrency(p.valor)}</p>
+                <p className="font-medium text-foreground">{p.produto} — {formatCurrency(p.valor)}{p.valor_manutencao_mensal ? ` + ${formatCurrency(p.valor_manutencao_mensal)}/mês` : ""}</p>
                 <p className="text-muted-foreground">{LABEL_STATUS[p.status]} · {p.visualizacoes} visualização{p.visualizacoes !== 1 ? "ões" : ""} · {formatDateTime(p.created_at)}</p>
               </div>
               <a href={`/proposta/${p.token_publico}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline"><ExternalLink className="h-3.5 w-3.5" /></a>
