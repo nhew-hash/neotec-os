@@ -68,20 +68,35 @@ CRON_SECRET=<gere um valor forte, se ainda não existir>
   bem mais lenta — preferimos deixar desligado e usar o enriquecimento
   próprio (`redes-sociais`/e-mail extraído do site) depois.
 
-## ⚠️ Cron a cada 2 minutos e o plano da Vercel
+## Cron — resolvido via GitHub Actions (grátis)
 
-O `vercel.json` já tem a entrada `*/2 * * * *` pra `/api/prostec/scraper/cron`. **Isso só funciona de verdade no plano Pro da Vercel** — no plano **Hobby (grátis)**, a Vercel só permite cron rodando **no máximo 1x por dia**, então esse agendamento não vai disparar a cada 2 minutos sozinho.
+O plano **Hobby (grátis)** da Vercel só permite cron nativo rodando **no
+máximo 1x por dia** — uma entrada tipo `*/2 * * * *` no `vercel.json` é
+**rejeitada pela Vercel** (o deploy nem chega a aparecer na aba
+Deployments). Por isso o `vercel.json` deste projeto **não** tem mais
+nenhuma entrada de cron pro scraper.
 
-Se o projeto estiver no Hobby, duas opções (a rota já aceita chamada de qualquer lugar, desde que mande o header certo — não depende de ser a Vercel quem chama):
+Em vez disso, `.github/workflows/prostec-scraper-cron.yml` chama a rota
+`/api/prostec/scraper/cron` a cada 5 minutos, de graça, direto do
+GitHub Actions (a rota não liga quem chama — só confere o header
+`Authorization: Bearer $CRON_SECRET`).
 
-1. **Upgrade pro plano Pro da Vercel** (cron ilimitado em frequência) — mais simples, sem infra extra.
-2. **Pinger externo grátis** chamando a rota a cada poucos minutos:
-   ```bash
-   curl -H "Authorization: Bearer $CRON_SECRET" https://<seu-dominio>/api/prostec/scraper/cron
-   ```
-   Dá pra fazer isso com um **GitHub Actions** agendado (`schedule: cron: "*/2 * * * *"` no workflow, rodando esse `curl`) ou um serviço como **cron-job.org** (grátis, until 1 min de intervalo). Qualquer um dos dois substitui o cron nativo da Vercel sem custo.
+**Configuração única** — em `github.com/nhew-hash/neotec-os` → *Settings*
+→ *Secrets and variables* → *Actions* → *New repository secret*:
+- `NEOTEC_OS_URL` — o domínio de produção (ex.: `https://neotec-os.vercel.app`, sem barra no final)
+- `CRON_SECRET` — o mesmo valor da env `CRON_SECRET` configurada na Vercel
 
-Enquanto isso não estiver resolvido, buscas ficam paradas na fila (`status = 'fila'`) até o cron rodar de algum jeito — nada quebra, só não processa sozinho.
+Pra testar sem esperar os 5 minutos: na aba **Actions** do repositório,
+abre o workflow "Prostec Scraper — cron gratuito" e clica em **Run
+workflow**.
+
+Se preferir upgrade pro plano Pro da Vercel no futuro, o cron nativo
+funciona normalmente — é só voltar a entrada no `vercel.json` e
+desativar o workflow.
+
+Enquanto o cron (de qualquer um dos dois jeitos) não estiver
+funcionando, buscas ficam paradas na fila (`status = 'fila'`) — nada
+quebra, só não processa sozinho.
 
 ## Smoke test
 
