@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { paymentService } from "./payment.service";
 import { paymentRepository } from "./payment.repository";
 import { extrairMensagemErro } from "./erro.utils";
+import { obterPricingEnginePublico } from "@/services/precificacao/precificacao-publico.service";
 import type { ActionResult } from "@/types";
 import type { ItemPedidoLojaInput } from "@/services/loja/loja-pedido.actions";
 
@@ -24,7 +25,7 @@ function validarEndereco(tipoEntrega: string | undefined, endereco: EnderecoEntr
   return null;
 }
 
-async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number; tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput; acrescimoCartao?: number }): Promise<{ pedidoId: string; valorTotal: number }> {
+async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number; tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput; metodoPagamento?: "pix" | "cartao" }): Promise<{ pedidoId: string; valorTotal: number }> {
   const valorBruto = input.itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
   if (valorBruto <= 0) throw new Error("O valor do pedido está zerado — atualiza a página e tenta de novo.");
 
@@ -117,11 +118,18 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
   }
   valorTotal += valorFrete;
 
-  // Acréscimo fixo do cartão — só entra aqui (nunca no Pix) e já vai
-  // embutido no valor_total do pedido, pra ficar registrado certinho
-  // no histórico e ser exatamente o valor cobrado no Mercado Pago.
-  if (input.acrescimoCartao && input.acrescimoCartao > 0) {
-    valorTotal += input.acrescimoCartao;
+  // Acréscimo do cartão: usa o MESMO motor de precificação que já
+  // calcula o "preço no cartão" mostrado na ficha do produto (Fase
+  // 96, Financeiro → Parcelamento), em vez de um valor manual à
+  // parte. Trata o valorTotal (já com cupom/cashback/frete
+  // aplicados, na base Pix) como o "preço líquido desejado" e pega o
+  // preço-vitrine calculado pra ele — matematicamente equivalente a
+  // aplicar o mesmo cálculo item a item, só que uma vez só no total.
+  // Só entra aqui, nunca no Pix, e já fica embutido no valor_total do
+  // pedido pra bater exatamente com o que é cobrado no Mercado Pago.
+  if (input.metodoPagamento === "cartao") {
+    const engine = await obterPricingEnginePublico();
+    valorTotal = engine.calcular(valorTotal).precoVitrine;
   }
 
   const { data: pedido, error } = await supabase
@@ -176,7 +184,7 @@ export async function iniciarCheckoutPixAction(input: {
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
 
   try {
-    const { pedidoId, valorTotal } = await criarPedidoParaCheckout(input);
+    const { pedidoId, valorTotal } = await criarPedidoParaCheckout({ ...input, metodoPagamento: "pix" });
     const resultado = await paymentService.iniciarPagamentoPix({ pedidoId, valor: valorTotal, descricao: `Pedido Neotec #${pedidoId.slice(0, 8)}`, cpf: input.cpf });
     return { success: true, data: { pedidoId, pagamentoId: resultado.pagamentoId, qrCodeBase64: resultado.qrCodeBase64, copiaCola: resultado.copiaCola, expiraEm: resultado.expiraEm } };
   } catch (err) {
@@ -196,13 +204,10 @@ export async function pagarComCartaoAction(input: {
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
 
   try {
-    // Acréscimo do cartão é sempre lido aqui, do servidor — nunca do
-    // valor que o navegador manda — pro cliente não conseguir zerar o
-    // acréscimo alterando o payload.
-    const configGateway = await paymentRepository.buscarConfiguracao("mercadopago", false);
-    const acrescimoCartao = Number(configGateway?.acrescimo_cartao_fixo ?? 0);
-
-    const { pedidoId, valorTotal } = await criarPedidoParaCheckout({ ...input, acrescimoCartao });
+    // O acréscimo do cartão é sempre recalculado aqui, no servidor,
+    // pelo motor de precificação — nunca a partir de um valor vindo
+    // do navegador, pro cliente não conseguir manipular o total.
+    const { pedidoId, valorTotal } = await criarPedidoParaCheckout({ ...input, metodoPagamento: "cartao" });
     const resultado = await paymentService.pagarComCartao({
       pedidoId, valor: valorTotal, descricao: `Pedido Neotec #${pedidoId.slice(0, 8)}`,
       token: input.token, parcelas: input.parcelas, metodoPagamentoId: input.metodoPagamentoId, cpf: input.cpf,
@@ -224,12 +229,32 @@ export async function consultarStatusPagamentoAction(pagamentoId: string): Promi
 }
 
 /** Devolve a Public Key pro front carregar o SDK JS do Mercado Pago — nunca o Access Token, esse fica só no servidor. */
-export async function buscarPublicKeyMercadoPagoAction(): Promise<ActionResult<{ publicKey: string | null; ativo: boolean; acrescimoCartaoFixo: number }>> {
+export async function buscarPublicKeyMercadoPagoAction(): Promise<ActionResult<{ publicKey: string | null; ativo: boolean }>> {
   try {
     const config = await paymentRepository.buscarConfiguracao("mercadopago", false);
-    return { success: true, data: { publicKey: config?.public_key ?? null, ativo: config?.ativo ?? false, acrescimoCartaoFixo: Number(config?.acrescimo_cartao_fixo ?? 0) } };
+    return { success: true, data: { publicKey: config?.public_key ?? null, ativo: config?.ativo ?? false } };
   } catch (err) {
     return { success: false, error: extrairMensagemErro(err, "Erro ao carregar configuração") };
+  }
+}
+
+/**
+ * Prévia do valor no cartão pro checkout mostrar ANTES de gerar o
+ * pedido — usa o mesmo motor de precificação (Financeiro →
+ * Parcelamento) que calcula o "preço vitrine" na ficha do produto.
+ * Só uma prévia pro cliente ver o valor: o valor que de fato é
+ * cobrado é sempre recalculado de novo, no servidor, dentro de
+ * `pagarComCartaoAction` — esta função aqui nunca decide o que é
+ * cobrado.
+ */
+export async function calcularTotalCartaoAction(valorPix: number): Promise<ActionResult<{ valorCartao: number }>> {
+  if (valorPix <= 0) return { success: true, data: { valorCartao: 0 } };
+  try {
+    const engine = await obterPricingEnginePublico();
+    const valorCartao = engine.calcular(valorPix).precoVitrine;
+    return { success: true, data: { valorCartao } };
+  } catch (err) {
+    return { success: false, error: extrairMensagemErro(err, "Erro ao calcular valor no cartão") };
   }
 }
 

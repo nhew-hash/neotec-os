@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { CheckCircle2, XCircle, CreditCard, QrCode, Package, ShieldCheck, MessageCircle } from "lucide-react";
 import { useCarrinho } from "@/components/loja/carrinho-context";
-import { iniciarCheckoutPixAction, pagarComCartaoAction, buscarPublicKeyMercadoPagoAction, consultarSaldoCashbackPorTelefoneAction } from "@/services/pagamentos/payment.controller";
+import { iniciarCheckoutPixAction, pagarComCartaoAction, buscarPublicKeyMercadoPagoAction, calcularTotalCartaoAction, consultarSaldoCashbackPorTelefoneAction } from "@/services/pagamentos/payment.controller";
 import { validarCupomAction } from "@/services/loja/cupom.actions";
 import { calcularDescontoCupom } from "@/services/loja/cupom.utils";
 import { CardPaymentBrick } from "@/components/loja/card-payment-brick";
@@ -35,7 +35,13 @@ export default function CheckoutPage() {
 
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [gatewayAtivo, setGatewayAtivo] = useState(true);
-  const [acrescimoCartaoFixo, setAcrescimoCartaoFixo] = useState(0);
+  const [totalCartao, setTotalCartao] = useState<number | null>(null);
+  // Base (valor em Pix) sobre a qual o totalCartao acima foi
+  // calculado — se o totalComDesconto mudar (cupom, cashback, frete)
+  // depois do cálculo, totalCartao fica desatualizado até recalcular
+  // de novo; comparar as duas evita usar/mostrar um valor de cartão
+  // que não é mais o certo pro pedido atual.
+  const [totalCartaoBase, setTotalCartaoBase] = useState<number | null>(null);
   const [regrasFrete, setRegrasFrete] = useState<Pick<RegraFrete, "id" | "regiao" | "valor" | "prazo_dias_uteis" | "nacional">[]>([]);
   const [entregaSelecionada, setEntregaSelecionada] = useState<SelecaoEntrega>({ tipo: "retirada" });
 
@@ -52,9 +58,16 @@ export default function CheckoutPage() {
   const regraSelecionada = entregaSelecionada.tipo === "entrega" ? regrasFrete.find((r) => r.id === entregaSelecionada.regiaoId) : null;
   const valorFreteSelecionado = regraSelecionada?.valor ?? 0;
   const totalComDesconto = Math.max(0, totalAposCupom - cashbackAplicavel) + valorFreteSelecionado;
-  // Acréscimo do cartão só entra no valor mostrado/cobrado quando o
-  // método selecionado é "cartao" — o Pix nunca é afetado.
-  const totalFinal = metodo === "cartao" ? totalComDesconto + acrescimoCartaoFixo : totalComDesconto;
+  // totalCartao só é confiável se foi calculado em cima do
+  // totalComDesconto ATUAL — se cupom/cashback/frete mudarem depois
+  // do cálculo, essa comparação invalida o valor até recalcular de
+  // novo (ver efeito abaixo).
+  const totalCartaoValido = totalCartao != null && totalCartaoBase === totalComDesconto;
+  // No cartão, o valor cobrado usa o motor de precificação (mesma
+  // taxa configurada em Financeiro → Parcelamento que já aparece na
+  // ficha do produto) — nunca o valor do Pix direto. O Pix nunca é
+  // afetado por isso.
+  const totalFinal = metodo === "cartao" && totalCartaoValido ? (totalCartao as number) : totalComDesconto;
 
   useEffect(() => {
     const digitos = telefone.replace(/\D/g, "");
@@ -72,13 +85,26 @@ export default function CheckoutPage() {
       if (result.success) {
         setPublicKey(result.data.publicKey);
         setGatewayAtivo(result.data.ativo);
-        setAcrescimoCartaoFixo(result.data.acrescimoCartaoFixo);
       }
     });
     listarRegrasFretePublicoAction().then((result) => {
       if (result.success) setRegrasFrete(result.data);
     });
   }, []);
+
+  // Recalcula o valor do cartão (motor de precificação) sempre que o
+  // total em Pix muda — cupom, cashback e frete já entram aqui porque
+  // fazem parte do `totalComDesconto`.
+  useEffect(() => {
+    if (metodo !== "cartao" || totalComDesconto <= 0) return;
+    let cancelado = false;
+    calcularTotalCartaoAction(totalComDesconto).then((result) => {
+      if (cancelado || !result.success) return;
+      setTotalCartao(result.data.valorCartao);
+      setTotalCartaoBase(totalComDesconto);
+    });
+    return () => { cancelado = true; };
+  }, [metodo, totalComDesconto]);
 
   useEffect(() => {
     if (itens.length === 0) return;
@@ -294,19 +320,28 @@ export default function CheckoutPage() {
               <PixPagamento pagamentoId={dadosPix.pagamentoId} qrCodeBase64={dadosPix.qrCodeBase64} copiaCola={dadosPix.copiaCola} expiraEm={dadosPix.expiraEm} onAprovado={handlePixAprovado} />
             )}
 
-            {metodo === "cartao" && acrescimoCartaoFixo > 0 && (
+            {metodo === "cartao" && totalCartaoValido && (totalCartao as number) > totalComDesconto && (
               <p className="rounded-lg bg-secondary/60 p-2.5 text-[11px] text-muted-foreground">
-                Pagamento no cartão tem acréscimo de {formatCurrency(acrescimoCartaoFixo)} — total no cartão: <strong>{formatCurrency(totalFinal)}</strong>.
+                Pagamento no cartão: <strong>{formatCurrency(totalCartao as number)}</strong> (valor no Pix seria {formatCurrency(totalComDesconto)}).
               </p>
             )}
 
-            {metodo === "cartao" && publicKey && totalFinal > 0 && (
+            {/*
+              O CardPaymentBrick do Mercado Pago monta UMA vez só e
+              nunca relê o `valor` depois — se ele montasse com o
+              totalComDesconto (Pix) antes do totalCartao terminar de
+              calcular, o cliente pagaria o valor errado (do Pix) no
+              cartão pra sempre, mesmo com o texto acima mostrando o
+              valor certo. Por isso só monta quando totalCartao já
+              está resolvido.
+            */}
+            {metodo === "cartao" && publicKey && totalCartaoValido && totalFinal > 0 && (
               <>
                 <p className="rounded-lg bg-secondary/60 p-2.5 text-[11px] text-muted-foreground">Parcelamento em mais de uma vez pode ter acréscimo — o valor final de cada opção aparece na confirmação, antes de você concluir o pagamento.</p>
                 <CardPaymentBrick publicKey={publicKey} valor={totalFinal} onSubmit={handlePagarCartao} onErro={setErro} />
               </>
             )}
-            {metodo === "cartao" && publicKey && totalFinal <= 0 && <p className="text-sm text-muted-foreground">Carregando valor do pedido...</p>}
+            {metodo === "cartao" && publicKey && (!totalCartaoValido || totalFinal <= 0) && <p className="text-sm text-muted-foreground">Carregando valor do pedido...</p>}
             {metodo === "cartao" && !publicKey && <p className="text-sm text-muted-foreground">Carregando...</p>}
           </Card>
         )}
@@ -378,10 +413,10 @@ export default function CheckoutPage() {
             <span>{valorFreteSelecionado > 0 ? formatCurrency(valorFreteSelecionado) : "Grátis"}</span>
           </div>
 
-          {etapa === "pagamento" && metodo === "cartao" && acrescimoCartaoFixo > 0 && (
+          {etapa === "pagamento" && metodo === "cartao" && totalCartaoValido && (totalCartao as number) > totalComDesconto && (
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>Acréscimo cartão</span>
-              <span>+{formatCurrency(acrescimoCartaoFixo)}</span>
+              <span>+{formatCurrency((totalCartao as number) - totalComDesconto)}</span>
             </div>
           )}
         </div>

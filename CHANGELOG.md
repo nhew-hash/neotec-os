@@ -4,6 +4,33 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 228] - Cartão no checkout agora usa o motor de precificação (correção da Fase 227)
+
+A Fase 227 tinha adicionado um campo manual pra configurar um
+"acréscimo fixo em R$" no cartão. Só que o Neotec OS **já tinha**,
+desde a Fase 96, um motor de precificação próprio (Financeiro →
+Parcelamento) que calcula o preço do cartão a partir da taxa real
+configurada — é o mesmo cálculo que já aparece na ficha do produto
+("ou R$X no cartão"). Em vez de duplicar isso com um valor manual à
+parte, o checkout da loja online agora usa **esse motor já existente**:
+
+- Ao escolher "Cartão", o total é recalculado a partir do total em
+  Pix usando a mesma taxa configurada em Financeiro → Parcelamento
+  (parcela 1x) — sem precisar configurar nada de novo;
+- O campo "Acréscimo fixo no cartão" da Fase 227 foi removido (a
+  coluna no banco também, se já tinha sido criada);
+- O valor final é sempre recalculado no servidor no momento de
+  cobrar, nunca a partir do que vem do navegador.
+
+**Bug extra encontrado e corrigido nesse processo**: o componente do
+cartão (Card Payment Brick, do Mercado Pago) carrega o formulário
+**uma única vez** e nunca relê o valor depois — se ele montasse antes
+do valor do cartão terminar de ser calculado, ficava travado cobrando
+o valor do Pix pro sempre, mesmo com a tela mostrando o valor certo
+do cartão. Esse era provavelmente o motivo de "não aparecer
+visualmente": o formulário de cartão. Agora ele só monta depois que o
+valor do cartão já foi calculado.
+
 ## [Fase 227] - Acréscimo fixo no cartão + fix de conversas desagrupadas/status como mensagem
 
 **1) Checkout da loja online — acréscimo no cartão**
