@@ -23,6 +23,7 @@ export async function middleware(request: NextRequest) {
   "/api/whatsapp/webhook",
   "/api/integracoes/whatsapp-web",
   "/api/prostec/whatsapp",
+  "/api/prostec/scraper/cron", // chamado pelo cron-job.org/GitHub Actions — a rota confere o Bearer CRON_SECRET
   "/api/cron",
   "/api/mercadopago",
 ];
