@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/follow-up-vendas",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/prostec/scraper/cron",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

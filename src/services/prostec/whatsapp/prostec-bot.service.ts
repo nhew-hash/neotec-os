@@ -287,8 +287,14 @@ export async function iniciarConversaBot(leadId: string, telefoneBruto: string, 
   ).select("id").single();
   if (error) return { sucesso: false, motivo: error.message };
 
-  const { data: lead } = await admin.from("prostec_leads").select("reasons").eq("id", leadId).maybeSingle();
+  const { data: lead } = await admin.from("prostec_leads").select("reasons, company:prostec_companies(origem)").eq("id", leadId).maybeSingle();
   const motivoOportunidade = (lead?.reasons as string[] | null)?.[0] ?? "notei uma boa oportunidade de presença digital pra vocês";
+  // Fase 229/7 — leads captados pelo scraper (contato "frio", nunca
+  // solicitou nada) precisam de opção de opt-out clara já na primeira
+  // mensagem. Leads de outras origens mantêm o texto de sempre.
+  const origemCompany = (lead?.company as { origem?: string } | { origem?: string }[] | null | undefined);
+  const origem = Array.isArray(origemCompany) ? origemCompany[0]?.origem : origemCompany?.origem;
+  const sufixoOptOut = origem === "gmaps_scraper" ? " Se preferir não receber mais contato, é só responder SAIR." : "";
 
   // A/B test (Fase 7) — se tiver experimento ativo, escolhe uma
   // variante aleatória pra mensagem de abertura em vez do texto fixo.
@@ -297,9 +303,9 @@ export async function iniciarConversaBot(leadId: string, telefoneBruto: string, 
   const variantes = (experimentoAtivo?.variantes as { id: string; texto_mensagem: string }[] | undefined) ?? [];
   const varianteEscolhida = variantes.length > 0 ? variantes[Math.floor(Math.random() * variantes.length)] : null;
 
-  const texto = varianteEscolhida
+  const texto = (varianteEscolhida
     ? varianteEscolhida.texto_mensagem.replace("{empresa}", nomeEmpresa).replace("{motivo}", motivoOportunidade)
-    : `Olá! Tudo bem? Falo da Neotec. Posso falar rapidamente com o responsável pela ${nomeEmpresa}? ${motivoOportunidade}.`;
+    : `Olá! Tudo bem? Falo da Neotec. Posso falar rapidamente com o responsável pela ${nomeEmpresa}? ${motivoOportunidade}.`) + sufixoOptOut;
 
   if (!(await podeEnviarMensagemReal())) {
     await registrarMensagem(conversa.id, "bot", `[MODO TESTE — não enviado de verdade] ${texto}`, true);

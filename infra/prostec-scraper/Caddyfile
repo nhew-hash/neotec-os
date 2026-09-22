@@ -1,0 +1,36 @@
+# Gateway público do prostec-scraper — único ponto do módulo com
+# domínio público. Exige X-API-Key em toda requisição e só libera
+# /api/v1/jobs*; a UI web do gosom (que não tem autenticação nenhuma)
+# fica bloqueada mesmo pra quem tem a chave.
+
+{
+	admin off
+}
+
+:{$PORT}
+
+# Confere a API key ANTES de qualquer coisa. Sem isso (ou errada), 401.
+@sem_chave not header X-Api-Key {$SCRAPER_API_KEY}
+respond @sem_chave 401 {
+	body "Não autorizado"
+	close
+}
+
+# Só libera a API de jobs — bloqueia a UI web do gosom e qualquer outra
+# rota que o container exponha.
+@rota_permitida path /api/v1/jobs*
+handle @rota_permitida {
+	reverse_proxy prostec-scraper.railway.internal:8080 {
+		# Download do CSV de uma busca grande pode demorar — timeout
+		# generoso só nessa direção.
+		transport http {
+			read_timeout 120s
+			write_timeout 30s
+			dial_timeout 10s
+		}
+	}
+}
+
+handle {
+	respond 404
+}

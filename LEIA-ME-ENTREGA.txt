@@ -1,0 +1,36 @@
+ENTREGA — Fase 229 (Prostec: scraper próprio do Google Maps)
+==============================================================
+
+Este zip contém TODAS as mudanças pendentes no repositório no momento
+da entrega — a maior parte é da Fase 229 (scraper), mas também inclui
+arquivos da Fase 228 (fix do cartão via motor de precificação) que já
+estavam pendentes de aplicação antes desta tarefa começar. Marcados
+abaixo pra você não confundir origem.
+
+ARQUIVOS PRA APAGAR (não vêm dentro do zip — delete manualmente no seu repo):
+  - src/services/prostec/lib/google-places.ts
+  - src/components/prostec/nova-busca-form.tsx
+
+ARQUIVOS DA FASE 228 (já pendente antes desta tarefa, incluído pra não perder):
+  - src/app/loja/checkout/page.tsx
+  - src/components/pagamentos/mercadopago-config-panel.tsx
+  - src/services/pagamentos/gateway-config.actions.ts
+  - src/services/pagamentos/payment.controller.ts
+  - src/services/pagamentos/payment.repository.ts
+  - src/types/database.ts (pode ter mudanças de mais de uma fase misturadas)
+  - supabase/migrations/fase228_cartao_usa_motor_de_precificacao.sql
+
+TODO O RESTO é da Fase 229 (scraper). Ver o corpo da resposta da IA
+(ou o CHANGELOG.md, entrada "[Fase 229]") pro relatório completo de
+entrega: checklist de deploy no Railway, envs da Vercel, comandos de
+migration/smoke-test, riscos conhecidos e próximos passos.
+
+Como aplicar:
+  1. Descompacte por cima do seu repositório local (sobrescreve os
+     arquivos modificados/novos).
+  2. Delete os dois arquivos listados acima em "ARQUIVOS PRA APAGAR".
+  3. npm install (novo: papaparse, @types/papaparse).
+  4. Rode a migration fase229 (e a fase228, se ainda não rodou) no Supabase.
+  5. Configure as envs novas no Vercel (ver CHANGELOG/README).
+  6. git add -A && git commit && git push (você mesmo — sem acesso de
+     push configurado neste ambiente).

@@ -1,0 +1,23 @@
+# Ambiente local de desenvolvimento — sobe só o scraper, sem o
+# gateway (em local não precisa de X-API-Key, já que não é exposto pra
+# fora do seu computador). Bind em 127.0.0.1 de propósito, nunca
+# 0.0.0.0 — não expõe na rede local.
+#
+# Uso: dentro de infra/prostec-scraper/, rode:
+#   docker compose up -d
+# e configure no .env.local:
+#   PROSTEC_SCRAPER_URL=http://localhost:8080
+#   PROSTEC_SCRAPER_API_KEY=       (deixe vazio em local — sem gateway, sem checagem)
+
+services:
+  prostec-scraper:
+    image: gosom/google-maps-scraper:v1.15.0
+    command: ["-web", "-data-folder", "/gmapsdata"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - gmapsdata:/gmapsdata
+    restart: unless-stopped
+
+volumes:
+  gmapsdata:

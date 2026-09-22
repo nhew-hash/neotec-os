@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { Rocket, Flame, DollarSign, TrendingUp, Percent, Building2, HandCoins, Settings, Trophy, Clock, MessageCircle, Brain, FlaskConical } from "lucide-react";
+import { Rocket, Flame, DollarSign, TrendingUp, Percent, Building2, HandCoins, Settings, Trophy, Clock, MessageCircle, Brain, FlaskConical, Radar } from "lucide-react";
 import {
-  listarLeadsProstec, obterDashboardProstec, obterFunilProstec, listarAtividadesProstec, obterResumoFollowupsProstec, buscarConfiguracoesProstec,
+  listarLeadsProstec, obterDashboardProstec, obterFunilProstec, listarAtividadesProstec, obterResumoFollowupsProstec,
 } from "@/services/prostec/prostec.service";
 import { LeadsProstecTable } from "@/components/prostec/leads-prostec-table";
-import { NovaBuscaForm } from "@/components/prostec/nova-busca-form";
 import { PipelineKanban } from "@/components/prostec/pipeline-kanban";
 import { formatCurrency, formatDateTime } from "@/utils";
 
@@ -14,8 +13,8 @@ const FUNIL_LABELS: Record<string, string> = {
 };
 
 export default async function ProstecPage() {
-  const [dashboard, leads, funil, atividades, followups, config] = await Promise.all([
-    obterDashboardProstec(), listarLeadsProstec(), obterFunilProstec(), listarAtividadesProstec(10), obterResumoFollowupsProstec(), buscarConfiguracoesProstec(),
+  const [dashboard, leads, funil, atividades, followups] = await Promise.all([
+    obterDashboardProstec(), listarLeadsProstec(), obterFunilProstec(), listarAtividadesProstec(10), obterResumoFollowupsProstec(),
   ]);
 
   const etapasFunil = ["novo", "contato_realizado", "qualificado", "reuniao", "proposta_enviada", "negociacao", "venda_fechada"] as const;
@@ -32,6 +31,7 @@ export default async function ProstecPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Link href="/prostec/captacao" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Radar className="h-3.5 w-3.5" />Captação</Link>
           <Link href="/prostec/empresas" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Building2 className="h-3.5 w-3.5" />Empresas</Link>
           <Link href="/prostec/inbox" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><MessageCircle className="h-3.5 w-3.5" />Inbox</Link>
           <Link href="/prostec/decisoes" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Brain className="h-3.5 w-3.5" />Decisões da Iara</Link>
@@ -91,8 +91,6 @@ export default async function ProstecPage() {
           )}
         </div>
       </div>
-
-      <NovaBuscaForm cidadesSugeridas={config.cidades_sugeridas} segmentosDisponiveis={config.segmentos_disponiveis} />
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-foreground">Pipeline</h2>

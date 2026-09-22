@@ -4,6 +4,72 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 229] - Prostec: scraper próprio do Google Maps no lugar da Google Places API
+
+A captação de leads da Prostec não depende mais da Google Places API
+(paga, limitada a 60 resultados por busca, sem e-mail/rede social). Em
+troca, entra um **scraper próprio auto-hospedado**
+(`gosom/google-maps-scraper`, grátis, roda no Railway) — sem limite de
+resultados, com e-mail/site/nota/avaliações, mais o enriquecimento de
+Instagram/Facebook/LinkedIn já reaproveitando a análise de site que a
+Prostec já tinha.
+
+**Infra nova (Railway, 2 serviços)**:
+- `prostec-scraper` — o scraper em si, sem autenticação nenhuma, **sem
+  domínio público** (só rede privada do Railway).
+- `prostec-scraper-gateway` — Caddy na frente, exige `X-Api-Key`, só
+  libera `/api/v1/jobs*` (a UI web do gosom fica bloqueada).
+- Deploy completo documentado em `infra/prostec-scraper/README.md`;
+  `docker-compose.yml` pra rodar o scraper puro localmente.
+
+**Fluxo novo — fila assíncrona em vez de busca síncrona**:
+- Nova aba **Captação** (`/prostec/captacao`): escolhe nichos (chips),
+  cidade/UF (padrão Araguari/MG), profundidade (5/8/12) e se quer
+  buscar e-mail/rede social; cada nicho vira uma busca separada na
+  fila.
+- Um cron (`/api/prostec/scraper/cron`, a cada 2 minutos) processa a
+  fila **uma busca por vez** (buscas em paralelo fazem o Google
+  bloquear o IP do Railway) — envia a próxima, acompanha o status,
+  importa o CSV quando termina, e roda o enriquecimento de redes
+  sociais em lotes de 40 empresas por execução (evita estourar o
+  tempo de execução da função na Vercel).
+- **Atenção**: o plano Hobby (grátis) da Vercel só permite cron 1x/dia
+  — pra rodar de fato a cada poucos minutos é preciso o plano Pro, ou
+  um pinger externo (GitHub Actions ou cron-job.org) chamando a rota
+  com o `CRON_SECRET`. Detalhes em `infra/prostec-scraper/README.md`.
+
+**Deduplicação e dados**:
+- Novo lead é comparado com os já cadastrados por `place_id` do
+  Google, telefone (E.164), domínio do site, ou nome+cidade — nunca
+  duplica, só completa campos vazios de um registro já existente.
+- Números em opt-out (`prostec_opt_out`) nunca entram no pipeline —
+  ficam de fora e contam num contador separado (`total_bloqueados_optout`).
+- Nada do histórico foi apagado: empresas cadastradas pela Places API
+  antiga continuam no banco, marcadas com `origem = 'places_api_legado'`.
+
+**Mudança de comportamento deliberada — a Iara não dispara mais
+sozinha**: diferente do fluxo antigo (que já mandava a primeira
+mensagem assim que achava uma empresa nova), leads importados pelo
+scraper **não iniciam conversa automaticamente** — é preciso mandar
+manualmente (botão "Enviar pro bot" que já existia). Quando enviado, a
+primeira mensagem pra esse tipo de lead já vem com uma opção clara de
+opt-out ("responda SAIR"); a checagem de opt-out e a pausa automática
+por excesso de erro de IA continuam valendo do mesmo jeito de sempre.
+
+**Removido**: a busca síncrona antiga via Google Places API
+(`executarBuscaProstecAction`, `google-places.ts`, o formulário antigo
+de nova busca no dashboard) — a variável de ambiente
+`GOOGLE_PLACES_API_KEY` não é mais usada em lugar nenhum do código.
+
+**Migration**: `fase229_prostec_scraper_gmaps.sql` (idempotente) — fila
+de buscas (`prostec_scrape_jobs`), cache de geocodificação
+(`prostec_geocode_cache`, com Araguari/MG já semeada), e as colunas
+novas em `prostec_companies` (origem, place_id, e-mails, redes
+sociais, telefone em E.164 etc).
+
+Ver `docs/prostec/scraper-migracao.md` pro raio-x completo da
+migração e os detalhes de arquitetura.
+
 ## [Fase 228] - Cartão no checkout agora usa o motor de precificação (correção da Fase 227)
 
 A Fase 227 tinha adicionado um campo manual pra configurar um

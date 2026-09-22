@@ -1,0 +1,5 @@
+title,category,complete_address,phone,website,emails,review_rating,review_count,latitude,longitude,place_id,cid,link,open_hours,business_status
+Padaria do João,Padaria,"Rua Coronel Camilo Chaves, 100 - Centro, Araguari - MG",(34) 99999-8888,https://padariadojoao.com.br,contato@padariadojoao.com.br,4.7,215,-18.6489,-48.1875,ChIJpadariajoaoexemplo,111111111,https://maps.google.com/?cid=111111111,Seg-Sáb 06:00-20:00,OPERATIONAL
+Oficina Central,Oficina mecânica,"Av. Minas Gerais, 500 - Araguari - MG",(34) 3222-1234,oficinacentral.com.br,,4.2,58,-18.6501,-48.1902,ChIJoficinacentralexemplo,222222222,https://maps.google.com/?cid=222222222,Seg-Sex 08:00-18:00,OPERATIONAL
+Salão da Maria,Salão de beleza,"Rua Duque de Caxias, 45 - Araguari - MG",,,,,,-18.6455,-48.1888,ChIJsalaomariaexemplo,333333333,https://maps.google.com/?cid=333333333,,OPERATIONAL
+Loja Fechada Ltda,Loja,"Rua X, 1 - Araguari - MG",34988887777,,,,,-18.6470,-48.1860,ChIJlojafechadaexemplo,444444444,https://maps.google.com/?cid=444444444,,CLOSED_PERMANENTLY

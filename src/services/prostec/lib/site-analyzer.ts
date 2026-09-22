@@ -23,10 +23,14 @@ export interface SiteAnalysis {
   instagram_encontrado: string | null;
   /** Extraído de um link wa.me/NUMERO real no site — mais confiável que assumir que o telefone geral é WhatsApp. */
   whatsapp_encontrado: string | null;
+  /** Fase 229 (scraper próprio) — mesmo princípio: só extrai o que está literalmente no HTML. */
+  facebook_encontrado: string | null;
+  linkedin_encontrado: string | null;
+  emails_encontrados: string[];
 }
 
 /** Procura um link de Instagram real no HTML — nunca inventa, só extrai se realmente estiver lá. */
-function extrairInstagramDoHtml(html: string): string | null {
+export function extrairInstagramDoHtml(html: string): string | null {
   const match = html.match(/instagram\.com\/([a-zA-Z0-9_.]{2,30})/i);
   if (!match) return null;
   const handle = match[1].toLowerCase();
@@ -35,9 +39,50 @@ function extrairInstagramDoHtml(html: string): string | null {
 }
 
 /** Procura um link wa.me/NUMERO real no HTML — só extrai o que está literalmente lá, nunca deriva do telefone geral. */
-function extrairWhatsappDoHtml(html: string): string | null {
+export function extrairWhatsappDoHtml(html: string): string | null {
   const match = html.match(/wa\.me\/(\d{10,15})/i);
   return match ? match[1] : null;
+}
+
+const HANDLES_GENERICOS_FACEBOOK = new Set([
+  "sharer", "share", "pages", "home", "plugins", "dialog", "help", "about", "policies", "login",
+]);
+export function extrairFacebookDoHtml(html: string): string | null {
+  const match = html.match(/(?:www\.|m\.|web\.)?facebook\.com\/([A-Za-z0-9_.\-]{2,60})/i);
+  if (!match) return null;
+  const handle = match[1].toLowerCase().split(/[/?#]/)[0];
+  if (!handle || HANDLES_GENERICOS_FACEBOOK.has(handle)) return null;
+  return `https://facebook.com/${handle}`;
+}
+
+const HANDLES_GENERICOS_LINKEDIN = new Set(["p", "reel", "explore", "tr", "help", "about", "login", "intent", "people"]);
+export function extrairLinkedinDoHtml(html: string): string | null {
+  const match = html.match(/linkedin\.com\/(company|in|school)\/([A-Za-z0-9_.\-%]{2,80})/i);
+  if (!match) return null;
+  const [, tipo, handle] = match;
+  const handleLimpo = handle.toLowerCase().split(/[/?#]/)[0];
+  if (!handleLimpo || HANDLES_GENERICOS_LINKEDIN.has(handleLimpo)) return null;
+  return `https://linkedin.com/${tipo}/${handleLimpo}`;
+}
+
+const EMAILS_GENERICOS_INVALIDOS = ["example.com", "sentry.io", "wixpress.com", "godaddy.com", "domain.com"];
+export function extrairEmailsDoHtml(html: string): string[] {
+  const encontrados = new Set<string>();
+
+  const mailtos = html.matchAll(/mailto:([^"'?\s]+@[^"'?\s]+)/gi);
+  for (const m of mailtos) encontrados.add(m[1].toLowerCase());
+
+  const soltos = html.matchAll(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g);
+  for (const m of soltos) encontrados.add(m[0].toLowerCase());
+
+  return [...encontrados].filter((email) => {
+    const dominio = email.split("@")[1];
+    if (!dominio) return false;
+    if (EMAILS_GENERICOS_INVALIDOS.some((d) => dominio === d || dominio.endsWith(`.${d}`))) return false;
+    // Extensões de imagem/fonte que às vezes casam com o regex de e-mail solto (ex: nome@2x.png).
+    if (/\.(png|jpg|jpeg|gif|svg|webp|woff2?)$/i.test(dominio)) return false;
+    return true;
+  });
 }
 
 const FETCH_TIMEOUT_MS = 8000;
@@ -53,7 +98,7 @@ function noSiteAnalysis(reliable: boolean, now: string): SiteAnalysis {
     possui_site: false, site_confiavel: reliable, acessivel: null, https: null, responsivo: null,
     aparencia_moderna: null, velocidade_aproximada: null, botao_whatsapp: null, formulario_contato: null,
     informacoes_empresa: null, cta_claro: null, pagina_servicos: null, seo_basico: null,
-    data_atualizacao_aparente: null, classificacao: "inexistente", analisado_em: now, instagram_encontrado: null, whatsapp_encontrado: null,
+    data_atualizacao_aparente: null, classificacao: "inexistente", analisado_em: now, instagram_encontrado: null, whatsapp_encontrado: null, facebook_encontrado: null, linkedin_encontrado: null, emails_encontrados: [],
   };
 }
 
@@ -109,7 +154,7 @@ async function analyzeRealSite(website: string, now: string): Promise<SiteAnalys
       possui_site: true, site_confiavel: true, acessivel: false, https: website.startsWith("https://"),
       responsivo: null, aparencia_moderna: null, velocidade_aproximada: null, botao_whatsapp: null,
       formulario_contato: null, informacoes_empresa: null, cta_claro: null, pagina_servicos: null,
-      seo_basico: null, data_atualizacao_aparente: null, classificacao: "fraco", analisado_em: now, instagram_encontrado: null, whatsapp_encontrado: null,
+      seo_basico: null, data_atualizacao_aparente: null, classificacao: "fraco", analisado_em: now, instagram_encontrado: null, whatsapp_encontrado: null, facebook_encontrado: null, linkedin_encontrado: null, emails_encontrados: [],
     };
   }
 
@@ -135,6 +180,9 @@ async function analyzeRealSite(website: string, now: string): Promise<SiteAnalys
   const dataAtualizacaoAparente = yearMatch ? yearMatch[1] : null;
   const instagramEncontrado = extrairInstagramDoHtml(html);
   const whatsappEncontrado = extrairWhatsappDoHtml(html);
+  const facebookEncontrado = extrairFacebookDoHtml(html);
+  const linkedinEncontrado = extrairLinkedinDoHtml(html);
+  const emailsEncontrados = extrairEmailsDoHtml(html);
 
   const positives = [https, true, responsivo, aparenciaModerna, botaoWhatsapp, formularioContato, informacoesEmpresa, ctaClaro, paginaServicos, seoBasico].filter(Boolean).length;
 
@@ -144,6 +192,7 @@ async function analyzeRealSite(website: string, now: string): Promise<SiteAnalys
     formulario_contato: formularioContato, informacoes_empresa: informacoesEmpresa, cta_claro: ctaClaro,
     pagina_servicos: paginaServicos, seo_basico: seoBasico, data_atualizacao_aparente: dataAtualizacaoAparente,
     classificacao: classify(true, positives), analisado_em: now, instagram_encontrado: instagramEncontrado, whatsapp_encontrado: whatsappEncontrado,
+    facebook_encontrado: facebookEncontrado, linkedin_encontrado: linkedinEncontrado, emails_encontrados: emailsEncontrados,
   };
 }
 
