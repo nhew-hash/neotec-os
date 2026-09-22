@@ -24,7 +24,7 @@ function validarEndereco(tipoEntrega: string | undefined, endereco: EnderecoEntr
   return null;
 }
 
-async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number; tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput }): Promise<{ pedidoId: string; valorTotal: number }> {
+async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number; tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput; acrescimoCartao?: number }): Promise<{ pedidoId: string; valorTotal: number }> {
   const valorBruto = input.itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
   if (valorBruto <= 0) throw new Error("O valor do pedido está zerado — atualiza a página e tenta de novo.");
 
@@ -117,6 +117,13 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
   }
   valorTotal += valorFrete;
 
+  // Acréscimo fixo do cartão — só entra aqui (nunca no Pix) e já vai
+  // embutido no valor_total do pedido, pra ficar registrado certinho
+  // no histórico e ser exatamente o valor cobrado no Mercado Pago.
+  if (input.acrescimoCartao && input.acrescimoCartao > 0) {
+    valorTotal += input.acrescimoCartao;
+  }
+
   const { data: pedido, error } = await supabase
     .from("pedidos_loja")
     .insert({
@@ -189,7 +196,13 @@ export async function pagarComCartaoAction(input: {
   if (input.itens.length === 0) return { success: false, error: "Carrinho vazio" };
 
   try {
-    const { pedidoId, valorTotal } = await criarPedidoParaCheckout(input);
+    // Acréscimo do cartão é sempre lido aqui, do servidor — nunca do
+    // valor que o navegador manda — pro cliente não conseguir zerar o
+    // acréscimo alterando o payload.
+    const configGateway = await paymentRepository.buscarConfiguracao("mercadopago", false);
+    const acrescimoCartao = Number(configGateway?.acrescimo_cartao_fixo ?? 0);
+
+    const { pedidoId, valorTotal } = await criarPedidoParaCheckout({ ...input, acrescimoCartao });
     const resultado = await paymentService.pagarComCartao({
       pedidoId, valor: valorTotal, descricao: `Pedido Neotec #${pedidoId.slice(0, 8)}`,
       token: input.token, parcelas: input.parcelas, metodoPagamentoId: input.metodoPagamentoId, cpf: input.cpf,
@@ -211,10 +224,10 @@ export async function consultarStatusPagamentoAction(pagamentoId: string): Promi
 }
 
 /** Devolve a Public Key pro front carregar o SDK JS do Mercado Pago — nunca o Access Token, esse fica só no servidor. */
-export async function buscarPublicKeyMercadoPagoAction(): Promise<ActionResult<{ publicKey: string | null; ativo: boolean }>> {
+export async function buscarPublicKeyMercadoPagoAction(): Promise<ActionResult<{ publicKey: string | null; ativo: boolean; acrescimoCartaoFixo: number }>> {
   try {
     const config = await paymentRepository.buscarConfiguracao("mercadopago", false);
-    return { success: true, data: { publicKey: config?.public_key ?? null, ativo: config?.ativo ?? false } };
+    return { success: true, data: { publicKey: config?.public_key ?? null, ativo: config?.ativo ?? false, acrescimoCartaoFixo: Number(config?.acrescimo_cartao_fixo ?? 0) } };
   } catch (err) {
     return { success: false, error: extrairMensagemErro(err, "Erro ao carregar configuração") };
   }

@@ -324,6 +324,13 @@ export async function iniciarConversaBot(leadId: string, telefoneBruto: string, 
 
 /** Processa uma mensagem recebida — a Iara decide, responde, atualiza CRM, registra a decisão. */
 export async function processarMensagemRecebidaIara(telefoneBruto: string, textoRecebido: string, telefoneConfiavel = true): Promise<void> {
+  // Trava de segurança — texto vazio nunca é mensagem de verdade do
+  // WhatsApp (não dá pra mandar texto em branco); é sinal de a Bridge
+  // ter repassado um evento que não é mensagem real (reação, apagar
+  // mensagem, enquete etc.). Ignora antes de gastar chamada de IA ou
+  // criar qualquer registro em cima disso.
+  if (!textoRecebido?.trim()) return;
+
   const admin = createAdminClient();
 
   // Mesma normalização de iniciarConversaBot — garante que bate com o

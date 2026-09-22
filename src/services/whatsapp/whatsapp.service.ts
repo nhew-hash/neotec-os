@@ -378,6 +378,22 @@ export async function enviarMensagemTemplate(input: {
 export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizada): Promise<void> {
   const supabase = createAdminClient();
 
+  // Trava de segurança (defesa em profundidade) — nenhuma mensagem de
+  // texto de verdade vem vazia (o WhatsApp não deixa mandar texto em
+  // branco). Se chegar isso aqui, é sinal de que a Bridge repassou
+  // algum evento que não é mensagem real (reação, apagar mensagem,
+  // enquete, confirmação de leitura etc.) — ignora, em vez de criar
+  // atendimento novo ou poluir a conversa com "mensagem em branco".
+  if (msg.tipo === "texto" && !msg.conteudo?.trim()) {
+    await registrarLog({
+      direcao: "entrada",
+      evento: "mensagem_recebida",
+      payload: { telefone: msg.telefone, tipo: msg.tipo, idExterno: msg.idExterno, ignorada: "texto vazio — provável evento não-mensagem (reação/status/protocolo)" },
+      sucesso: true,
+    });
+    return;
+  }
+
   await registrarLog({
     direcao: "entrada",
     evento: "mensagem_recebida",

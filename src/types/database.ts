@@ -1017,6 +1017,7 @@ export interface ConfiguracaoGatewayPagamento {
   webhook_secret: string | null;
   modo: "sandbox" | "producao";
   ativo: boolean;
+  acrescimo_cartao_fixo: number;
   ultimo_teste_conexao_em: string | null;
   ultimo_teste_conexao_sucesso: boolean | null;
   ultimo_webhook_recebido_em: string | null;

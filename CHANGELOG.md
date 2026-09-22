@@ -4,6 +4,48 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 227] - Acréscimo fixo no cartão + fix de conversas desagrupadas/status como mensagem
+
+**1) Checkout da loja online — acréscimo no cartão**
+
+Não existia nenhuma diferença de valor entre Pix e Cartão. Agora dá pra
+configurar (em Configurações → Pagamentos → Mercado Pago) um valor
+fixo em R$ que é somado ao total só quando o cliente escolhe pagar com
+cartão — o Pix nunca muda. O valor:
+- É lido sempre do servidor no momento de cobrar (nunca confia em nada
+  vindo do navegador, pra ninguém conseguir zerar o acréscimo mexendo
+  no DevTools);
+- Já aparece no resumo do pedido e no valor cobrado assim que o
+  cliente escolhe "Cartão" na tela de pagamento;
+- Fica registrado dentro do `valor_total` do pedido, então o histórico
+  reflete exatamente o que foi cobrado.
+
+Deixe o campo em 0 (padrão) pra não cobrar nenhum acréscimo.
+
+**2) Comunicação — conversas chegando desagrupadas / status como mensagem**
+
+O WhatsApp (Baileys) dispara o mesmo evento de "mensagem nova" pra
+várias coisas que não são mensagem de verdade: reação (emoji numa
+mensagem), apagar mensagem, criar/votar em enquete, timer de mensagem
+temporária, distribuição de chave de criptografia, etc. Isso tudo
+estava sendo repassado pro Neotec OS como se fosse uma mensagem de
+texto em branco — o que causava dois problemas:
+- Entrava como "mensagem" em branco na conversa (o "status chegando
+  como mensagem");
+- Se a conversa daquele contato já estava fechada, criava um
+  atendimento novo do zero pra esse "texto vazio" — fragmentando o
+  histórico do contato em várias conversas separadas.
+
+Agora a Bridge filtra esses eventos direto na origem (só repassa
+mensagem de texto, imagem, documento, áudio ou figurinha de verdade) e
+o Neotec OS (loja e Prostec/Iara) também ignora qualquer coisa que
+chegue como texto vazio, como segunda camada de proteção.
+
+**Atenção**: a Bridge é um repositório separado (`whatsapp-bridge`) e
+roda como dois serviços no Railway (loja e Prostec) — o arquivo dela
+vem junto nesta entrega, mas precisa ser aplicado e reimplantado
+separadamente nos dois serviços.
+
 ## [Fase 226] - Erro do Google Places agora mostra o motivo real, não só a frase genérica
 
 O erro "The caller does not have permission." que a Prostec mostra na

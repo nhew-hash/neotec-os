@@ -20,12 +20,15 @@ export function MercadoPagoConfigPanel({ config }: { config: ConfiguracaoGateway
   const [webhookSecret, setWebhookSecret] = useState(config.webhook_secret ?? "");
   const [modo, setModo] = useState(config.modo);
   const [ativo, setAtivo] = useState(config.ativo);
+  const [acrescimoCartao, setAcrescimoCartao] = useState(String(config.acrescimo_cartao_fixo ?? 0));
   const [erro, setErro] = useState<string | null>(null);
 
   function salvar() {
     setErro(null);
+    const acrescimoNumero = Number(acrescimoCartao.replace(",", "."));
+    if (Number.isNaN(acrescimoNumero) || acrescimoNumero < 0) return setErro("Acréscimo do cartão inválido");
     startTransition(async () => {
-      const result = await atualizarConfiguracaoGatewayAction("mercadopago", { public_key: publicKey, access_token: accessToken, webhook_secret: webhookSecret, modo, ativo });
+      const result = await atualizarConfiguracaoGatewayAction("mercadopago", { public_key: publicKey, access_token: accessToken, webhook_secret: webhookSecret, modo, ativo, acrescimo_cartao_fixo: acrescimoNumero });
       if (!result.success) return setErro(result.error);
       router.refresh();
     });
@@ -78,6 +81,18 @@ export function MercadoPagoConfigPanel({ config }: { config: ConfiguracaoGateway
             <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} className="h-4 w-4 accent-primary" />
             Pagamento online ativo na loja
           </label>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Acréscimo fixo no cartão (R$)</label>
+            <Input
+              inputMode="decimal" value={acrescimoCartao}
+              onChange={(e) => setAcrescimoCartao(e.target.value)}
+              placeholder="0,00"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Somado ao total só quando o cliente escolhe pagar com cartão no checkout da loja online. Deixe 0 pra não cobrar acréscimo. Não afeta o Pix.
+            </p>
+          </div>
 
           {erro && <p className="text-xs text-danger">{erro}</p>}
 

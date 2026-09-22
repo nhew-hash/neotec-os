@@ -35,6 +35,7 @@ export default function CheckoutPage() {
 
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [gatewayAtivo, setGatewayAtivo] = useState(true);
+  const [acrescimoCartaoFixo, setAcrescimoCartaoFixo] = useState(0);
   const [regrasFrete, setRegrasFrete] = useState<Pick<RegraFrete, "id" | "regiao" | "valor" | "prazo_dias_uteis" | "nacional">[]>([]);
   const [entregaSelecionada, setEntregaSelecionada] = useState<SelecaoEntrega>({ tipo: "retirada" });
 
@@ -51,6 +52,9 @@ export default function CheckoutPage() {
   const regraSelecionada = entregaSelecionada.tipo === "entrega" ? regrasFrete.find((r) => r.id === entregaSelecionada.regiaoId) : null;
   const valorFreteSelecionado = regraSelecionada?.valor ?? 0;
   const totalComDesconto = Math.max(0, totalAposCupom - cashbackAplicavel) + valorFreteSelecionado;
+  // Acréscimo do cartão só entra no valor mostrado/cobrado quando o
+  // método selecionado é "cartao" — o Pix nunca é afetado.
+  const totalFinal = metodo === "cartao" ? totalComDesconto + acrescimoCartaoFixo : totalComDesconto;
 
   useEffect(() => {
     const digitos = telefone.replace(/\D/g, "");
@@ -68,6 +72,7 @@ export default function CheckoutPage() {
       if (result.success) {
         setPublicKey(result.data.publicKey);
         setGatewayAtivo(result.data.ativo);
+        setAcrescimoCartaoFixo(result.data.acrescimoCartaoFixo);
       }
     });
     listarRegrasFretePublicoAction().then((result) => {
@@ -289,13 +294,19 @@ export default function CheckoutPage() {
               <PixPagamento pagamentoId={dadosPix.pagamentoId} qrCodeBase64={dadosPix.qrCodeBase64} copiaCola={dadosPix.copiaCola} expiraEm={dadosPix.expiraEm} onAprovado={handlePixAprovado} />
             )}
 
-            {metodo === "cartao" && publicKey && totalComDesconto > 0 && (
+            {metodo === "cartao" && acrescimoCartaoFixo > 0 && (
+              <p className="rounded-lg bg-secondary/60 p-2.5 text-[11px] text-muted-foreground">
+                Pagamento no cartão tem acréscimo de {formatCurrency(acrescimoCartaoFixo)} — total no cartão: <strong>{formatCurrency(totalFinal)}</strong>.
+              </p>
+            )}
+
+            {metodo === "cartao" && publicKey && totalFinal > 0 && (
               <>
                 <p className="rounded-lg bg-secondary/60 p-2.5 text-[11px] text-muted-foreground">Parcelamento em mais de uma vez pode ter acréscimo — o valor final de cada opção aparece na confirmação, antes de você concluir o pagamento.</p>
-                <CardPaymentBrick publicKey={publicKey} valor={totalComDesconto} onSubmit={handlePagarCartao} onErro={setErro} />
+                <CardPaymentBrick publicKey={publicKey} valor={totalFinal} onSubmit={handlePagarCartao} onErro={setErro} />
               </>
             )}
-            {metodo === "cartao" && publicKey && totalComDesconto <= 0 && <p className="text-sm text-muted-foreground">Carregando valor do pedido...</p>}
+            {metodo === "cartao" && publicKey && totalFinal <= 0 && <p className="text-sm text-muted-foreground">Carregando valor do pedido...</p>}
             {metodo === "cartao" && !publicKey && <p className="text-sm text-muted-foreground">Carregando...</p>}
           </Card>
         )}
@@ -366,11 +377,18 @@ export default function CheckoutPage() {
             <span>{entregaSelecionada.tipo === "retirada" ? "Retirada na loja" : `Entrega — ${regraSelecionada?.regiao}`}</span>
             <span>{valorFreteSelecionado > 0 ? formatCurrency(valorFreteSelecionado) : "Grátis"}</span>
           </div>
+
+          {etapa === "pagamento" && metodo === "cartao" && acrescimoCartaoFixo > 0 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Acréscimo cartão</span>
+              <span>+{formatCurrency(acrescimoCartaoFixo)}</span>
+            </div>
+          )}
         </div>
 
         <div className="mt-2 flex items-center justify-between border-t border-black/[0.06] pt-4">
           <span className="text-sm font-medium text-foreground">Total</span>
-          <span className="font-display text-xl font-bold text-foreground">{formatCurrency(totalComDesconto)}</span>
+          <span className="font-display text-xl font-bold text-foreground">{formatCurrency(totalFinal)}</span>
         </div>
 
         <a

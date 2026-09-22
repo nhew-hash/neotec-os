@@ -78,7 +78,7 @@ export class PaymentRepository {
   }
 
   async atualizarConfiguracao(gateway: string, input: Partial<Pick<ConfiguracaoGatewayPagamento,
-    "public_key" | "access_token" | "webhook_secret" | "modo" | "ativo" |
+    "public_key" | "access_token" | "webhook_secret" | "modo" | "ativo" | "acrescimo_cartao_fixo" |
     "ultimo_teste_conexao_em" | "ultimo_teste_conexao_sucesso" | "ultimo_webhook_recebido_em" | "ultimo_pagamento_aprovado_em"
   >>): Promise<void> {
     const supabase = await createClient();

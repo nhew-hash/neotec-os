@@ -8,7 +8,7 @@ import type { ActionResult, ConfiguracaoGatewayPagamento } from "@/types";
 
 export async function atualizarConfiguracaoGatewayAction(
   gateway: string,
-  input: Partial<Pick<ConfiguracaoGatewayPagamento, "public_key" | "access_token" | "webhook_secret" | "modo" | "ativo">>
+  input: Partial<Pick<ConfiguracaoGatewayPagamento, "public_key" | "access_token" | "webhook_secret" | "modo" | "ativo" | "acrescimo_cartao_fixo">>
 ): Promise<ActionResult> {
   try {
     await paymentRepository.atualizarConfiguracao(gateway, input);
