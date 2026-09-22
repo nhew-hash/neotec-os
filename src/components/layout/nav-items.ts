@@ -22,6 +22,7 @@ import {
   Store,
   Sparkles,
   Settings,
+  Bot,
 } from "lucide-react";
 import type { CargoUsuario } from "@/types";
 
@@ -62,6 +63,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
     label: "Operação",
     items: [
       { label: "Central de Cadastro (IA)", href: "/estoque/central-fornecedor", icon: Sparkles, cargos: ["admin", "gerente", "vendedor"] },
+      { label: "Importação automática (WhatsApp)", href: "/estoque/importacao-fornecedores", icon: Bot, cargos: ["admin", "gerente"] },
       { label: "Banco de Imagens", href: "/estoque/banco-imagens", icon: Sparkles, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Estoque", href: "/estoque", icon: Package, cargos: ["admin", "gerente", "vendedor", "tecnico"] },
       { label: "Cotações", href: "/cotacoes", icon: Tags, cargos: ["admin", "gerente", "vendedor"] },

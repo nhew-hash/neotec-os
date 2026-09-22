@@ -4,6 +4,126 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 234] - Importação automática de fornecedores: wiring completo (banco + rota + tela)
+
+Fecha o que a Fase 230 tinha deixado como motor puro (extração/
+classificação/validação/diff, testado, mas sem gravar nada). Agora a
+lista postada na comunidade do fornecedor no WhatsApp vira estoque de
+verdade, sozinha, sem staff copiar/colar em lugar nenhum.
+
+**Decisão de arquitetura (mudou em relação ao desenho original da Fase
+230)**: não sobe uma TERCEIRA instância do Bridge só pra fornecedores —
+usa a MESMA instância/número já conectado no CRM (Bridge da loja). As
+comunidades dos fornecedores são grupos comuns do WhatsApp (`@g.us`), e
+o Bridge já sabia processar grupo desde a Fase 230 (`PROCESSAR_GRUPOS`),
+só não tinha pra onde mandar ainda — a rota nova é essa peça que faltava.
+A linha `integracoes_whatsapp` com `provider = 'whatsapp_fornecedores'`
+(criada na Fase 230 pensando numa 3ª instância) fica sem uso — inofensiva,
+não precisa remover.
+
+**Deploy — 1 variável de ambiente pra ligar (fora do código)**: no serviço
+do Bridge que já atende o CRM/loja, defina `PROCESSAR_GRUPOS=true` e
+reinicie. Sem isso, mensagem de grupo continua sendo ignorada como sempre
+foi (comportamento padrão, não quebra nada em ninguém que não setar).
+
+**Novo**:
+- `supabase/migrations/fase234_import_itens_ativos.sql` — tabela
+  `import_itens_ativos`: fonte de verdade do "estado ativo atual" por
+  escopo fornecedor+tipo_lista que o motor de diff (Fase 230) compara.
+  Aparelhos/produtos/variantes de lacrado são uma PROJEÇÃO derivada dela,
+  nunca o inverso.
+- `src/services/importacao-fornecedores/aplicacao.service.ts` — a
+  camada que fala com o banco: decide o destino de cada item (seminovo →
+  `aparelhos` com 1 unidade por `quantidade` informada, IMEI null pra
+  completar na chegada física; lacrado → `catalogo_lacrados_modelos/
+  variantes` + `import_lacrados_ofertas`, preço público sempre o MENOR
+  entre ofertas ativas; genérico → `produtos` simples), aplica margem
+  (seminovo reaproveita `regras_lucro`; lacrado/genérico usa
+  `import_margem_categoria` quando cadastrada, senão preço = preço do
+  fornecedor mesmo, staff ajusta manual), e nunca mexe em unidade já
+  reservada/vendida ao desativar (mesmo escopo de segurança da Fase 91).
+- `src/app/api/integracoes/whatsapp-web/mensagem-grupo/route.ts` — rota
+  nova que o Bridge chama pra toda mensagem de grupo: resolve a fonte
+  pelo JID do grupo (grupo nunca visto vira rascunho inativo, pronto pra
+  configurar na tela), checa idempotência (`import_mensagens_processadas`
+  — mesma mensagem nunca aplica 2x, mensagem editada reprocessa), roda o
+  motor da Fase 230, aplica no banco, grava histórico em
+  `import_execucoes` e responde no PRÓPRIO grupo com o resumo (ou o
+  motivo de ter travado por segurança, se travou).
+- `/estoque/importacao-fornecedores` (`ImportacaoFornecedoresPanel`) —
+  tela nova: lista os grupos vistos (configurar fornecedor + ativar em 1
+  clique) e as últimas listas recebidas com o resultado de cada uma —
+  é o jeito de confirmar visualmente que a importação automática está
+  funcionando, sem precisar abrir log de servidor.
+
+**Não incluído nesta fase** (fica pro próximo incremento, se precisar):
+tela de rollback de 1 clique usando `snapshot_para_rollback` (a coluna
+já é gravada em toda execução, só falta o botão), edição de
+`import_margem_categoria`/`import_emoji_cores`/`import_modelos_catalogo`
+pela tela (hoje só editável direto no banco).
+
+## [Fase 233] - Prostec: limpeza dos leads que já tinham site
+
+Complemento da Fase 232 — os leads que já estavam no pipeline ANTES da
+regra existir (e já tinham `website` cadastrado) agora são marcados como
+perdidos automaticamente, com o motivo "Já possui site" (o mesmo texto
+já cadastrado em `prostec_motivos_perda`).
+
+- Não mexe em leads já com venda fechada, nem nos que já estavam
+  marcados como perdidos por outro motivo.
+- Registra a mudança em `prostec_lead_status_history` e
+  `prostec_atividades`, igual uma mudança de status manual — fica no
+  histórico do lead, não é um "apagar silencioso".
+- Migration com efeito único (`do $$ ... $$`): roda, marca quem precisa
+  ser marcado, e não faz nada numa segunda execução.
+
+## [Fase 232] - Prostec: empresa que já tem site não vira lead
+
+O produto que a Prostec vende é justamente o site institucional, então
+empresa que já tem site não é um lead viável. A importação do scraper
+(`importar-job.service.ts`) agora ignora essas empresas na hora de criar
+o lead — nem entram no pipeline (antes entravam e só ganhavam menos
+pontos no score, mas ainda apareciam pra prospectar).
+
+- Empresa **nova** com `website` preenchido no CSV do Google Maps: não
+  cria `prostec_companies`/`prostec_leads`, só incrementa o contador
+  `total_ignorados_possui_site` (nova coluna, migration `fase232`).
+- Empresa que já existia no pipeline **antes** dessa regra continua
+  sendo enriquecida normalmente (não mexe em lead que já estava em
+  andamento) — a regra só filtra a entrada de leads novos.
+- Contagem de "já tem site" aparece na lista de buscas
+  (`buscas-scraper-lista.tsx`), do lado do contador de opt-out.
+- Cadastro manual de lead (`prostec.actions.ts`) não foi restringido —
+  se você mesmo quer cadastrar uma empresa que já tem site, a decisão é
+  sua.
+
+## [Fase 231] - Prostec: botão do bot no kanban/tabela + anti-ban no envio
+
+Faltava um jeito rápido de mandar a Iara chamar um lead direto do
+pipeline/lista — só dava pra disparar abrindo o lead um por um. E o envio
+de WhatsApp da Prostec não tinha nenhuma proteção contra parecer bot.
+
+- **Botão "Enviar pro bot"** agora também no card do kanban
+  (`pipeline-kanban.tsx`, ícone compacto) e na linha da tabela de leads
+  (`leads-prostec-table.tsx`), além da página de detalhe do lead (onde já
+  existia). Mesma action de sempre (`iniciarBotProstecAction`).
+- **Anti-ban no envio** (`prostec-whatsapp.provider.ts`): antes de cada
+  mensagem, espera um intervalo mínimo com jitter aleatório (4-9s) desde
+  o último envio da Prostec — o estado fica salvo em
+  `integracoes_whatsapp_prostec.ultimo_envio_em` (nova coluna, migration
+  `fase231`), então funciona mesmo clicando em vários leads em sequência
+  ou processando vários de uma vez, não só dentro do mesmo processo.
+- **Simulação de digitação no Bridge** (`whatsapp-bridge/src/index.ts`):
+  a rota `/enviar` agora manda "digitando..." (presence `composing`) por
+  um tempo proporcional ao tamanho da mensagem (1.5-6s) antes de mandar o
+  texto — mensagem que aparece instantânea, sem digitação nenhuma, é um
+  padrão clássico de bot que o WhatsApp usa pra banir número.
+
+Nenhuma dessas duas proteções sozinha evita ban garantido — ajudam a não
+ter o padrão mais óbvio de automação, mas o principal ainda é: número
+aquecido, não mandar a mesma mensagem idêntica em massa, e respeitar
+opt-out.
+
 ## [Fase 230] - Importação automática de listas de fornecedores via WhatsApp (motor de extração)
 
 Primeira fatia (motor de extração/classificação/validação) da automação
