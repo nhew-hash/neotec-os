@@ -1,7 +1,11 @@
 # Gateway público do prostec-scraper — único ponto do módulo com
-# domínio público. Exige X-API-Key em toda requisição e só libera
+# domínio público. Exige X-Api-Key em toda requisição e só libera
 # /api/v1/jobs*; a UI web do gosom (que não tem autenticação nenhuma)
 # fica bloqueada mesmo pra quem tem a chave.
+#
+# IMPORTANTE: no Caddy, "handle" roda ANTES de "respond" na ordem padrão
+# de diretivas. Por isso a checagem da chave fica DENTRO do handle —
+# se ficar fora, o reverse_proxy responde antes e a chave nunca é exigida.
 
 {
 	admin off
@@ -9,17 +13,15 @@
 
 :{$PORT}
 
-# Confere a API key ANTES de qualquer coisa. Sem isso (ou errada), 401.
 @sem_chave not header X-Api-Key {$SCRAPER_API_KEY}
-respond @sem_chave 401 {
-	body "Não autorizado"
-	close
-}
-
-# Só libera a API de jobs — bloqueia a UI web do gosom e qualquer outra
-# rota que o container exponha.
 @rota_permitida path /api/v1/jobs*
+
 handle @rota_permitida {
+	# Sem chave (ou errada): 401. "respond" vem antes de "reverse_proxy".
+	respond @sem_chave "Não autorizado" 401 {
+		close
+	}
+
 	reverse_proxy prostec-scraper.railway.internal:8080 {
 		# Download do CSV de uma busca grande pode demorar — timeout
 		# generoso só nessa direção.
@@ -31,6 +33,7 @@ handle @rota_permitida {
 	}
 }
 
+# Qualquer outra rota (inclusive a UI web do gosom): 404.
 handle {
 	respond 404
 }
