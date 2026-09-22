@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { Bot, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { atualizarStatusLeadProstecAction } from "@/services/prostec/prostec.actions";
+import { atualizarStatusLeadProstecAction, iniciarBotProstecAction } from "@/services/prostec/prostec.actions";
 // Tipo duplicado aqui de propósito — import (mesmo "type") de
 // prostec.service.ts arrasta o arquivo inteiro (usa next/headers)
 // pro bundle do cliente.
@@ -40,6 +41,17 @@ export function PipelineKanban({ leads }: { leads: ProstecLead[] }) {
     return mapa;
   });
   const [, startTransition] = useTransition();
+  const [statusBot, setStatusBot] = useState<Record<string, "enviando" | "enviado" | "erro">>({});
+
+  function enviarBot(lead: ProstecLead) {
+    const telefone = lead.company?.whatsapp ?? lead.company?.phone ?? null;
+    if (!telefone || statusBot[lead.id] === "enviando" || statusBot[lead.id] === "enviado") return;
+    setStatusBot((prev) => ({ ...prev, [lead.id]: "enviando" }));
+    startTransition(async () => {
+      const resultado = await iniciarBotProstecAction(lead.id, telefone, lead.company?.name ?? "");
+      setStatusBot((prev) => ({ ...prev, [lead.id]: resultado.success ? "enviado" : "erro" }));
+    });
+  }
 
   function moverLead(lead: ProstecLead, novoStatus: string) {
     setLeadsPorColuna((prev) => {
@@ -65,9 +77,32 @@ export function PipelineKanban({ leads }: { leads: ProstecLead[] }) {
             <div className="flex flex-col gap-2">
               {leadsColuna.map((lead) => (
                 <div key={lead.id} className="flex flex-col gap-1.5 rounded-xl border border-black/[0.06] bg-white p-2.5 shadow-sm">
-                  <div className="flex items-center gap-1.5">
-                    <span className={cn("h-1.5 w-1.5 rounded-full", COR_TEMPERATURA[lead.temperature])} />
-                    <span className="text-[10px] font-semibold text-muted-foreground">{lead.score} pts</span>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn("h-1.5 w-1.5 rounded-full", COR_TEMPERATURA[lead.temperature])} />
+                      <span className="text-[10px] font-semibold text-muted-foreground">{lead.score} pts</span>
+                    </div>
+                    {(lead.company?.whatsapp ?? lead.company?.phone) && (
+                      <button
+                        type="button"
+                        title="Enviar pro bot (WhatsApp)"
+                        disabled={statusBot[lead.id] === "enviando" || statusBot[lead.id] === "enviado"}
+                        onClick={() => enviarBot(lead)}
+                        className={cn(
+                          "flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60",
+                          statusBot[lead.id] === "enviado" && "text-success-text",
+                          statusBot[lead.id] === "erro" && "text-danger"
+                        )}
+                      >
+                        {statusBot[lead.id] === "enviado" ? (
+                          <Check className="h-3 w-3" />
+                        ) : statusBot[lead.id] === "erro" ? (
+                          <X className="h-3 w-3" />
+                        ) : (
+                          <Bot className="h-3 w-3" />
+                        )}
+                      </button>
+                    )}
                   </div>
                   <Link href={`/prostec/leads/${lead.id}`} className="text-xs font-medium text-foreground hover:text-primary hover:underline">
                     {lead.company?.name ?? "—"}

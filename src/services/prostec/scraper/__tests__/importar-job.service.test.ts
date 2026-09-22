@@ -46,40 +46,36 @@ beforeEach(() => {
 });
 
 describe("importarJobService", () => {
-  it("importa o CSV: normaliza, ignora empresa fechada, cria empresa+lead+score pra cada uma nova", async () => {
+  it("importa o CSV: normaliza, ignora empresa fechada, ignora empresa que já tem site, cria empresa+lead+score só pra quem não tem site", async () => {
     const job = { id: "job-1", cidade: "Araguari", uf: "MG", nicho: "Comércio local", job_externo_id: "ext-1" };
 
     supabaseMockAtual = makeSupabaseMock([
       { data: job, error: null }, // 1. select do job
       { data: null, error: null }, // 2. prostec_settings (usa defaults)
       { data: [], error: null }, // 3. candidatos de dedupe (nenhum ainda)
-      // Padaria do João (tem telefone válido -> checa opt-out)
+      // Padaria do João (tem telefone válido -> checa opt-out; TEM site -> ignorada, não vira lead)
       { data: null, error: null }, // 4. opt-out (não está)
-      { data: { id: "company-1" }, error: null }, // 5. insert prostec_companies
-      { data: { id: "lead-1" }, error: null }, // 6. insert prostec_leads
-      { data: null, error: null }, // 7. insert prostec_lead_scores
-      // Oficina Central (tem telefone fixo válido -> checa opt-out)
-      { data: null, error: null }, // 8. opt-out (não está)
-      { data: { id: "company-2" }, error: null }, // 9. insert prostec_companies
-      { data: { id: "lead-2" }, error: null }, // 10. insert prostec_leads
-      { data: null, error: null }, // 11. insert prostec_lead_scores
-      // Salão da Maria (sem telefone -> não checa opt-out)
-      { data: { id: "company-3" }, error: null }, // 12. insert prostec_companies
-      { data: { id: "lead-3" }, error: null }, // 13. insert prostec_leads
-      { data: null, error: null }, // 14. insert prostec_lead_scores
+      // Oficina Central (tem telefone válido -> checa opt-out; TEM site -> ignorada, não vira lead)
+      { data: null, error: null }, // 5. opt-out (não está)
+      // Salão da Maria (sem telefone -> não checa opt-out; SEM site -> vira lead)
+      { data: { id: "company-3" }, error: null }, // 6. insert prostec_companies
+      { data: { id: "lead-3" }, error: null }, // 7. insert prostec_leads
+      { data: null, error: null }, // 8. insert prostec_lead_scores
       // Loja Fechada Ltda (CLOSED_PERMANENTLY) é pulada antes de qualquer query
-      { data: null, error: null }, // 15. update final de contadores do job
+      { data: null, error: null }, // 9. update final de contadores do job
     ]);
 
     const { importarJobService } = await import("../importar-job.service");
     const resultado = await importarJobService("job-1");
 
-    // 4 linhas no CSV, 1 fechada (CLOSED_PERMANENTLY) não conta como encontrada pro pipeline de novos/duplicados,
-    // mas total_encontrados reflete todas as linhas que vieram do CSV.
+    // 4 linhas no CSV: 1 fechada (não conta pro pipeline), 2 já têm site
+    // (empresa com site não é lead viável pra Prostec — ver Fase 232),
+    // só Salão da Maria (sem site) vira lead novo de verdade.
     expect(resultado.totalEncontrados).toBe(4);
-    expect(resultado.totalNovos).toBe(3);
+    expect(resultado.totalNovos).toBe(1);
     expect(resultado.totalDuplicados).toBe(0);
     expect(resultado.totalBloqueadosOptout).toBe(0);
+    expect(resultado.totalIgnoradosPossuiSite).toBe(2);
   });
 
   it("bloqueia lead cujo telefone está em opt-out e não conta como novo", async () => {

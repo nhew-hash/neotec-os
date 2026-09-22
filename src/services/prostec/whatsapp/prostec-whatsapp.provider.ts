@@ -24,17 +24,53 @@ function headers(): HeadersInit {
   return { "Content-Type": "application/json", "x-bridge-secret": process.env.WHATSAPP_PROSTEC_BRIDGE_SECRET ?? "" };
 }
 
+// Anti-ban: nunca dispara duas mensagens da Prostec "de uma vez só" — um
+// número novo mandando várias mensagens idênticas/rápidas em sequência é
+// exatamente o padrão que o WhatsApp detecta como bot e bane. Antes de
+// cada envio, espera um intervalo mínimo (com jitter aleatório) contado a
+// partir do último envio, salvo em `integracoes_whatsapp_prostec.
+// ultimo_envio_em` — funciona mesmo com vários cliques/leads em sequência
+// (kanban, tabela, ou vários leads importados), porque o estado fica no
+// banco, não em memória do processo serverless.
+const INTERVALO_MINIMO_MS = 4_000;
+const INTERVALO_JITTER_MS = 5_000; // soma um extra aleatório de 0-5s por cima do mínimo
+const ESPERA_MAXIMA_MS = 10_000; // nunca trava a ação por mais que isso
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function respeitarEspacamentoAntiBan(admin: ReturnType<typeof createAdminClient>): Promise<{ id: string } | null> {
+  const { data: linha } = await admin.from("integracoes_whatsapp_prostec").select("id, ultimo_envio_em").maybeSingle();
+  if (!linha) return null;
+
+  if (linha.ultimo_envio_em) {
+    const decorrido = Date.now() - new Date(linha.ultimo_envio_em).getTime();
+    const alvo = INTERVALO_MINIMO_MS + Math.random() * INTERVALO_JITTER_MS;
+    const faltando = Math.min(alvo - decorrido, ESPERA_MAXIMA_MS);
+    if (faltando > 0) await sleep(faltando);
+  }
+
+  return { id: linha.id };
+}
+
 export async function enviarMensagemProstec(telefone: string, texto: string): Promise<{ enviado: boolean; motivo?: string }> {
+  const admin = createAdminClient();
   try {
+    const linha = await respeitarEspacamentoAntiBan(admin);
+
     const response = await fetch(`${bridgeUrl()}/enviar`, {
       method: "POST", headers: headers(), body: JSON.stringify({ telefone, texto }), signal: AbortSignal.timeout(15_000),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) return { enviado: false, motivo: data?.erro ?? "Bridge da Prostec recusou o envio" };
 
-    const admin = createAdminClient();
-    const { data: linha } = await admin.from("integracoes_whatsapp_prostec").select("id").maybeSingle();
-    if (linha) await admin.from("integracoes_whatsapp_prostec").update({ status: "conectado", ultima_conexao: new Date().toISOString() }).eq("id", linha.id);
+    if (linha) {
+      await admin
+        .from("integracoes_whatsapp_prostec")
+        .update({ status: "conectado", ultima_conexao: new Date().toISOString(), ultimo_envio_em: new Date().toISOString() })
+        .eq("id", linha.id);
+    }
     return { enviado: true };
   } catch (err) {
     return { enviado: false, motivo: err instanceof Error ? `Bridge da Prostec inacessível: ${err.message}` : "Bridge da Prostec inacessível" };

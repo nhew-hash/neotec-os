@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { atualizarStatusLeadProstecAction, registrarVendaProstecAction } from "@/services/prostec/prostec.actions";
+import { atualizarStatusLeadProstecAction, registrarVendaProstecAction, iniciarBotProstecAction } from "@/services/prostec/prostec.actions";
 interface ProstecLead {
   id: string;
   company_id: string;
@@ -50,6 +51,23 @@ function LinhaLead({ lead }: { lead: ProstecLead }) {
   const [valor, setValor] = useState("1497");
   const [comissaoPct, setComissaoPct] = useState("10");
   const [salvando, setSalvando] = useState(false);
+  const [botStatus, setBotStatus] = useState<"idle" | "enviando" | "enviado" | "erro">("idle");
+  const [botErro, setBotErro] = useState<string | null>(null);
+
+  const telefone = lead.company?.whatsapp ?? lead.company?.phone ?? null;
+
+  async function handleEnviarBot() {
+    if (!telefone) return;
+    setBotStatus("enviando");
+    setBotErro(null);
+    const resultado = await iniciarBotProstecAction(lead.id, telefone, lead.company?.name ?? "");
+    if (resultado.success) {
+      setBotStatus("enviado");
+    } else {
+      setBotStatus("erro");
+      setBotErro(resultado.error);
+    }
+  }
 
   async function handleMudarStatus(novoStatus: string) {
     if (novoStatus === "perdido") {
@@ -101,7 +119,20 @@ function LinhaLead({ lead }: { lead: ProstecLead }) {
             {mostrarVenda ? "Cancelar" : "Registrar venda"}
           </Button>
         )}
+
+        {telefone && (
+          <Button
+            type="button" size="sm" variant="outline"
+            onClick={handleEnviarBot}
+            disabled={botStatus === "enviando" || botStatus === "enviado"}
+            className="gap-1.5"
+          >
+            <Bot className="h-3.5 w-3.5" />
+            {botStatus === "enviando" ? "Enviando..." : botStatus === "enviado" ? "Bot iniciado" : "Enviar pro bot"}
+          </Button>
+        )}
       </div>
+      {botStatus === "erro" && botErro && <p className="text-xs text-danger">{botErro}</p>}
 
       {mostrarVenda && (
         <div className="grid grid-cols-3 gap-2 rounded-lg border border-border bg-white p-2">

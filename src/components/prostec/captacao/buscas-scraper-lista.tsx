@@ -24,6 +24,7 @@ export interface BuscaJob {
   total_novos: number;
   total_duplicados: number;
   total_bloqueados_optout: number;
+  total_ignorados_possui_site: number;
   created_at: string;
   finalizado_em: string | null;
 }
@@ -184,6 +185,7 @@ function BuscaLinha({
         <td className="p-3 text-right font-medium text-foreground">
           {busca.total_novos || "—"}
           {busca.total_bloqueados_optout > 0 && <span className="ml-1 text-[10px] text-muted-foreground">({busca.total_bloqueados_optout} opt-out)</span>}
+          {busca.total_ignorados_possui_site > 0 && <span className="ml-1 text-[10px] text-muted-foreground">({busca.total_ignorados_possui_site} já tem site)</span>}
         </td>
         <td className="p-3 text-xs text-muted-foreground">{formatDateTime(busca.created_at)}</td>
         <td className="p-3">

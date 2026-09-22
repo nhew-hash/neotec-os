@@ -52,6 +52,7 @@ export interface ResultadoImportacao {
   totalNovos: number;
   totalDuplicados: number;
   totalBloqueadosOptout: number;
+  totalIgnoradosPossuiSite: number;
 }
 
 export async function importarJobService(jobId: string): Promise<ResultadoImportacao> {
@@ -73,6 +74,7 @@ export async function importarJobService(jobId: string): Promise<ResultadoImport
   let novos = 0;
   let duplicados = 0;
   let bloqueadosOptout = 0;
+  let ignoradosPossuiSite = 0;
   const now = new Date().toISOString();
 
   for (const bruto of leadsBrutos) {
@@ -130,6 +132,17 @@ export async function importarJobService(jobId: string): Promise<ResultadoImport
         updated_at: now,
       }).eq("id", companyId);
     } else {
+      // Empresa que já tem site não é lead viável pra Prostec (o
+      // produto vendido é justamente o site) — nem entra no pipeline.
+      // Só se aplica a lead NOVO: uma empresa já cadastrada antes
+      // dessa regra existir continua sendo enriquecida normalmente
+      // acima (branch de duplicata), pra não sumir lead que já estava
+      // em andamento.
+      if (website) {
+        ignoradosPossuiSite++;
+        continue;
+      }
+
       const siteStub = siteAnalysisPendente(website, now);
       const rawParaScore: RawCompanyParaScore = {
         name: nome, category: categoria, google_profile_url: bruto.link, reviews_count: bruto.totalAvaliacoes,
@@ -168,9 +181,13 @@ export async function importarJobService(jobId: string): Promise<ResultadoImport
 
   await supabase.from("prostec_scrape_jobs").update({
     total_encontrados: leadsBrutos.length, total_novos: novos, total_duplicados: duplicados, total_bloqueados_optout: bloqueadosOptout,
+    total_ignorados_possui_site: ignoradosPossuiSite,
   }).eq("id", jobId);
 
-  return { totalEncontrados: leadsBrutos.length, totalNovos: novos, totalDuplicados: duplicados, totalBloqueadosOptout: bloqueadosOptout };
+  return {
+    totalEncontrados: leadsBrutos.length, totalNovos: novos, totalDuplicados: duplicados,
+    totalBloqueadosOptout: bloqueadosOptout, totalIgnoradosPossuiSite: ignoradosPossuiSite,
+  };
 }
 
 /**
