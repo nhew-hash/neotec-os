@@ -15,6 +15,7 @@ import {
   desativarModeloTradeIn,
   salvarConfigTradeIn,
   converterAvaliacaoEmEstoque,
+  marcarEstornoTradeInFeito,
   type AvaliacaoTradeIn,
   type TrocaModelo,
   type ConverterEmEstoqueInput,
@@ -136,6 +137,16 @@ export async function converterAvaliacaoEmEstoqueAction(input: ConverterEmEstoqu
     return { success: true, data: resultado };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao converter em estoque" };
+  }
+}
+
+export async function marcarEstornoTradeInFeitoAction(avaliacaoId: string): Promise<ActionResult> {
+  try {
+    await marcarEstornoTradeInFeito(avaliacaoId);
+    revalidatePath(`/trade-in/${avaliacaoId}`);
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao marcar estorno" };
   }
 }
 

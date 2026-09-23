@@ -73,6 +73,10 @@ export interface AvaliacaoTradeIn {
   usuario_id: string | null;
   aprovado_por: string | null;
   aprovado_em: string | null;
+  pagamento_antecipado_pedido_produto_id: string | null;
+  pagamento_antecipado_pedido_estorno_id: string | null;
+  pagamento_antecipado_estornado: boolean;
+  pagamento_antecipado_estornado_em: string | null;
 }
 
 /** Resultado de uma avaliação quando o modelo não está cadastrado — nunca inventamos valor. */
@@ -312,6 +316,49 @@ export async function marcarAguardandoAvaliacao(id: string, dados?: { clienteNom
     .single();
   if (error) throw new Error(`Não foi possível registrar o envio do aparelho: ${error.message}`);
   return linhaParaAvaliacao(data);
+}
+
+/**
+ * Confirma que os DOIS pagamentos do "pagamento antecipado" (produto
+ * com desconto + valor do aparelho, a ser estornado) foram feitos de
+ * verdade no checkout — liga os dois pedidos à avaliação e muda o
+ * status pra 'aguardando_avaliacao' (o aparelho ainda precisa chegar
+ * na loja pra avaliação física acontecer). O estorno em si é sempre
+ * manual, feito pelo dono direto no Mercado Pago — aqui só fica
+ * registrado qual pedido é esse, pra não se perder de vista.
+ */
+export async function confirmarPagamentoAntecipadoTroca(input: {
+  avaliacaoId: string;
+  pedidoProdutoId: string;
+  pedidoEstornoId: string;
+}): Promise<AvaliacaoTradeIn> {
+  const admin = createAdminClient();
+  const atual = await obterAvaliacao(input.avaliacaoId, admin);
+  if (!atual) throw new Error("Avaliação não encontrada");
+  if (atual.origem !== "site") throw new Error("Esse fluxo é só pra avaliações feitas no site");
+
+  const { data, error } = await admin
+    .from("avaliacoes_trade_in")
+    .update({
+      status: "aguardando_avaliacao",
+      pagamento_antecipado_pedido_produto_id: input.pedidoProdutoId,
+      pagamento_antecipado_pedido_estorno_id: input.pedidoEstornoId,
+    })
+    .eq("id", input.avaliacaoId)
+    .select("*")
+    .single();
+  if (error) throw new Error(`Pagamento confirmado, mas não foi possível vincular à avaliação: ${error.message}`);
+  return linhaParaAvaliacao(data);
+}
+
+/** Staff marca que já processou o estorno manual no Mercado Pago — fecha o ciclo do "pagamento antecipado" na tela da avaliação. */
+export async function marcarEstornoTradeInFeito(avaliacaoId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("avaliacoes_trade_in")
+    .update({ pagamento_antecipado_estornado: true, pagamento_antecipado_estornado_em: new Date().toISOString() })
+    .eq("id", avaliacaoId);
+  if (error) throw new Error(`Não foi possível marcar o estorno: ${error.message}`);
 }
 
 export async function listarAvaliacoes(filtros?: { status?: StatusAvaliacaoTradeIn; clienteId?: string }): Promise<AvaliacaoTradeIn[]> {

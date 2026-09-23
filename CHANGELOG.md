@@ -4,6 +4,33 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 238] - Pagamento antecipado do trade-in, de verdade, no site
+
+Pedido do dono: a opção "pagamento antecipado" (Fase 237) deixou de só
+avisar a equipe por WhatsApp — agora o cliente compra DIRETO no site,
+com dois pagamentos reais pelo Mercado Pago (Pix ou cartão). O estorno
+do 2º pagamento continua manual, feito pelo dono depois de avaliar o
+aparelho recebido.
+
+- Fluxo: no wizard de trade-in (`/loja/trade-in`), escolher "pagamento
+  antecipado" guarda a estimativa no navegador; ao ir pro checkout, o
+  valor entra como desconto no carrinho e, assim que o 1º pagamento
+  (produto - estimativa) é aprovado, o site já pede o 2º pagamento
+  (só o valor do aparelho) — mesmo Pix/cartão, sem sair da loja.
+- `pedido_loja_itens` ganhou um item "virtual" (`tipo: "trade_in"`, sem
+  produto/aparelho por trás) só pro 2º pagamento — não conta pra baixa
+  de estoque nem validação de disponibilidade, e não exigiu nenhuma
+  migration nova (as colunas já eram opcionais).
+- `avaliacoes_trade_in` ganhou os campos de rastreio do pagamento
+  antecipado (`fase238_trade_in_pagamento_antecipado.sql`): os dois
+  pedidos ligados e se o estorno já foi feito — assim que os dois
+  pagamentos confirmam, o status vira `aguardando_avaliacao` e a
+  equipe recebe o aviso no WhatsApp com os números dos dois pedidos.
+- Neotec OS: a tela da avaliação mostra um aviso de "estorno
+  pendente" com os pedidos envolvidos, e um botão "Marcar estorno como
+  feito" pra fechar o ciclo depois do dono estornar manualmente no
+  Mercado Pago.
+
 ## [Fase 237] - As 3 formas de comprar usando o aparelho como troca
 
 Pedido do dono: texto explicando as 3 formas de comprar um iPhone

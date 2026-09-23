@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { aprovarAvaliacaoAction, reprovarAvaliacaoAction, cancelarAvaliacaoAction, converterAvaliacaoEmEstoqueAction } from "@/services/trade-in/trade-in.actions";
+import { aprovarAvaliacaoAction, reprovarAvaliacaoAction, cancelarAvaliacaoAction, converterAvaliacaoEmEstoqueAction, marcarEstornoTradeInFeitoAction } from "@/services/trade-in/trade-in.actions";
 import { STATUS_LABEL, STATUS_TONE } from "./status";
 import type { AvaliacaoTradeIn } from "@/services/trade-in/aplicacao.service";
 import { formatCurrency } from "@/utils";
@@ -74,8 +74,33 @@ export function AvaliacaoDetalhe({ avaliacao }: { avaliacao: AvaliacaoTradeIn })
     });
   }
 
+  function marcarEstornoFeito() {
+    startTransition(async () => {
+      await marcarEstornoTradeInFeitoAction(avaliacao.id);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {avaliacao.pagamento_antecipado_pedido_estorno_id && !avaliacao.pagamento_antecipado_estornado && (
+        <Card className="border-warning/40 bg-warning-soft">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Pagamento antecipado — estorno pendente</p>
+              <p className="text-xs text-muted-foreground">
+                Cliente já pagou os dois valores no site (pedido do produto #{avaliacao.pagamento_antecipado_pedido_produto_id?.slice(0, 8)} e pedido a estornar #{avaliacao.pagamento_antecipado_pedido_estorno_id.slice(0, 8)}).
+                Depois de avaliar o aparelho, faça o estorno manual no Mercado Pago e marque como feito aqui.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={marcarEstornoFeito} disabled={isPending}>Marcar estorno como feito</Button>
+          </CardContent>
+        </Card>
+      )}
+      {avaliacao.pagamento_antecipado_estornado && (
+        <p className="text-xs text-success-text">Estorno do pagamento antecipado já feito{avaliacao.pagamento_antecipado_estornado_em ? ` em ${new Date(avaliacao.pagamento_antecipado_estornado_em).toLocaleString("pt-BR")}` : ""}.</p>
+      )}
+
       <Card>
         <CardContent className="flex flex-col gap-3 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">

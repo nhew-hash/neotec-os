@@ -13,6 +13,7 @@ import {
 } from "@/services/loja/trade-in-wizard.actions";
 import { CHECKLIST_TRADE_IN } from "@/services/trade-in/checklist";
 import { OPCOES_COMPRA_TROCA, type FormaCompraTroca } from "@/services/trade-in/como-funciona";
+import { salvarTradeInPendente } from "@/services/loja/trade-in-pendente";
 import { formatCurrency } from "@/utils";
 
 const ICONE_FORMA: Record<FormaCompraTroca, typeof Send> = {
@@ -22,7 +23,7 @@ const ICONE_FORMA: Record<FormaCompraTroca, typeof Send> = {
 };
 
 const CONFIRMACAO_FORMA: Record<FormaCompraTroca, string> = {
-  pagamento_antecipado: "Combinado! Nossa equipe vai te chamar no WhatsApp pra organizar os dois pagamentos.",
+  pagamento_antecipado: "Combinado! Agora é só escolher seu iPhone — o valor do seu aparelho já entra como um dos dois pagamentos no checkout.",
   enviar_aparelho: "Combinado! Nossa equipe vai te chamar no WhatsApp com o endereço pra envio do aparelho.",
   presencial: "Combinado! Te esperamos na loja com o aparelho — leva um documento também.",
 };
@@ -151,6 +152,11 @@ export function TradeInWizard() {
       });
       setCarregando(false);
       if (!result.success) return setErro(result.error);
+
+      if (forma === "pagamento_antecipado" && variante && resultado?.valorEstimado != null) {
+        salvarTradeInPendente({ avaliacaoId: id, modeloNome: variante.nome, valorEstimado: resultado.valorEstimado });
+      }
+
       setFormaEscolhida(forma);
       setFormaAberta(null);
     });

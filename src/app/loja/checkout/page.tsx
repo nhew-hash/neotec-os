@@ -11,6 +11,8 @@ import { CardPaymentBrick } from "@/components/loja/card-payment-brick";
 import { PixPagamento } from "@/components/loja/pix-pagamento";
 import { SeletorEntrega, type SelecaoEntrega } from "@/components/loja/seletor-entrega";
 import { listarRegrasFretePublicoAction } from "@/services/loja-admin/central-loja.actions";
+import { lerTradeInPendente, limparTradeInPendente, type TradeInPendente } from "@/services/loja/trade-in-pendente";
+import { confirmarPagamentoAntecipadoTrocaAction } from "@/services/loja/trade-in-wizard.actions";
 import { formatCurrency } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +22,7 @@ import type { RegraFrete } from "@/types";
 import { CriarContaPosCompra } from "@/components/loja/criar-conta-pos-compra";
 
 type MetodoPagamento = "pix" | "cartao";
-type EtapaCheckout = "dados" | "pagamento" | "aprovado" | "recusado";
+type EtapaCheckout = "dados" | "pagamento" | "trocaEstorno" | "aprovado" | "recusado";
 
 export default function CheckoutPage() {
   const { itens, total, limpar } = useCarrinho();
@@ -53,11 +55,34 @@ export default function CheckoutPage() {
   const [saldoCashback, setSaldoCashback] = useState(0);
   const [usarCashback, setUsarCashback] = useState(false);
 
+  // Trade-in "pagamento antecipado" (Fase 238) — se o cliente veio do
+  // wizard de trade-in escolhendo essa forma, a estimativa fica
+  // guardada no navegador até aqui. O valor entra como desconto no 1º
+  // pagamento; o 2º pagamento (o valor do aparelho, a estornar depois
+  // da avaliação física) acontece logo em seguida, na etapa "trocaEstorno".
+  const [tradeInPendente, setTradeInPendente] = useState<TradeInPendente | null>(null);
+  const [usarTradeIn, setUsarTradeIn] = useState(true);
+  const [pedidoIdProduto, setPedidoIdProduto] = useState<string | null>(null);
+  const [processandoTroca, setProcessandoTroca] = useState(false);
+  const [erroTroca, setErroTroca] = useState<string | null>(null);
+  const [dadosPixTroca, setDadosPixTroca] = useState<{ pagamentoId: string; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null } | null>(null);
+  const [pedidoIdTroca, setPedidoIdTroca] = useState<string | null>(null);
+  // O Brick de cartão do Mercado Pago só aceita 1 submit por instância
+  // — depois de uma recusa, precisa remontar do zero pra tentar de
+  // novo (mesmo motivo pelo qual o fluxo principal manda pra uma tela
+  // "recusado" separada em vez de reusar o mesmo componente).
+  const [tentativaCartaoTroca, setTentativaCartaoTroca] = useState(0);
+
+  useEffect(() => {
+    setTradeInPendente(lerTradeInPendente());
+  }, []);
+
   const totalAposCupom = Math.max(0, total - (cupomAplicado?.desconto ?? 0));
   const cashbackAplicavel = usarCashback ? Math.min(saldoCashback, totalAposCupom) : 0;
+  const tradeInAplicado = tradeInPendente && usarTradeIn ? Math.min(tradeInPendente.valorEstimado, Math.max(0, totalAposCupom - cashbackAplicavel)) : 0;
   const regraSelecionada = entregaSelecionada.tipo === "entrega" ? regrasFrete.find((r) => r.id === entregaSelecionada.regiaoId) : null;
   const valorFreteSelecionado = regraSelecionada?.valor ?? 0;
-  const totalComDesconto = Math.max(0, totalAposCupom - cashbackAplicavel) + valorFreteSelecionado;
+  const totalComDesconto = Math.max(0, totalAposCupom - cashbackAplicavel - tradeInAplicado) + valorFreteSelecionado;
   // totalCartao só é confiável se foi calculado em cima do
   // totalComDesconto ATUAL — se cupom/cashback/frete mudarem depois
   // do cálculo, essa comparação invalida o valor até recalcular de
@@ -174,6 +199,7 @@ export default function CheckoutPage() {
       void import("@/components/loja/loja-tracking-provider").then(({ rastrearEventoCheckout }) => rastrearEventoCheckout("payment_failed"));
       return setErro(result.error);
     }
+    setPedidoIdProduto(result.data.pedidoId);
     setDadosPix({ pagamentoId: result.data.pagamentoId, qrCodeBase64: result.data.qrCodeBase64, copiaCola: result.data.copiaCola, expiraEm: result.data.expiraEm });
   }
 
@@ -190,9 +216,14 @@ export default function CheckoutPage() {
 
     if (!result.success) return setErro(result.error);
     if (result.data.status === "aprovado") {
-      limpar();
-      setEtapa("aprovado");
+      setPedidoIdProduto(result.data.pedidoId);
       void import("@/components/loja/loja-tracking-provider").then(({ rastrearEventoCheckout }) => rastrearEventoCheckout("payment_success"));
+      if (tradeInAplicado > 0 && tradeInPendente) {
+        setEtapa("trocaEstorno");
+      } else {
+        limpar();
+        setEtapa("aprovado");
+      }
     } else if (result.data.status === "recusado") {
       setEtapa("recusado");
       void import("@/components/loja/loja-tracking-provider").then(({ rastrearEventoCheckout }) => rastrearEventoCheckout("payment_failed"));
@@ -202,9 +233,77 @@ export default function CheckoutPage() {
   }
 
   function handlePixAprovado() {
+    void import("@/components/loja/loja-tracking-provider").then(({ rastrearEventoCheckout }) => rastrearEventoCheckout("payment_success"));
+    if (tradeInAplicado > 0 && tradeInPendente) {
+      setEtapa("trocaEstorno");
+    } else {
+      limpar();
+      setEtapa("aprovado");
+    }
+  }
+
+  // --- 2º pagamento do trade-in "pagamento antecipado" (Fase 238) ----------
+  // Mesmo valor mostrado no wizard — nunca recalculado a partir de nada
+  // que o cliente possa alterar aqui, e cobrado do MESMO jeito (Pix ou
+  // cartão) que o 1º pagamento, só que como um item virtual "trade_in"
+  // (sem produto/aparelho real por trás, ver `loja-pedido.actions.ts`).
+  function itemTradeInParaCobranca(): { tipo: "trade_in"; id: string; nome: string; quantidade: number; valor: number }[] {
+    if (!tradeInPendente) return [];
+    return [{ tipo: "trade_in", id: tradeInPendente.avaliacaoId, nome: `Trade-in — ${tradeInPendente.modeloNome} (a estornar após avaliação)`, quantidade: 1, valor: tradeInPendente.valorEstimado }];
+  }
+
+  async function handleGerarPixTroca() {
+    if (!tradeInPendente) return;
+    setErroTroca(null);
+    setProcessandoTroca(true);
+    const result = await iniciarCheckoutPixAction({
+      nomeContato: nome, telefoneContato: telefone, itens: itemTradeInParaCobranca(), cpf: cpf.trim() || undefined,
+    });
+    setProcessandoTroca(false);
+    if (!result.success) return setErroTroca(result.error);
+    setPedidoIdTroca(result.data.pedidoId);
+    setDadosPixTroca({ pagamentoId: result.data.pagamentoId, qrCodeBase64: result.data.qrCodeBase64, copiaCola: result.data.copiaCola, expiraEm: result.data.expiraEm });
+  }
+
+  async function finalizarPagamentoAntecipado(pedidoEstornoId: string) {
+    if (!tradeInPendente) return;
+    const result = await confirmarPagamentoAntecipadoTrocaAction({
+      avaliacaoId: tradeInPendente.avaliacaoId,
+      pedidoProdutoId: pedidoIdProduto ?? "",
+      pedidoEstornoId,
+    });
+    if (!result.success) {
+      // Os dois pagamentos já caíram — não trava a confirmação de
+      // compra por causa disso, só avisa pra garantir manualmente.
+      console.error("Falha ao vincular pagamento antecipado do trade-in:", result.error);
+    }
+    limparTradeInPendente();
     limpar();
     setEtapa("aprovado");
-    void import("@/components/loja/loja-tracking-provider").then(({ rastrearEventoCheckout }) => rastrearEventoCheckout("payment_success"));
+  }
+
+  function handlePixTrocaAprovado() {
+    if (dadosPixTroca) finalizarPagamentoAntecipado(pedidoIdTroca ?? "");
+  }
+
+  async function handlePagarCartaoTroca(dados: { token: string; installments: number; paymentMethodId: string }) {
+    if (!tradeInPendente) return;
+    setErroTroca(null);
+    setProcessandoTroca(true);
+    const result = await pagarComCartaoAction({
+      nomeContato: nome, telefoneContato: telefone, itens: itemTradeInParaCobranca(),
+      token: dados.token, parcelas: dados.installments, metodoPagamentoId: dados.paymentMethodId, cpf: cpf.trim() || undefined,
+    });
+    setProcessandoTroca(false);
+    if (!result.success) return setErroTroca(result.error);
+    if (result.data.status === "aprovado") {
+      await finalizarPagamentoAntecipado(result.data.pedidoId);
+    } else if (result.data.status === "recusado") {
+      setErroTroca("O 2º pagamento (valor do seu aparelho) não foi aprovado. Seu iPhone já está pago — tenta o 2º pagamento de novo ou fala com a gente no WhatsApp pra resolver.");
+      setTentativaCartaoTroca((n) => n + 1);
+    } else {
+      setErroTroca("2º pagamento em análise — te avisamos assim que o Mercado Pago confirmar.");
+    }
   }
 
   if (itens.length === 0 && etapa === "dados") {
@@ -234,6 +333,59 @@ export default function CheckoutPage() {
     );
   }
 
+  if (etapa === "trocaEstorno") {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-16 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10 text-success">
+          <CheckCircle2 className="h-7 w-7" />
+        </div>
+        <h1 className="font-display text-xl font-semibold text-foreground">1º pagamento aprovado!</h1>
+        <p className="text-sm text-muted-foreground">
+          Falta só o 2º pagamento — o valor estimado do seu {tradeInPendente?.modeloNome} ({formatCurrency(tradeInPendente?.valorEstimado ?? 0)}).
+          Esse valor é <strong>estornado</strong> assim que avaliarmos seu aparelho fisicamente.
+        </p>
+
+        <Card radius="loose" className="w-full p-5 text-left">
+          <div className="mb-3 flex gap-2">
+            <Button type="button" variant="outline" onClick={() => setMetodo("pix")} className={`flex-1 gap-1.5 py-3 font-medium ${metodo === "pix" ? "border-primary bg-primary/5 text-foreground" : "text-muted-foreground"}`}>
+              <QrCode className="h-4 w-4" />Pix
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setMetodo("cartao")} className={`flex-1 gap-1.5 py-3 font-medium ${metodo === "cartao" ? "border-primary bg-primary/5 text-foreground" : "text-muted-foreground"}`}>
+              <CreditCard className="h-4 w-4" />Cartão
+            </Button>
+          </div>
+
+          {erroTroca && <p className="mb-3 text-xs text-danger">{erroTroca}</p>}
+
+          {metodo === "pix" && !dadosPixTroca && (
+            <Button type="button" size="xl" pill onClick={handleGerarPixTroca} loading={processandoTroca} loadingText="Gerando Pix..." className="w-full">
+              Gerar Pix — {formatCurrency(tradeInPendente?.valorEstimado ?? 0)}
+            </Button>
+          )}
+          {metodo === "pix" && dadosPixTroca && (
+            <PixPagamento pagamentoId={dadosPixTroca.pagamentoId} qrCodeBase64={dadosPixTroca.qrCodeBase64} copiaCola={dadosPixTroca.copiaCola} expiraEm={dadosPixTroca.expiraEm} onAprovado={handlePixTrocaAprovado} />
+          )}
+
+          {metodo === "cartao" && publicKey && (
+            <>
+              <p className="mb-2 rounded-lg bg-secondary/60 p-2.5 text-[11px] text-muted-foreground">No cartão, esse valor pode ter o mesmo acréscimo das demais compras — o estorno do Mercado Pago devolve exatamente o que foi cobrado.</p>
+              <CardPaymentBrick key={tentativaCartaoTroca} publicKey={publicKey} valor={tradeInPendente?.valorEstimado ?? 0} onSubmit={handlePagarCartaoTroca} onErro={setErroTroca} />
+            </>
+          )}
+          {metodo === "cartao" && !publicKey && <p className="text-sm text-muted-foreground">Carregando...</p>}
+        </Card>
+
+        <a
+          href="https://wa.me/5534988178338?text=Oi!%20Fiz%20o%201%C2%BA%20pagamento%20do%20trade-in%20no%20site%20e%20preciso%20de%20ajuda%20com%20o%202%C2%BA"
+          target="_blank" rel="noopener noreferrer"
+          className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-primary"
+        >
+          <MessageCircle className="h-3.5 w-3.5" />Prefere resolver pelo WhatsApp? Fala com a gente
+        </a>
+      </div>
+    );
+  }
+
   if (etapa === "recusado") {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center px-4 py-24 text-center">
@@ -256,6 +408,18 @@ export default function CheckoutPage() {
           <span className="flex items-center gap-1"><Package className="h-3.5 w-3.5" />Retire na loja de graça ou escolha entrega abaixo</span>
           <span className="flex items-center gap-1"><ShieldCheck className="h-3.5 w-3.5" />Pagamento processado com segurança pelo Mercado Pago</span>
         </div>
+
+        {tradeInPendente && etapa === "dados" && (
+          <label className="flex items-start gap-2.5 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm">
+            <input type="checkbox" checked={usarTradeIn} onChange={(e) => setUsarTradeIn(e.target.checked)} className="mt-0.5 h-4 w-4 accent-primary" />
+            <span>
+              <span className="block font-medium text-foreground">Usar seu trade-in nesta compra</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {tradeInPendente.modeloNome} — estimativa de {formatCurrency(tradeInPendente.valorEstimado)}. Esse valor é descontado agora e cobrado num 2º pagamento, que é <strong>estornado</strong> assim que avaliarmos seu aparelho.
+              </span>
+            </span>
+          </label>
+        )}
 
         {etapa === "dados" && (
           <Card radius="loose" className="flex flex-col gap-3 p-6">
@@ -408,10 +572,23 @@ export default function CheckoutPage() {
             </div>
           )}
 
+          {tradeInAplicado > 0 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Trade-in ({tradeInPendente?.modeloNome})</span>
+              <span>-{formatCurrency(tradeInAplicado)}</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>{entregaSelecionada.tipo === "retirada" ? "Retirada na loja" : `Entrega — ${regraSelecionada?.regiao}`}</span>
             <span>{valorFreteSelecionado > 0 ? formatCurrency(valorFreteSelecionado) : "Grátis"}</span>
           </div>
+
+          {tradeInAplicado > 0 && (
+            <p className="rounded-lg bg-primary/5 p-2 text-[11px] text-muted-foreground">
+              + 2º pagamento de {formatCurrency(tradeInAplicado)} logo depois deste, referente ao seu aparelho (estornado após a avaliação).
+            </p>
+          )}
 
           {etapa === "pagamento" && metodo === "cartao" && totalCartaoValido && (totalCartao as number) > totalComDesconto && (
             <div className="flex items-center justify-between text-sm text-muted-foreground">

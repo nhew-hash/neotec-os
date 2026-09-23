@@ -37,6 +37,9 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
   // quantidade de acessório que não existe mais. Roda ANTES de
   // qualquer cobrança, nunca depois.
   for (const item of input.itens) {
+    // "trade_in" (Fase 238) é o item virtual do 2º pagamento do
+    // pagamento antecipado — não é estoque de verdade, então não passa
+    // por nenhuma validação de disponibilidade aqui.
     if (item.tipo === "aparelho") {
       const { data: aparelho } = await supabase.from("aparelhos").select("status").eq("id", item.id).maybeSingle();
       if (!aparelho || aparelho.status !== "disponivel") {

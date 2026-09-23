@@ -4,7 +4,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActionResult } from "@/types";
 
 export interface ItemPedidoLojaInput {
-  tipo: "produto" | "aparelho" | "lacrado";
+  /**
+   * "trade_in" é um item virtual (sem produto/aparelho/lacrado real por
+   * trás) — usado só pelo 2º pagamento do trade-in "pagamento
+   * antecipado" (Fase 238): o valor da estimativa, cobrado agora e
+   * estornado manualmente depois da avaliação física. Não conta pra
+   * baixa de estoque nem validação de disponibilidade.
+   */
+  tipo: "produto" | "aparelho" | "lacrado" | "trade_in";
   id: string;
   nome: string;
   quantidade: number;

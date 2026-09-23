@@ -8,6 +8,7 @@ import {
   criarAvaliacao,
   marcarAguardandoAvaliacao,
   obterAvaliacao,
+  confirmarPagamentoAntecipadoTroca,
 } from "@/services/trade-in/aplicacao.service";
 import { OPCOES_COMPRA_TROCA, type FormaCompraTroca } from "@/services/trade-in/como-funciona";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -125,6 +126,49 @@ export async function escolherFormaCompraSiteAction(input: {
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao registrar sua escolha" };
+  }
+}
+
+/**
+ * Chamado pelo checkout depois que os DOIS pagamentos (produto com
+ * desconto + valor do trade-in a estornar) foram confirmados de
+ * verdade no Mercado Pago. Liga os pedidos à avaliação e avisa a
+ * equipe — o estorno em si continua manual.
+ */
+export async function confirmarPagamentoAntecipadoTrocaAction(input: {
+  avaliacaoId: string;
+  pedidoProdutoId: string;
+  pedidoEstornoId: string;
+}): Promise<ActionResult> {
+  try {
+    const avaliacao = await confirmarPagamentoAntecipadoTroca(input);
+
+    try {
+      const admin = createAdminClient();
+      const { data: config } = await admin.from("configuracoes_precificacao").select("whatsapp_notificacao_staff").limit(1).maybeSingle();
+      if (config?.whatsapp_notificacao_staff) {
+        const { getActiveProvider } = await import("@/services/whatsapp/providers/provider-resolver");
+        const { paraFormatoInternacionalBR } = await import("@/utils/telefone");
+        const provider = await getActiveProvider();
+        const resultadoEnvio = await provider.enviarTexto(
+          paraFormatoInternacionalBR(config.whatsapp_notificacao_staff),
+          `💳 *Trade-in — pagamento antecipado confirmado*\n\n` +
+            `*Aparelho:* ${avaliacao.modelo_nome}\n` +
+            `*Valor a estornar:* R$ ${avaliacao.valor_calculado.toFixed(2)} (pedido #${input.pedidoEstornoId.slice(0, 8)})\n` +
+            `*Pedido do produto:* #${input.pedidoProdutoId.slice(0, 8)}\n` +
+            `${avaliacao.cliente_nome ? `*Cliente:* ${avaliacao.cliente_nome}\n` : ""}` +
+            `${avaliacao.cliente_telefone ? `*Telefone:* ${avaliacao.cliente_telefone}\n` : ""}` +
+            `\n⚠️ Assim que o aparelho chegar e for avaliado, faz o estorno manual do pedido #${input.pedidoEstornoId.slice(0, 8)} no Mercado Pago e marca como estornado na tela de Trade-in.`
+        );
+        if (!resultadoEnvio.enviado) console.error("WhatsApp de confirmação de pagamento antecipado não foi entregue:", resultadoEnvio.motivo);
+      }
+    } catch (erroWhatsapp) {
+      console.error("Falha ao notificar staff sobre pagamento antecipado (não bloqueia a confirmação):", erroWhatsapp);
+    }
+
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Pagamentos feitos, mas houve um erro ao registrar — fala com a gente no WhatsApp pra garantir." };
   }
 }
 
