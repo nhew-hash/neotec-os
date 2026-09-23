@@ -4,10 +4,19 @@
  */
 export const CATEGORIAS_LOJA = [
   { valor: "iphone", label: "iPhone", emoji: "📱" },
+  { valor: "smartphone", label: "Smartphone", emoji: "📳" },
   { valor: "apple_watch", label: "Apple Watch", emoji: "⌚" },
   { valor: "ipad", label: "iPad", emoji: "📲" },
+  { valor: "tablet", label: "Tablet", emoji: "🖥️" },
   { valor: "mac", label: "Mac", emoji: "💻" },
-  { valor: "acessorio", label: "Acessórios", emoji: "🎧" },
+  { valor: "notebook", label: "Notebook", emoji: "💻" },
+  { valor: "fone", label: "Fone", emoji: "🎧" },
+  { valor: "caixa_de_som", label: "Caixa de Som", emoji: "🔊" },
+  { valor: "microfone", label: "Microfone", emoji: "🎙️" },
+  { valor: "perfume", label: "Perfume", emoji: "🌸" },
+  { valor: "robo_aspirador", label: "Robô Aspirador", emoji: "🤖" },
+  { valor: "triciclo_eletrico", label: "Triciclo Elétrico", emoji: "🛵" },
+  { valor: "acessorio", label: "Acessórios", emoji: "🔌" },
 ] as const;
 
 export function labelCategoria(valor: string): string {

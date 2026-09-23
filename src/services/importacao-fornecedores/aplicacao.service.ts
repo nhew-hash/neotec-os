@@ -9,6 +9,9 @@ import {
   type PlanoAplicacao,
 } from "./aplicacao-diff";
 import { calcularPrecoComRegra, type RegraLucroComFaixas } from "@/services/seminovos/regras-lucro.service";
+import type { CATEGORIAS_LOJA } from "@/components/loja/categorias";
+
+type CategoriaLoja = (typeof CATEGORIAS_LOJA)[number]["valor"];
 
 /**
  * Camada que fala com o banco — a peça que faltava depois do motor puro
@@ -31,20 +34,40 @@ function gerarSlug(nome: string): string {
 }
 
 /**
- * `produtos.categoria` é um enum de fato (5 valores fixos usados pela
- * navegação/filtros da loja pública — ver src/components/loja/categorias.ts).
- * A taxonomia nova (`categoria_slug`, 17 folhas) é bem mais fina — mapeia
- * pro balde certo quando existe um específico, senão cai em "acessorio"
- * (catch-all já usado hoje pra tudo que não é iPhone/iPad/Mac/Watch).
- * `categoria_id` (FK nova) carrega a fidelidade completa; isso aqui só
- * existe pra loja pública continuar filtrando sem quebrar nada.
+ * `produtos.categoria` é texto livre, sem enum no banco — os valores
+ * válidos são os cadastrados em `src/components/loja/categorias.ts`
+ * (fonte única da navegação/filtros da loja pública). A taxonomia de
+ * importação (`categoria_slug`, ~17 folhas) é bem mais fina — mapeia pro
+ * "lugar" certo da loja quando existe um específico, senão cai em
+ * "acessorio" (catch-all pra itens genuinamente não classificados).
+ *
+ * Corrigido em 24/09/2026 (dono reportou iPhone 12 e Perfumes caindo em
+ * Acessórios): antes só existiam 5 valores (iphone/apple_watch/ipad/mac/
+ * acessorio), então TUDO que não era esses 4 caía no catch-all — inclusive
+ * categorias que a Fase 243/244 já sabia classificar direito no import,
+ * mas que não tinham "lugar" próprio na loja. `categoria_id` (FK) carrega
+ * a fidelidade completa pra quem quiser usar; isso aqui é só o que a loja
+ * pública usa hoje pra filtrar.
  */
-function categoriaSlugParaCategoriaLoja(slug: string): "iphone" | "apple_watch" | "ipad" | "mac" | "acessorio" {
+export function categoriaSlugParaCategoriaLoja(slug: string): CategoriaLoja {
   switch (slug) {
     case "smartphones_iphone": return "iphone";
+    case "smartphones_samsung":
+    case "smartphones_xiaomi":
+    case "smartphones_outras_marcas": return "smartphone";
     case "smartwatches_apple_watch": return "apple_watch";
     case "tablets_ipad": return "ipad";
+    case "tablets_android":
+    case "tablets_infantil": return "tablet";
     case "computadores_macbook": return "mac";
+    case "computadores_notebook": return "notebook";
+    case "audio_fones": return "fone";
+    case "audio_caixas_de_som": return "caixa_de_som";
+    case "audio_microfones": return "microfone";
+    case "perfumaria_perfumes_arabes":
+    case "perfumaria_kits": return "perfume";
+    case "casa_inteligente_robos_aspiradores": return "robo_aspirador";
+    case "mobilidade_triciclos_patinetes": return "triciclo_eletrico";
     default: return "acessorio";
   }
 }

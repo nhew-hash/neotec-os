@@ -127,8 +127,24 @@ function capitalizarPalavra(p: string): string {
  * Pro 5G"; "Poco x8 promax" → "Poco X8 Pro Max".
  */
 function resolverPorFamilia(normalizado: string, textoOriginal: string): ResultadoResolucaoModelo | null {
+  // iPhone <número> solto — cobre modelos que não têm entrada fixa no
+  // catálogo (ex: iPhone 12, iPhone 11 "normal", iPhone 8, iPhone 13
+  // mini). Sem isso caíam em "não classificado" -> categoria errada na
+  // loja pública (bug reportado pelo dono em 23/09/2026, iPhone 12
+  // aparecendo em Acessórios).
+  let m = normalizado.match(/\biphone[-\s]*(\d{1,2})\s*(pro\s*max|pro|plus|mini)?\b/);
+  if (m) {
+    const sufixoBruto = (m[2] ?? "").replace(/\s+/g, " ").trim();
+    let sufixo = "";
+    if (sufixoBruto === "pro max") sufixo = " Pro Max";
+    else if (sufixoBruto === "pro") sufixo = " Pro";
+    else if (sufixoBruto === "plus") sufixo = " Plus";
+    else if (sufixoBruto === "mini") sufixo = " Mini";
+    return { canonico: `iPhone ${m[1]}${sufixo}`, marca: "Apple", categoriaSlug: "smartphones_iphone", reconhecido: true };
+  }
+
   // Redmi Note / "Note ..." (Realeza escreve só "Note", sem "Redmi")
-  let m = normalizado.match(/\bnote\s*(\d+)\s*(pro)?\s*(max)?/);
+  m = normalizado.match(/\bnote\s*(\d+)\s*(pro)?\s*(max)?/);
   if (m) {
     const partes = ["Redmi", "Note", m[1]];
     if (m[2]) partes.push("Pro");

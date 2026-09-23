@@ -4,6 +4,46 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 245] - Corrige categorias erradas na loja (iPhone 12, Perfumes, JBL invisível)
+
+Pedido do dono (24/09/2026), num link + 3 frases curtas: iPhone 12
+"foi pra outro lugar" (na verdade caiu em Acessórios), Perfumes "tá
+indo pra acessorio", e "jbl nao ta indo" (nem aparecia). Três causas
+diferentes, uma raiz em comum: a loja pública só tinha 5 "lugares"
+(iPhone/Apple Watch/iPad/Mac/Acessórios) — a Fase 243/244 ensinou o
+sistema a RECONHECER as categorias novas na importação, mas ninguém
+tinha ensinado a LOJA a mostrar cada uma no lugar certo.
+
+- **iPhone 12 (e qualquer iPhone sem entrada fixa no catálogo)**:
+  `resolverModeloCanonico` não tinha fallback genérico pra "iPhone
+  <número>" — só reconhecia os modelos cadastrados um por um. iPhone 12,
+  11 "normal", 8 etc caíam em "não classificado" → Acessórios. Agora
+  tem uma regra de família cobrindo qualquer "iPhone N [Pro/Pro Max/
+  Plus/Mini]" que não esteja na lista fixa
+- **Loja pública ganhou 9 categorias novas** (`src/components/loja/
+  categorias.ts`): Smartphone, Tablet, Notebook, Fone, Caixa de Som,
+  Microfone, Perfume, Robô Aspirador, Triciclo Elétrico — cada uma com
+  navegação/filtro/página próprios (a página de categoria já era
+  genérica, só precisava dos valores existirem)
+- **Mapeamento import → loja** (`categoriaSlugParaCategoriaLoja` em
+  `aplicacao.service.ts`) atualizado pra rotear cada `categoria_slug`
+  (17 folhas) pro lugar novo certo, em vez de cair todo mundo no
+  catch-all "acessorio"
+- **JBL/Android não aparecia** (bug mais sério dos três): o parser
+  "linha única" (`parser-realeza-linha-unica.ts`, usado por Android E
+  JBL/extras) gravava `condicao: "Lacrado"` fixo — isso manda o item
+  pro catálogo EXCLUSIVO de iPhone lacrado (`/loja/lacrados` só mostra
+  `marca === "apple"`). O item ficava "aplicado" no banco
+  (`import_itens_ativos` mostrava certinho) mas nunca aparecia pro
+  cliente. Trocado pra `condicao: null`, mesmo caminho que Perfumes já
+  usava corretamente (produto genérico simples)
+- SQL de reparo (não é migration, é conserto pontual dos dados que já
+  ficaram errados antes desse fix) — corrige `produtos.categoria` pelos
+  casos 1 e 2, e desativa as ofertas de itens não-Apple que foram
+  parar por engano no catálogo de lacrados (limpeza, já eram invisíveis)
+- 33 testes novos (fallback de iPhone solto no catálogo + mapeamento
+  completo categoria_slug → categoria da loja)
+
 ## [Fase 244] - iPhone seminovo da Realeza agora importa (classificação + parser novos)
 
 Pedido do dono (23/09/2026): "ainda semi novos nao entrou". Na Fase 243

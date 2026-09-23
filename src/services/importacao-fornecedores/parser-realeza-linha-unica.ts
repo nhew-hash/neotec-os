@@ -79,7 +79,14 @@ export function parseRealezaLinhaUnica(textoOriginal: string, tipoLista: TipoLis
         marca,
         modeloCanonico: resolvido.canonico,
         modeloReconhecido: resolvido.reconhecido,
-        condicao: "Lacrado",
+        // null (não "Lacrado"): o destino "lacrado" da aplicação escreve em
+        // `catalogo_lacrados_*`, que a loja só exibe pra iPhone
+        // (`/loja/lacrados` filtra marca==="apple"). Android/JBL/extras
+        // marcados como "Lacrado" ficavam "aplicados" no banco mas
+        // invisíveis pro cliente — bug reportado pelo dono em 23/09/2026
+        // ("jbl nao ta indo"). null cai no destino "generico" (produto
+        // simples, mesmo caminho que perfumes já usa corretamente).
+        condicao: null,
         armazenamentoGb,
         ramGb,
         ramPossivelTypo: possivelTypo,
