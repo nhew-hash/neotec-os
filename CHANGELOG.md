@@ -4,6 +4,32 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 235] - Importação automática: regra de lucro por categoria (+ condição)
+
+Pedido do dono: margem diferente pra Mac, iPhone lacrado, iPad, Android,
+e iPhone SEMINOVO com faixa por valor ("até certo valor"). A Fase 234
+só tinha 1 regra global fixa/percentual pra lacrado/genérico e a regra
+"padrão" (única) pra seminovo — não dava pra diferenciar categoria nem
+usar faixa fora do fluxo manual.
+
+- `import_margem_categoria` ganhou `condicao` (Lacrado/Seminovo/qualquer)
+  e `regra_lucro_id` — agora aponta pra uma regra JÁ CADASTRADA em
+  `regras_lucro` (a mesma tela /estoque/seminovos/regras-lucro, que já
+  suporta fixo/percentual/**por faixa de valor**), em vez de só
+  fixo/percentual direto na própria tabela.
+- `condicao` é o que deixa "iPhone lacrado" e "iPhone Seminovo até certo
+  valor" conviverem na MESMA categoria (`smartphones_iphone`) com regras
+  diferentes — sem isso não tinha como diferenciar.
+- Prioridade de busca: categoria exata + condição exata > categoria
+  exata + qualquer condição > categoria-mãe + condição exata >
+  categoria-mãe + qualquer. Sem nada configurado pra uma combinação,
+  cai no comportamento de sempre (regra padrão global pra seminovo,
+  preço do fornecedor sem margem pra lacrado/genérico) — não quebra
+  quem já estava usando a Fase 234 sem configurar nada disso ainda.
+- Tela nova (mesma página `/estoque/importacao-fornecedores`): "Regras
+  de lucro por categoria" — escolhe categoria + condição + (regra já
+  cadastrada OU valor fixo OU percentual direto).
+
 ## [Fase 234] - Importação automática de fornecedores: wiring completo (banco + rota + tela)
 
 Fecha o que a Fase 230 tinha deixado como motor puro (extração/

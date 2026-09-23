@@ -143,7 +143,8 @@ export async function carregarItensAtivos(admin: Admin, fornecedor: string, tipo
  * chamada pelo Bridge (segredo compartilhado, sem cookie de usuário
  * logado), então não dá pra reaproveitar a função original direto.
  */
-async function calcularPrecoVendaSeminovo(admin: Admin, precoFornecedor: number): Promise<number> {
+/** Fallback quando NENHUMA regra por categoria foi cadastrada ainda — o comportamento de sempre (regra global marcada "padrão", mesma usada no cadastro manual). */
+async function calcularPrecoVendaSeminovoPadrao(admin: Admin, precoFornecedor: number): Promise<number> {
   const [{ data: regras }, { data: faixas }] = await Promise.all([
     admin.from("regras_lucro").select("*").order("created_at"),
     admin.from("regras_lucro_faixas").select("*").order("ordem"),
@@ -157,8 +158,31 @@ async function calcularPrecoVendaSeminovo(admin: Admin, precoFornecedor: number)
   return calcularPrecoComRegra(precoFornecedor, regraPadrao).precoVenda;
 }
 
-/** Lacrado/genérico: `import_margem_categoria` (categoria exata, senão a categoria-mãe); sem regra cadastrada = preço do fornecedor mesmo (staff ajusta na tela). */
-async function calcularPrecoVendaCatalogo(admin: Admin, categoriaSlug: string, precoFornecedor: number): Promise<number> {
+async function buscarRegraLucroPorId(admin: Admin, id: string): Promise<RegraLucroComFaixas | null> {
+  const [{ data: regra }, { data: faixas }] = await Promise.all([
+    admin.from("regras_lucro").select("*").eq("id", id).maybeSingle(),
+    admin.from("regras_lucro_faixas").select("*").eq("regra_id", id).order("ordem"),
+  ]);
+  if (!regra) return null;
+  return { ...regra, faixas: faixas ?? [] };
+}
+
+interface MargemCategoria {
+  categoria_slug: string;
+  condicao: string;
+  valor_fixo: number | null;
+  percentual: number | null;
+  regra_lucro_id: string | null;
+}
+
+/**
+ * Acha a regra de `import_margem_categoria` mais específica pra este
+ * item: categoria exata + condição exata > categoria exata + "qualquer
+ * condição" > categoria-mãe + condição exata > categoria-mãe + "qualquer".
+ * É assim que "iPhone lacrado" e "iPhone Seminovo até certo valor"
+ * convivem na MESMA categoria (`smartphones_iphone`) com regras diferentes.
+ */
+async function buscarMargemCategoria(admin: Admin, categoriaSlug: string, condicao: string | null): Promise<MargemCategoria | null> {
   const { data: categoria } = await admin.from("import_categorias").select("slug, parent_id").eq("slug", categoriaSlug).maybeSingle();
   const slugsParaChecar = [categoriaSlug];
   if (categoria?.parent_id) {
@@ -166,14 +190,46 @@ async function calcularPrecoVendaCatalogo(admin: Admin, categoriaSlug: string, p
     if (pai?.slug) slugsParaChecar.push(pai.slug);
   }
 
-  const { data: margens } = await admin.from("import_margem_categoria").select("categoria_slug, valor_fixo, percentual").in("categoria_slug", slugsParaChecar);
-  const margem = margens?.find((m) => m.categoria_slug === categoriaSlug) ?? margens?.find((m) => m.categoria_slug === slugsParaChecar[1]);
-  if (!margem) return precoFornecedor;
+  const { data: candidatas } = await admin
+    .from("import_margem_categoria")
+    .select("categoria_slug, condicao, valor_fixo, percentual, regra_lucro_id")
+    .in("categoria_slug", slugsParaChecar);
+  if (!candidatas?.length) return null;
 
-  let preco = precoFornecedor;
-  if (margem.percentual) preco += preco * (Number(margem.percentual) / 100);
-  if (margem.valor_fixo) preco += Number(margem.valor_fixo);
-  return Math.round(preco * 100) / 100;
+  const condicaoNormalizada = condicao ?? "";
+  const pontuacao = (m: MargemCategoria) =>
+    (m.categoria_slug === categoriaSlug ? 0 : 2) + (m.condicao === condicaoNormalizada ? 0 : 1);
+
+  const validas = (candidatas as MargemCategoria[]).filter((m) => m.condicao === condicaoNormalizada || m.condicao === "");
+  if (validas.length === 0) return null;
+  return validas.sort((a, b) => pontuacao(a) - pontuacao(b))[0];
+}
+
+/**
+ * Preço de venda de qualquer item da importação automática — primeiro
+ * tenta a regra configurada por categoria+condição (Estoque > Importação
+ * automática > Regras de lucro); se não tem nada configurado pra essa
+ * combinação, cai no comportamento de sempre: seminovo usa a regra
+ * global "padrão"; lacrado/genérico saem pelo preço do fornecedor
+ * mesmo (staff ajusta na tela).
+ */
+async function calcularPrecoVenda(admin: Admin, item: ItemExtraido): Promise<number> {
+  const margem = await buscarMargemCategoria(admin, item.categoriaSlug, item.condicao);
+
+  if (margem?.regra_lucro_id) {
+    const regra = await buscarRegraLucroPorId(admin, margem.regra_lucro_id);
+    if (regra) return calcularPrecoComRegra(item.precoFornecedor, regra).precoVenda;
+  }
+
+  if (margem && (margem.valor_fixo || margem.percentual)) {
+    let preco = item.precoFornecedor;
+    if (margem.percentual) preco += preco * (Number(margem.percentual) / 100);
+    if (margem.valor_fixo) preco += Number(margem.valor_fixo);
+    return Math.round(preco * 100) / 100;
+  }
+
+  if (item.condicao === "Seminovo") return calcularPrecoVendaSeminovoPadrao(admin, item.precoFornecedor);
+  return item.precoFornecedor;
 }
 
 // ============================================================================
@@ -210,7 +266,7 @@ async function resolverCategoriaId(admin: Admin, categoriaSlug: string): Promise
 async function criarAparelhosSeminovo(admin: Admin, item: ItemExtraido, categoriaId: string | null): Promise<string[]> {
   const nomeProduto = item.modeloCanonico;
   const { id: produtoId } = await obterOuCriarProduto(admin, nomeProduto, item.categoriaSlug, categoriaId, item.marca || null);
-  const precoVenda = await calcularPrecoVendaSeminovo(admin, item.precoFornecedor);
+  const precoVenda = await calcularPrecoVenda(admin, item);
 
   const memoria = item.armazenamentoGb ? `${item.armazenamentoGb}GB${item.ramGb ? ` (${item.ramGb}GB RAM)` : ""}` : null;
   const quantidade = Math.max(1, item.quantidade || 1);
@@ -239,10 +295,10 @@ async function criarAparelhosSeminovo(admin: Admin, item: ItemExtraido, categori
   return (data ?? []).map((a) => a.id);
 }
 
-async function atualizarPrecoAparelhosSeminovo(admin: Admin, aparelhoIds: string[], precoFornecedor: number): Promise<void> {
+async function atualizarPrecoAparelhosSeminovo(admin: Admin, aparelhoIds: string[], item: ItemExtraido): Promise<void> {
   if (aparelhoIds.length === 0) return;
-  const precoVenda = await calcularPrecoVendaSeminovo(admin, precoFornecedor);
-  const { error } = await admin.from("aparelhos").update({ custo: precoFornecedor, preco_venda: precoVenda }).in("id", aparelhoIds).eq("status", "disponivel");
+  const precoVenda = await calcularPrecoVenda(admin, item);
+  const { error } = await admin.from("aparelhos").update({ custo: item.precoFornecedor, preco_venda: precoVenda }).in("id", aparelhoIds).eq("status", "disponivel");
   if (error) throw new Error(`Falha ao atualizar preço dos aparelhos: ${error.message}`);
 }
 
@@ -298,7 +354,7 @@ async function sincronizarOfertaLacrado(admin: Admin, varianteId: string): Promi
 }
 
 async function aplicarOfertaLacrado(admin: Admin, item: ItemExtraido, varianteId: string): Promise<void> {
-  const precoVenda = await calcularPrecoVendaCatalogo(admin, item.categoriaSlug, item.precoFornecedor);
+  const precoVenda = await calcularPrecoVenda(admin, item);
   const { error } = await admin
     .from("import_lacrados_ofertas")
     .upsert(
@@ -317,7 +373,7 @@ async function desativarOfertaLacrado(admin: Admin, varianteId: string, forneced
 
 /** Genérico (iPad/MacBook/Apple Watch/acessório/áudio/perfume/etc sem condição Lacrado/Seminovo) — 1 produto simples, preço direto. */
 async function aplicarProdutoGenerico(admin: Admin, item: ItemExtraido, categoriaId: string | null): Promise<string> {
-  const precoVenda = await calcularPrecoVendaCatalogo(admin, item.categoriaSlug, item.precoFornecedor);
+  const precoVenda = await calcularPrecoVenda(admin, item);
   const { data: existente } = await admin.from("produtos").select("id, slug").eq("nome", item.modeloCanonico).maybeSingle();
 
   if (existente) {
@@ -452,11 +508,11 @@ async function atualizarPrecoItem(admin: Admin, id: string, itemAntigo: ItemArma
   const itemComPrecoNovo: ItemExtraido = { ...itemAntigo, precoFornecedor: precoNovo } as ItemExtraido;
 
   if (linha.aparelho_ids?.length) {
-    await atualizarPrecoAparelhosSeminovo(admin, linha.aparelho_ids, precoNovo);
+    await atualizarPrecoAparelhosSeminovo(admin, linha.aparelho_ids, itemComPrecoNovo);
   } else if (linha.variante_lacrado_id) {
     await aplicarOfertaLacrado(admin, itemComPrecoNovo, linha.variante_lacrado_id);
   } else if (linha.produto_id) {
-    const precoVenda = await calcularPrecoVendaCatalogo(admin, itemAntigo.categoriaSlug, precoNovo);
+    const precoVenda = await calcularPrecoVenda(admin, itemComPrecoNovo);
     await admin.from("produtos").update({ preco_venda: precoVenda }).eq("id", linha.produto_id);
   }
 
