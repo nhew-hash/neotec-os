@@ -4,6 +4,94 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 247] - Banco Central de Imagens v2 (importação em lote, cores equivalentes, categorias)
+
+Preparação pra receber um banco de imagens externo padronizado (109
+modelos / 242 combinações modelo+cor, WEBP 1600×2000). Pedido veio com o
+nome "Fase 242" (numeração de quem escreveu o briefing) — arquivada aqui
+como Fase 247, que é o próximo número real da história do projeto.
+
+**Problemas de origem corrigidos (aditivo — nada removido, nada quebrado):**
+- **Cores oficiais colapsavam em uma só**: `banco-imagens-ia.service.ts`
+  e `banco-imagens.service.ts` traduziam Estelar/Prateado/Silver →
+  Branco, Meia-noite/Grafite → Preto e "Titânio X" → "Titânio" na
+  própria IDENTIDADE do grupo — por isso os 4 titânios do iPhone 15
+  Pro/Pro Max/16 Pro/Pro Max viravam um grupo só e se sobrescreviam.
+  Agora o grupo guarda a cor OFICIAL; a tradução simplificada vira só
+  uma entrada em `cores_equivalentes` (usada só pra casar com o
+  estoque), semeada automaticamente ao criar um grupo novo
+  (`equivalentesPadraoParaCor` em `correspondencia.ts`)
+- **Cor composta do estoque** ("Branco/Prata", "Cinza/Prata/Natural" —
+  como a importação de fornecedor grava emoji de cor) agora é tratada:
+  quebra por "/", testa cada parte contra os grupos do mesmo modelo; 1
+  match → vincula, 0 ou 2+ → fica **ambíguo** pra escolha manual (nunca
+  arrisca vincular foto errada)
+- **Nomes diferentes pra mesma coisa** (Xiaomi ⇄ Redmi/POCO como
+  marca; `modelos_equivalentes`/`cores_equivalentes` por grupo pra
+  casos como "Fursan Unlimited" = "Qaed Al Fursan Unlimited")
+- **Revinculação lenta** (`revincularTudo()` fazia uma consulta nova
+  POR TABELA dentro do loop de CADA grupo — N×M consultas): reescrita
+  pra carregar grupos/produtos/aparelhos/variantes lacradas UMA vez (3
+  consultas no total) e casar tudo em memória
+- **Sem importação em lote e sem identificador estável de origem**:
+  novo `origem_id` (índice único parcial por loja) permite reimportar
+  o catálogo externo inteiro sem duplicar grupo
+
+**Migração** `fase247_banco_imagens_v2.sql`:
+- `banco_imagens_grupos`: `origem_id`, `categoria`, `cores_equivalentes
+  text[]`, `modelos_equivalentes text[]`, `classificacao` (catalogo |
+  foto_real_terceiros | foto_real_neotec), `fonte_url`, `observacao`
+- `banco_imagens_fotos`: `tipo` (principal | adicional | cenario),
+  `caminho_storage`
+- Índices: único parcial em `(loja_id, origem_id)`, GIN nos dois arrays
+- Redefine as 6 funções públicas que resolvem foto do grupo
+  (`listar_produtos_loja`, `buscar_produto_loja`,
+  `listar_aparelhos_disponiveis_loja`, `listar_lacrados_variantes_publico`,
+  `listar_lacrados_modelos_publico`, `listar_fotos_grupo_publico`) —
+  preservando 100% da lógica de cada uma (preço, fallback de lacrado,
+  `mostrar_trade_in`, etc) e só ajustando a ordem das fotos: quando
+  existe foto `tipo='cenario'`, ela entra logo depois da capa
+
+**Novo `src/services/banco-imagens/correspondencia.ts`** (funções
+puras, testáveis) — único lugar com a regra de vínculo: `normalizar`,
+`modeloBate` (exato, nunca "contém"), `corBate`, `marcaBate`,
+`resolverGrupo` (decide vinculado/ambíguo/sem_match). 15 testes vitest
+novos cobrindo: 4 titânios do 15 Pro não colidem; "Branco/Prata" casa
+com "Prata" (única candidata); "Cinza/Prata/Natural" fica ambíguo entre
+2 titânios; "iPhone 14" não casa com "iPhone 14 Pro Max"; perfume sem
+cor casa por modelo equivalente; marca Xiaomi/Redmi/POCO.
+
+**Rotas de importação em lote** (`/api/banco-imagens/lote/*`) — as
+imagens NÃO passam pela API (limite da Vercel), sobem direto pro
+Storage por URL assinada:
+- `POST /preparar` — cria/atualiza metadados do(s) grupo(s) por
+  `origem_id` (até 50 por chamada) e devolve uma `createSignedUploadUrl`
+  por foto
+- `POST /confirmar` — confere que os arquivos chegaram no Storage,
+  substitui as fotos do grupo pelas novas (apagando do Storage as que
+  saíram da lista) e roda a revinculação só pra esses grupos
+- `GET /status?origem_ids=A,B` — conferência pós-importação
+- Autenticação **fail-closed**: sem `BANCO_IMAGENS_IMPORT_TOKEN`
+  configurada, responde 503 (diferente do cron atual, que libera sem
+  segredo) — nunca abre essa rota por falta de configuração
+- Idempotente, com `?dry_run=1` em preparar/confirmar pra validar e
+  simular sem gravar nada
+
+**Tela `/estoque/banco-imagens`** — vira 3 abas: "Importar" (o que já
+existia), "Grupos" (lista com filtro por categoria/marca/modelo/cor/
+classificação/tem-foto, miniatura da capa, contagem de fotos e
+vínculos, aviso de observação; clique abre o detalhe: fotos
+reordenáveis por arrastar — @dnd-kit já usado em outras telas — editar
+cores/modelos equivalentes, ver vínculos) e "Pendências" (ambíguos e
+sem-foto recalculados na hora, com seletor de grupo pra vincular
+manualmente).
+
+**Não sobe nenhuma imagem nesta fase** — a carga real do catálogo
+externo é feita depois, pela API de lote, por quem tiver o token.
+
+Novas envs em `.env.local.example`: `BANCO_IMAGENS_IMPORT_TOKEN`,
+`BANCO_IMAGENS_LOJA_ID`. `tsc --noEmit` e `vitest run` passando (200/200).
+
 ## [Fase 246] - Menu da loja consolidado em 10 lugares + corrige bug real do seminovo "sumindo"
 
 Briefing detalhado do dono (24/09/2026) pedindo: (1) menu da loja com

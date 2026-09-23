@@ -2,7 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 import { identificarPasta, type IdentificacaoPasta } from "./banco-imagens-ia.service";
-import { buscarGrupoExistente, importarPastaImagens, revincularTudo, type GrupoImagem } from "./banco-imagens.service";
+import {
+  buscarGrupoExistente,
+  importarPastaImagens,
+  revincularTudo,
+  listarGrupos,
+  listarCategoriasDistintas,
+  obterDetalheGrupo,
+  atualizarEquivalentesGrupo,
+  reordenarFotosGrupo,
+  vincularManualmente,
+  type GrupoImagem,
+  type RelatorioVinculacao,
+  type GrupoListado,
+  type FiltrosGrupos,
+  type DetalheGrupo,
+} from "./banco-imagens.service";
 import type { ActionResult } from "@/types";
 
 export async function identificarPastaAction(nomePasta: string): Promise<ActionResult<{ identificacao: IdentificacaoPasta; grupoExistente: GrupoImagem | null }>> {
@@ -41,13 +56,78 @@ export async function importarPastaImagensAction(formData: FormData): Promise<Ac
   }
 }
 
-export async function revincularTudoAction(): Promise<ActionResult<{ novosVinculos: number }>> {
+export async function revincularTudoAction(forcar = false): Promise<ActionResult<RelatorioVinculacao>> {
   try {
-    const resultado = await revincularTudo();
+    const resultado = await revincularTudo({ forcar });
     revalidatePath("/estoque");
     revalidatePath("/loja", "layout");
     return { success: true, data: resultado };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao revincular" };
+  }
+}
+
+export async function listarGruposAction(filtros: FiltrosGrupos = {}): Promise<ActionResult<GrupoListado[]>> {
+  try {
+    return { success: true, data: await listarGrupos(filtros) };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao listar grupos" };
+  }
+}
+
+export async function listarCategoriasAction(): Promise<ActionResult<string[]>> {
+  try {
+    return { success: true, data: await listarCategoriasDistintas() };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao listar categorias" };
+  }
+}
+
+export async function obterDetalheGrupoAction(grupoId: string): Promise<ActionResult<DetalheGrupo | null>> {
+  try {
+    return { success: true, data: await obterDetalheGrupo(grupoId) };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao carregar o grupo" };
+  }
+}
+
+export async function atualizarEquivalentesAction(grupoId: string, coresEquivalentes: string[], modelosEquivalentes: string[]): Promise<ActionResult<null>> {
+  try {
+    await atualizarEquivalentesGrupo(grupoId, coresEquivalentes, modelosEquivalentes);
+    revalidatePath("/estoque");
+    return { success: true, data: null };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar" };
+  }
+}
+
+export async function reordenarFotosAction(grupoId: string, ordemFotoIds: string[]): Promise<ActionResult<null>> {
+  try {
+    await reordenarFotosGrupo(grupoId, ordemFotoIds);
+    revalidatePath("/estoque");
+    revalidatePath("/loja", "layout");
+    return { success: true, data: null };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao reordenar" };
+  }
+}
+
+export async function listarPendenciasAction(): Promise<ActionResult<Pick<RelatorioVinculacao, "ambiguos" | "semGrupo">>> {
+  try {
+    const relatorio = await revincularTudo({ dryRun: true });
+    return { success: true, data: { ambiguos: relatorio.ambiguos, semGrupo: relatorio.semGrupo } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao carregar pendências" };
+  }
+}
+
+export async function vincularManualmenteAction(tipo: "produto" | "aparelho" | "lacrado", id: string, grupoId: string): Promise<ActionResult<null>> {
+  try {
+    await vincularManualmente(tipo, id, grupoId);
+    revalidatePath("/estoque");
+    revalidatePath("/loja", "layout");
+    return { success: true, data: null };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao vincular" };
   }
 }

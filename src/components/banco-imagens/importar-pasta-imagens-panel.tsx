@@ -23,11 +23,13 @@ export function ImportarPastaImagensPanel() {
     const result = await revincularTudoAction();
     setRevinculando(false);
     if (result.success) {
-      setResultadoRevinculo(
-        result.data.novosVinculos > 0
-          ? `${result.data.novosVinculos} vínculo(s) novo(s) encontrado(s) e aplicado(s).`
-          : "Tudo já estava vinculado — nenhum vínculo novo encontrado."
-      );
+      const { vinculados, ambiguos, semGrupo } = result.data;
+      const partes = [
+        vinculados > 0 ? `${vinculados} vínculo(s) novo(s)` : "nenhum vínculo novo",
+        ambiguos.length > 0 ? `${ambiguos.length} ambíguo(s)` : null,
+        semGrupo.length > 0 ? `${semGrupo.length} sem grupo` : null,
+      ].filter(Boolean);
+      setResultadoRevinculo(partes.join(" · "));
     }
   }
   const [nomePasta, setNomePasta] = useState("");
