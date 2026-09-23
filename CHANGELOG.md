@@ -4,6 +4,23 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 245.1] - Migration faltante: categoria_produto é enum, não texto
+
+Ao rodar o SQL de reparo da Fase 245, deu erro `42883: operator does
+not exist: categoria_produto = text` — `produtos.categoria` é um ENUM
+de verdade no banco (`categoria_produto`), não texto livre (o
+comentário antigo no código estava errado). Faltava o migration
+adicionando os 9 valores novos (smartphone, tablet, notebook, fone,
+caixa_de_som, microfone, perfume, robo_aspirador, triciclo_eletrico)
+no enum antes do reparo poder gravá-los.
+
+- `fase245_categoria_produto_loja_novos_valores.sql`: adiciona os 9
+  valores novos via `alter type ... add value if not exists`
+- **Rodar em duas etapas separadas**: primeiro só esse migration,
+  depois (em outra execução) o SQL de reparo — regra do Postgres pra
+  `ALTER TYPE ADD VALUE` não permite usar o valor novo na MESMA
+  transação em que foi criado
+
 ## [Fase 245] - Corrige categorias erradas na loja (iPhone 12, Perfumes, JBL invisível)
 
 Pedido do dono (24/09/2026), num link + 3 frases curtas: iPhone 12
