@@ -4,6 +4,22 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 247.1] - Libera a API de lote do Banco de Imagens no middleware
+
+As rotas da Fase 247 (`/api/banco-imagens/lote/preparar|confirmar|status`)
+são chamadas por um sistema externo, sem sessão do Supabase — mas
+`middleware.ts` redirecionava qualquer rota fora de `publicRoutes` pra
+`/login` (307), então a chamada nunca chegava na rota.
+
+Adicionado `"/api/banco-imagens/lote"` em `publicRoutes` (mesmo padrão
+já usado pra `/api/cron`) — só o prefixo `/lote`, o resto de
+`/estoque/banco-imagens` (tela) e as server actions continuam exigindo
+login normalmente. A segurança dessas rotas continua sendo a própria
+rota (Fase 247): header `Authorization: Bearer ${BANCO_IMAGENS_IMPORT_TOKEN}`,
+sem a env configurada responde 503 (fail-closed), token errado → 401.
+
+Sem migração, sem mudança de código além do middleware.
+
 ## [Fase 247] - Banco Central de Imagens v2 (importação em lote, cores equivalentes, categorias)
 
 Preparação pra receber um banco de imagens externo padronizado (109

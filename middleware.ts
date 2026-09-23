@@ -25,6 +25,7 @@ export async function middleware(request: NextRequest) {
   "/api/prostec/whatsapp",
   "/api/cron",
   "/api/mercadopago",
+  "/api/banco-imagens/lote",
 ];
 
 
