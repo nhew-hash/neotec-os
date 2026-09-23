@@ -415,6 +415,9 @@ export interface ResultadoAplicacaoLista {
   aplicado: boolean;
   bloqueado: boolean;
   motivosBloqueio: string[];
+  /** Itens com variação de preço absurda — NÃO aplicados, ficam pendentes de revisão manual, mas não travam o resto da lista. */
+  itensRetidos: PlanoAplicacao["atualizarPreco"];
+  motivosRetencao: string[];
   plano: PlanoAplicacao;
   itensAtivosAnteriores: ItemArmazenado[];
 }
@@ -433,21 +436,45 @@ export async function aplicarListaFornecedor(
     descartados: totalDescartados,
   });
 
+  // Queda de volume, muitos descartes ou cor desconhecida = a lista
+  // INTEIRA veio malformada — não aplica nada, espera revisão manual.
   if (travas.bloqueado) {
-    return { aplicado: false, bloqueado: true, motivosBloqueio: travas.motivos, plano, itensAtivosAnteriores };
+    return {
+      aplicado: false,
+      bloqueado: true,
+      motivosBloqueio: travas.motivos,
+      itensRetidos: travas.itensRetidos,
+      motivosRetencao: travas.motivosRetencao,
+      plano,
+      itensAtivosAnteriores,
+    };
   }
+
+  // Variação de preço absurda é só daquele item — retém só ele, aplica
+  // o resto do plano normalmente (não trava a lista, não trava as
+  // próximas listas do mesmo fornecedor/tipo).
+  const idsRetidos = new Set(travas.itensRetidos.map((r) => r.id));
+  const atualizarPrecoAplicaveis = plano.atualizarPreco.filter((upd) => !idsRetidos.has(upd.id));
 
   for (const item of plano.inserir) {
     await inserirItemNovo(admin, item);
   }
-  for (const upd of plano.atualizarPreco) {
+  for (const upd of atualizarPrecoAplicaveis) {
     await atualizarPrecoItem(admin, upd.id, upd.item, upd.precoNovo);
   }
   for (const antigo of plano.desativar) {
     await desativarItem(admin, antigo);
   }
 
-  return { aplicado: true, bloqueado: false, motivosBloqueio: [], plano, itensAtivosAnteriores };
+  return {
+    aplicado: true,
+    bloqueado: false,
+    motivosBloqueio: [],
+    itensRetidos: travas.itensRetidos,
+    motivosRetencao: travas.motivosRetencao,
+    plano: { ...plano, atualizarPreco: atualizarPrecoAplicaveis },
+    itensAtivosAnteriores,
+  };
 }
 
 async function inserirItemNovo(admin: Admin, item: ItemExtraido): Promise<void> {

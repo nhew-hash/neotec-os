@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parseRealezaAppleLacrados } from "../parser-realeza-apple";
-import { calcularPlanoAplicacao, chaveIdentidade, type ItemArmazenado } from "../aplicacao-diff";
+import { calcularPlanoAplicacao, chaveIdentidade, avaliarTravasDeSeguranca, type ItemArmazenado, type PlanoAplicacao } from "../aplicacao-diff";
+import type { ItemExtraido } from "../tipos";
 import {
   FIXTURE_2_REALEZA_APPLE_LACRADOS_V1,
   FIXTURE_3_REALEZA_APPLE_LACRADOS_V2,
@@ -51,5 +52,70 @@ describe("aplicacao-diff — reenvio Realeza Apple lacrados (fixture 2 → fixtu
     const semMudancaModelos = plano.semMudanca.map((i) => i.modeloCanonico);
     // iPhone 14, iPhone 15, iPhone 16 Plus, Watches etc. não mudaram de preço
     expect(semMudancaModelos.some((m) => /iphone 14$/i.test(m))).toBe(true);
+  });
+});
+
+describe("avaliarTravasDeSeguranca — variação de preço retém só o item, não trava a lista inteira", () => {
+  // Bug relatado pelo dono (22/09/2026): quando 1 item tinha variação de
+  // preço >30%, a lista inteira travava — e como o baseline nunca
+  // avançava enquanto travada, TODAS as listas seguintes do mesmo
+  // fornecedor/tipo travavam também ("mandou várias e não sobe").
+  function itemBase(overrides: Partial<ItemExtraido> = {}): ItemExtraido {
+    return {
+      categoriaSlug: "smartphones_iphone",
+      marca: "Apple",
+      modeloCanonico: "iPhone 15",
+      modeloReconhecido: true,
+      condicao: "Lacrado",
+      armazenamentoGb: 128,
+      ramGb: null,
+      ramPossivelTypo: false,
+      conectividade: null,
+      nfc: false,
+      tamanhoMm: null,
+      gpsCellular: null,
+      cor: "Preto",
+      corBase: "Preto",
+      corEmojiOrigem: null,
+      bateriaPct: null,
+      cidade: null,
+      garantia: null,
+      quantidade: 1,
+      tags: [],
+      fornecedor: "realeza",
+      tipoLista: "apple_lacrados",
+      precoFornecedor: 2000,
+      linhaOrigem: "",
+      ...overrides,
+    };
+  }
+
+  it("bloqueia a lista inteira quando o volume cai muito (queda >50%)", () => {
+    const anteriores: ItemArmazenado[] = Array.from({ length: 10 }, (_, i) =>
+      ({ ...itemBase({ modeloCanonico: `iPhone ${i}` }), id: `id-${i}` })
+    );
+    const novos = [itemBase()];
+    const plano = calcularPlanoAplicacao(novos, anteriores);
+    const travas = avaliarTravasDeSeguranca(plano, anteriores, { itensNovosValidos: novos, descartados: 0 });
+    expect(travas.bloqueado).toBe(true);
+  });
+
+  it("NÃO bloqueia a lista inteira por causa de 1 item com variação de preço absurda — só retém aquele item", () => {
+    const itemEstavel: ItemArmazenado = { ...itemBase({ modeloCanonico: "iPhone 14", precoFornecedor: 1000 }), id: "id-estavel" };
+    const itemComVariacao: ItemArmazenado = { ...itemBase({ modeloCanonico: "iPhone 15", precoFornecedor: 2000 }), id: "id-variacao" };
+    const anteriores = [itemEstavel, itemComVariacao];
+
+    const novos = [
+      itemBase({ modeloCanonico: "iPhone 14", precoFornecedor: 1000 }), // sem mudança
+      itemBase({ modeloCanonico: "iPhone 15", precoFornecedor: 5000 }), // +150%, bem acima do limite de 30%
+    ];
+
+    const plano = calcularPlanoAplicacao(novos, anteriores);
+    const travas = avaliarTravasDeSeguranca(plano, anteriores, { itensNovosValidos: novos, descartados: 0 });
+
+    expect(travas.bloqueado).toBe(false);
+    expect(travas.itensRetidos).toHaveLength(1);
+    expect(travas.itensRetidos[0].id).toBe("id-variacao");
+    expect(travas.motivosRetencao[0]).toMatch(/variação de preço/i);
   });
 });

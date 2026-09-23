@@ -4,6 +4,57 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 241] - Corrige trava de segurança que travava listas seguidas da importação automática
+
+Bug relatado pelo dono (23/09/2026): "as primeiras lista rodou de boa,
+agora já mandou várias e não sobe pro site — o sistema recebe as listas
+mas não sobe".
+
+Causa raiz: em `avaliarTravasDeSeguranca`, quando UM item da lista tinha
+variação de preço acima de 30% (ex: fornecedor corrigindo um preço
+digitado errado, ou erro de parsing isolado), a trava de segurança
+bloqueava a lista INTEIRA — nada era aplicado. Como o "baseline" de
+comparação (itens ativos anteriores) só avança quando a lista é
+aplicada, uma vez que esse item entrava em variação permanente, TODAS
+as listas seguintes do mesmo fornecedor+tipo ficavam bloqueadas também
+— mesmo as sem nenhum problema. O aviso ia só numa mensagem no grupo do
+WhatsApp, fácil de passar batido.
+
+- Variação de preço absurda agora **retém só aquele item específico**
+  pra revisão manual — o resto da lista (itens novos, saídas, outros
+  preços) aplica normalmente e o baseline avança
+- Queda de volume (<50%), muitos descartes e cor não identificada
+  continuam travando a lista INTEIRA — esses sim são sinais de que a
+  lista veio malformada por completo, não de 1 item isolado
+- A mensagem de resumo no WhatsApp agora mostra separado: o que foi
+  aplicado + quais itens ficaram retidos e por quê
+- 2 testes novos cobrindo os dois comportamentos (trava de lista
+  inteira por volume vs. retenção por item por preço)
+
+## [Fase 240] - Base de margem por categoria pra importação
+
+Pedido do dono: preencher a margem por categoria do zero na tela de
+Importação tava muito trabalhoso — pediu pra já deixar uma base
+qualquer cadastrada pra ele ir ajustando aos poucos.
+
+- Margem fixa de R$ 400 pra Mac, iPad, Android (Samsung/Xiaomi/outras
+  marcas + tablets Android) e Apple Watch
+- iPhone com margem por faixa de valor (reaproveitando o motor de
+  `regras_lucro` que os seminovos manuais já usam): até R$ 2.000 →
+  R$ 400 · até R$ 3.000 → R$ 450 · até R$ 4.500 → R$ 600 · até R$ 6.000
+  → R$ 680 · até R$ 7.900 → R$ 800 · acima disso → R$ 800
+- São valores de PARTIDA — edite direto em Importação > Margem por
+  categoria a qualquer momento
+- Migration idempotente
+
+## [Fase 239.1] - Correção: coluna troca_tela mapeada errado no import
+
+O import da Fase 239 tinha um erro de mapeamento: a coluna `troca_tela`
+do CSV original foi inserida com esse nome literal em vez do código
+`tela` que já existe no catálogo de avarias — dava erro de foreign key
+(`troca_tela` não existe em `troca_avarias`) ao rodar o SQL. Corrigido:
+as 112 linhas de desconto de tela agora usam o código `tela` correto.
+
 ## [Fase 239] - Import dos 112 modelos + valores de troca (trade-in)
 
 A Fase 236 criou as tabelas e o catálogo de avarias do trade-in, mas

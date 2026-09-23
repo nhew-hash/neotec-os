@@ -95,8 +95,16 @@ export function calcularPlanoAplicacao(itensNovos: ItemExtraido[], itensAtivosAn
 }
 
 export interface ResultadoTravas {
+  /** Bloqueia a lista INTEIRA — só quando o problema é da lista como um todo (queda de volume, descartes, cor desconhecida), nunca por causa de 1 item isolado. */
   bloqueado: boolean;
   motivos: string[];
+  /**
+   * Atualizações de preço com variação absurda (>30%) — NÃO bloqueiam a
+   * lista inteira (ver nota abaixo), ficam retidas pra revisão manual
+   * enquanto o resto da lista aplica normalmente.
+   */
+  itensRetidos: PlanoAplicacao["atualizarPreco"];
+  motivosRetencao: string[];
 }
 
 export interface OpcoesTravas {
@@ -111,11 +119,24 @@ export interface OpcoesTravas {
 
 /**
  * Travas de segurança (spec, item 5): lista nova com muito menos itens
- * que a anterior do mesmo escopo (<50%), variação de preço absurda
- * (>30%), muitos descartes, ou emoji de cor desconhecido → NÃO aplica.
+ * que a anterior do mesmo escopo (<50%), muitos descartes, ou emoji de
+ * cor desconhecido → sinal de que a lista INTEIRA veio malformada,
+ * então bloqueia tudo.
+ *
+ * Variação de preço absurda (>30%) é diferente: é um problema de UM
+ * item, não da lista toda. Bloquear a lista inteira por causa disso já
+ * causou o bug relatado pelo dono (22/09/2026) — uma vez que um item
+ * entra em variação permanente (ex: fornecedor corrigindo um preço
+ * digitado errado antes, ou um erro de parsing isolado), a lista fica
+ * bloqueada, o baseline nunca avança, e TODAS as listas seguintes do
+ * mesmo fornecedor+tipo ficam bloqueadas também — mesmo as que não têm
+ * nada de errado. Por isso agora só aquele item específico fica retido
+ * pra revisão manual; o resto do plano aplica normalmente.
  */
 export function avaliarTravasDeSeguranca(plano: PlanoAplicacao, itensAtivosAnteriores: ItemArmazenado[], opcoes: OpcoesTravas): ResultadoTravas {
   const motivos: string[] = [];
+  const motivosRetencao: string[] = [];
+  const itensRetidos: PlanoAplicacao["atualizarPreco"] = [];
   const limiteQueda = opcoes.limiteQuedaVolume ?? 0.5;
   const limiteVariacao = opcoes.limiteVariacaoPreco ?? 0.3;
 
@@ -132,8 +153,9 @@ export function avaliarTravasDeSeguranca(plano: PlanoAplicacao, itensAtivosAnter
     if (upd.precoAntigo <= 0) continue;
     const variacao = Math.abs(upd.precoNovo - upd.precoAntigo) / upd.precoAntigo;
     if (variacao > limiteVariacao) {
-      motivos.push(
-        `Variação de preço absurda em ${upd.item.modeloCanonico} ${upd.item.cor}: ${upd.precoAntigo} → ${upd.precoNovo} (${Math.round(variacao * 100)}%).`
+      itensRetidos.push(upd);
+      motivosRetencao.push(
+        `Variação de preço absurda em ${upd.item.modeloCanonico} ${upd.item.cor}: ${upd.precoAntigo} → ${upd.precoNovo} (${Math.round(variacao * 100)}%) — retido pra revisão manual, resto da lista aplicado.`
       );
     }
   }
@@ -149,5 +171,5 @@ export function avaliarTravasDeSeguranca(plano: PlanoAplicacao, itensAtivosAnter
     motivos.push(`${comCorDesconhecida.length} item(ns) com cor não identificada (emoji desconhecido ou sem cor escrita).`);
   }
 
-  return { bloqueado: motivos.length > 0, motivos };
+  return { bloqueado: motivos.length > 0, motivos, itensRetidos, motivosRetencao };
 }
