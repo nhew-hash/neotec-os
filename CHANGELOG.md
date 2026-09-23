@@ -4,6 +4,43 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 243] - Novas categorias na importação automática (Notebook, Caixa de som/Microfone genéricos)
+
+Pedido do dono (23/09/2026): reconhecer mais tipos de produto nas
+listas de fornecedor, separando cada um pro lugar certo com seu preço.
+Investigação mostrou que quase tudo já existia (Perfume, Tablet,
+Smartwatch, Fone, Caixa de som, Triciclo elétrico, Robô aspirador já
+tinham categoria cadastrada desde a Fase 230) — só faltava generalizar
+o reconhecimento de marca no código e criar a categoria que realmente
+não existia.
+
+- **Caixa de som** e **Microfone**: antes só reconheciam JBL e
+  Hollyland/Lark por marca; agora qualquer caixa de som ou microfone
+  sem marca catalogada também é reconhecido (entra sinalizado pra
+  revisão, mas entra — não é mais descartado)
+- **Notebook** (categoria nova, `computadores_notebook`): reconhece
+  Dell, Lenovo, Acer, HP, Samsung por nome; outras marcas entram
+  sinalizadas. MacBook continua com categoria própria, não mudou
+- Margem base de R$ 400 cadastrada pra Notebook (mesmo padrão da Fase
+  240 — edite quando quiser)
+- 9 testes novos (classificação de mensagem + reconhecimento de
+  modelo) confirmando que robô aspirador/triciclo não regrediram
+
+**Pendente, precisa de mais informação do dono:**
+- **iPhone seminovo da Realeza**: achei o motivo de "não subir" —
+  `apple_seminovos` está declarado no sistema mas nunca é de fato
+  detectado (`classificarMensagem` sempre cai em `apple_lacrados` pra
+  qualquer mensagem com "iPhone"), e mesmo que caísse, o parser usado
+  força `condicao: "Lacrado"` sempre. Isso não é um bug de regressão —
+  nunca funcionou. Preciso de um exemplo real de mensagem de seminovo
+  da Realeza (como o fornecedor escreve bateria/IMEI/cidade) pra
+  construir o parser certo — não dá pra adivinhar o formato sem ver.
+- **Importação de fotos**: não existe NENHUM suporte hoje — o Bridge do
+  WhatsApp nem envia a imagem no payload (`route.ts` só aceita
+  `tipo: "texto"`, descarta imagem/documento/áudio). Precisa de
+  desenho antes de implementar: como uma foto avulsa (mandada antes/
+  depois da lista de texto) se associa a UM item específico da lista?
+
 ## [Fase 242] - Corrige itens "aplicados" mas ocultos/zerados no site + trava de cor em áudio
 
 Investigação de acompanhamento à Fase 241: a Fase 241 resolveu o

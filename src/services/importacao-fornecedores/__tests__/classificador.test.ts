@@ -49,4 +49,24 @@ describe("classificarMensagem", () => {
       expect(r.tipoLista).toBeNull();
     }
   });
+
+  // Fase 243: categorias novas roteadas pro mesmo tipo_lista "audio_extras"
+  // (parser livre, sem catálogo fixo — igual robô aspirador/triciclo já usavam).
+  it("classifica lista com Notebook como audio_extras", () => {
+    const r = classificarMensagem("Notebook Dell Inspiron 8gb/256 🔵 3200\nNotebook Lenovo Ideapad 8gb/512 ⚫ 3600", "realeza");
+    expect(r.classificacao).toBe("lista");
+    expect(r.tipoLista).toBe("audio_extras");
+  });
+
+  it("classifica lista com Caixa de som genérica (sem JBL) como audio_extras", () => {
+    const r = classificarMensagem("Caixa de som Sony bluetooth 🔵 450\nCaixinha de som mini ⚫ 120", "realeza");
+    expect(r.classificacao).toBe("lista");
+    expect(r.tipoLista).toBe("audio_extras");
+  });
+
+  it("classifica lista com Microfone genérico como audio_extras", () => {
+    const r = classificarMensagem("Microfone lapela sem fio 🔵 280\nMicrofone de mesa USB ⚫ 350", "realeza");
+    expect(r.classificacao).toBe("lista");
+    expect(r.tipoLista).toBe("audio_extras");
+  });
 });

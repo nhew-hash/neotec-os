@@ -68,9 +68,12 @@ export function classificarMensagem(texto: string, fornecedor: Fornecedor): Resu
   const pareceAudioExtras =
     /^jbl\b/m.test(normalizado) ||
     /\bjbl\b/.test(normalizado) ||
-    /triciclo/.test(normalizado) ||
+    /triciclo|patinete/.test(normalizado) ||
     /robô aspirador|robo aspirador/.test(normalizado) ||
-    /xiaomi extras/.test(normalizado);
+    /xiaomi extras/.test(normalizado) ||
+    /caixa\s+de\s+som|caixinha\s+de\s+som/.test(normalizado) ||
+    /microfone/.test(normalizado) ||
+    /notebook|note\s*book/.test(normalizado);
 
   const pareceAndroid =
     /lojista\/revendedor/.test(normalizado) ||

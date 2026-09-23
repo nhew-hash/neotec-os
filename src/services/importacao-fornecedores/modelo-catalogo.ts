@@ -193,9 +193,33 @@ function resolverPorFamilia(normalizado: string, textoOriginal: string): Resulta
     return { canonico: capitalizarLinha(textoOriginal), marca: "Desconhecida", categoriaSlug: "audio_fones", reconhecido: false };
   }
 
-  // Hollyland / microfone
+  // Caixa de som genérica (sem marca reconhecida — JBL já foi tratado acima)
+  if (/caixa\s+de\s+som|caixinha\s+de\s+som/.test(normalizado)) {
+    return { canonico: capitalizarLinha(textoOriginal), marca: "Desconhecida", categoriaSlug: "audio_caixas_de_som", reconhecido: false };
+  }
+
+  // Hollyland / microfone (marca conhecida) ou "microfone" genérico
   if (/hollyland|lark/.test(normalizado)) {
     return { canonico: "Hollyland Lark M2 Combo", marca: "Hollyland", categoriaSlug: "audio_microfones", reconhecido: true };
+  }
+  if (/microfone|\bmic\b/.test(normalizado)) {
+    return { canonico: capitalizarLinha(textoOriginal), marca: "Desconhecida", categoriaSlug: "audio_microfones", reconhecido: false };
+  }
+
+  // Notebook (qualquer marca — Apple usa "MacBook", já tratado à parte)
+  if (/notebook|note\s*book/.test(normalizado)) {
+    const marca = /dell/.test(normalizado)
+      ? "Dell"
+      : /lenovo/.test(normalizado)
+        ? "Lenovo"
+        : /acer/.test(normalizado)
+          ? "Acer"
+          : /hp\b/.test(normalizado)
+            ? "HP"
+            : /samsung/.test(normalizado)
+              ? "Samsung"
+              : "Desconhecida";
+    return { canonico: capitalizarLinha(textoOriginal), marca, categoriaSlug: "computadores_notebook", reconhecido: marca !== "Desconhecida" };
   }
 
   // Robô aspirador
