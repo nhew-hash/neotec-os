@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { MessageCircle, MapPin } from "lucide-react";
-import { CATEGORIAS_LOJA } from "./categorias";
+import { CATEGORIAS_LOJA, hrefCategoria } from "./categorias";
 
 export function LojaFooter() {
   const [logoFalhou, setLogoFalhou] = useState(false);
@@ -24,7 +24,7 @@ export function LojaFooter() {
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Categorias</p>
           <div className="flex flex-col gap-2">
             {CATEGORIAS_LOJA.map((c) => (
-              <Link key={c.valor} href={`/loja/categoria/${c.valor}`} className="text-sm text-foreground/80 hover:text-primary">{c.label}</Link>
+              <Link key={c.valor} href={hrefCategoria(c.valor)} className="text-sm text-foreground/80 hover:text-primary">{c.label}</Link>
             ))}
           </div>
         </div>

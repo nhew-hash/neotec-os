@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ShieldCheck, Wallet, Repeat, Wrench, Star, ArrowRight, Instagram } from "lucide-react";
-import { CATEGORIAS_LOJA } from "@/components/loja/categorias";
+import { CATEGORIAS_LOJA, hrefCategoria } from "@/components/loja/categorias";
 import { Button } from "@/components/ui/button";
 import type { HomeSecao } from "@/types";
 
@@ -31,18 +31,11 @@ export function BlocoCategorias() {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-16">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Link
-          href="/loja/lacrados"
-          className="animate-reveal-up flex flex-col items-center gap-2.5 rounded-2xl border border-border bg-card py-9 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:shadow-md"
-        >
-          <span className="text-3xl">✨</span>
-          <span className="text-sm font-medium text-foreground">iPhone Lacrado</span>
-        </Link>
         {CATEGORIAS_LOJA.map((c, i) => (
           <Link
             key={c.valor}
-            href={`/loja/categoria/${c.valor}`}
-            style={{ animationDelay: `${(i + 1) * 60}ms` }}
+            href={hrefCategoria(c.valor)}
+            style={{ animationDelay: `${i * 60}ms` }}
             className="animate-reveal-up flex flex-col items-center gap-2.5 rounded-2xl border border-border bg-card py-9 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:shadow-md"
           >
             <span className="text-3xl">{c.emoji}</span>

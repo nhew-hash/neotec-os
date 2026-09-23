@@ -4,6 +4,60 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 246] - Menu da loja consolidado em 10 lugares + corrige bug real do seminovo "sumindo"
+
+Briefing detalhado do dono (24/09/2026) pedindo: (1) menu da loja com
+só 10 categorias fixas, mais simples que a granularidade que a Fase 245
+tinha criado; (2) investigar por que iPhone seminovo com estoque não
+aparece direito, sem assumir de cara que é o "destino" do item —
+queria uma investigação de verdade antes de qualquer alteração.
+
+**Investigação (resumo, resposta ao pedido do dono):**
+- **"Destino" não é uma coluna do banco** — é só um tipo TypeScript
+  interno (`aplicacao.service.ts`) que decide em qual tabela um item
+  recém-importado é gravado (`aparelhos` pra seminovo, `catalogo_
+  lacrados_*` pra lacrado, `produtos` pro resto). Não é um campo de
+  disponibilidade em tempo real — confirmado por busca em todas as
+  migrations, não existe coluna `destino` em lugar nenhum
+- **Achado durante a investigação**: a Fase 245 (horas antes) tinha
+  introduzido sem querer uma regressão — mudou `condicao` de "Lacrado"
+  pra `null` também pros itens `tipoLista: "android"`. Só que Android
+  JÁ tinha uma página própria funcionando (`/loja/android`, mostra o
+  catálogo de lacrados filtrado por marca ≠ Apple — é exatamente o
+  "Android/Tablet" que o dono queria). Revertido: `android` volta a
+  gerar `condicao: "Lacrado"`; só `audio_extras` (JBL/notebook/robô/
+  triciclo, que nunca tiveram essa página) usa `null`
+- **Bug real encontrado** (a causa mais provável do "estoque existe mas
+  não aparece"): `reafirmarItemAtivo()` e `obterOuCriarProduto()`
+  reafirmavam a disponibilidade da UNIDADE (`aparelhos.disponivel_
+  loja_virtual`) mas nunca do PRODUTO PAI (`produtos.visivel_loja`).
+  Se o produto pai ficasse oculto uma vez (zerou estoque, ocultado à
+  mão), chegar estoque novo pra ele nunca reativava a visibilidade —
+  ficava invisível pra sempre mesmo com unidades disponíveis. Corrigido
+  nos dois pontos
+
+**Mudanças:**
+- Menu final (`src/components/loja/categorias.ts`), nessa ordem: iPhone
+  Lacrado, iPhone Seminovo, Android/Tablet, iPad, Mac, Apple Watch,
+  Áudio, Perfumes, Acessórios, Eletrônicos e Mobilidade — as duas
+  primeiras (na real, iPhone Lacrado e Android/Tablet) e a mobilidade
+  usam página própria com `href` fixo, o resto usa a página genérica de
+  categoria (sem duplicar lógica — só um array central agora, `nav`/
+  rodapé/home leem dele)
+- `categoriaSlugParaCategoriaLoja`: Fone+Caixa de som+Microfone →
+  "Áudio"; Robô aspirador+Triciclo+Notebook → "Eletrônicos e
+  Mobilidade" (Notebook não tinha lugar pedido explicitamente — decidi
+  esse encaixe, sinalizado pro dono confirmar)
+- **Classificação automática NÃO foi tocada** (como pedido) — só
+  reroteamento de apresentação; a única mudança em lógica de
+  import foi reverter a regressão do Android (ver acima) e o fix do
+  produto pai oculto, ambos bugs, não mudança de classificação
+- Migration nova (`fase246_categoria_produto_consolidacao.sql`) +
+  SQL de reparo novo (substitui o da Fase 245 — aquele tinha uma parte
+  errada que desativaria estoque Android que já funcionava)
+- 6 testes novos (menu final, mapeamento consolidado, distinção
+  android/audio_extras no parser)
+
 ## [Fase 245.1] - Migration faltante: categoria_produto é enum, não texto
 
 Ao rodar o SQL de reparo da Fase 245, deu erro `42883: operator does

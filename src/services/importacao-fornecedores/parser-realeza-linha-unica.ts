@@ -79,14 +79,19 @@ export function parseRealezaLinhaUnica(textoOriginal: string, tipoLista: TipoLis
         marca,
         modeloCanonico: resolvido.canonico,
         modeloReconhecido: resolvido.reconhecido,
-        // null (não "Lacrado"): o destino "lacrado" da aplicação escreve em
-        // `catalogo_lacrados_*`, que a loja só exibe pra iPhone
-        // (`/loja/lacrados` filtra marca==="apple"). Android/JBL/extras
-        // marcados como "Lacrado" ficavam "aplicados" no banco mas
-        // invisíveis pro cliente — bug reportado pelo dono em 23/09/2026
-        // ("jbl nao ta indo"). null cai no destino "generico" (produto
-        // simples, mesmo caminho que perfumes já usa corretamente).
-        condicao: null,
+        // "android" → "Lacrado": vai pro catálogo de lacrados
+        // (`catalogo_lacrados_*`), que a loja exibe em `/loja/android`
+        // (filtra marca !== "apple" — cobre celular E tablet Android,
+        // que é exatamente o "lugar" único que o dono pediu). Isso
+        // SEMPRE funcionou pra Android — não é o bug.
+        // "audio_extras" (JBL/caixa de som/microfone/notebook/robô/
+        // triciclo) → null: não existe (nem nunca existiu) uma página
+        // de "lacrados" pra esses; iam pro mesmo catálogo por engano e
+        // ficavam "aplicados" no banco mas invisíveis pro cliente (bug
+        // real, reportado 23/09/2026 — "jbl nao ta indo"). null cai no
+        // destino "generico" (produto simples, mesmo caminho que
+        // Perfumes já usava certo).
+        condicao: tipoLista === "android" ? "Lacrado" : null,
         armazenamentoGb,
         ramGb,
         ramPossivelTypo: possivelTypo,

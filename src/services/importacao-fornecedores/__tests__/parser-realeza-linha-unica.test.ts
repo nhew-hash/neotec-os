@@ -106,3 +106,23 @@ describe("parser-realeza-linha-unica — fixture 6 (JBL/extras)", () => {
     expect(item?.cor).toBe("Não informada");
   });
 });
+
+// Fase 246 (24/09/2026): trava a distinção de destino entre os dois usos
+// deste parser — "android" precisa continuar indo pro catálogo de
+// lacrados (mostrado em /loja/android, filtrado por marca != apple —
+// é o "lugar" único Android/Tablet que a loja usa) e "audio_extras"
+// precisa ir pro produto genérico (não existe página de lacrados pra
+// JBL/notebook/robô/etc — regressão real corrigida na Fase 245).
+describe("parser-realeza-linha-unica — condicao por tipoLista (Fase 246)", () => {
+  it("tipoLista 'android' produz condicao Lacrado (Samsung, Xiaomi, tablets)", () => {
+    const r = parseRealezaLinhaUnica(FIXTURE_4_REALEZA_ANDROID, "android");
+    expect(r.itens.length).toBeGreaterThan(0);
+    expect(r.itens.every((i) => i.condicao === "Lacrado")).toBe(true);
+  });
+
+  it("tipoLista 'audio_extras' produz condicao null (JBL, triciclo, robô, etc)", () => {
+    const r = parseRealezaLinhaUnica(FIXTURE_6_REALEZA_JBL_EXTRAS, "audio_extras");
+    expect(r.itens.length).toBeGreaterThan(0);
+    expect(r.itens.every((i) => i.condicao === null)).toBe(true);
+  });
+});

@@ -34,40 +34,46 @@ function gerarSlug(nome: string): string {
 }
 
 /**
- * `produtos.categoria` é texto livre, sem enum no banco — os valores
- * válidos são os cadastrados em `src/components/loja/categorias.ts`
- * (fonte única da navegação/filtros da loja pública). A taxonomia de
- * importação (`categoria_slug`, ~17 folhas) é bem mais fina — mapeia pro
- * "lugar" certo da loja quando existe um específico, senão cai em
- * "acessorio" (catch-all pra itens genuinamente não classificados).
+ * `produtos.categoria` é um ENUM no banco (`categoria_produto`, ver
+ * migration `fase245_categoria_produto_loja_novos_valores.sql`) — os
+ * valores válidos são os cadastrados em `src/components/loja/
+ * categorias.ts` (fonte única da navegação/filtros da loja pública). A
+ * taxonomia de importação (`categoria_slug`, ~17 folhas) é bem mais fina
+ * — mapeia pro "lugar" certo da loja quando existe um específico, senão
+ * cai em "acessorio" (catch-all pra itens genuinamente não classificados).
  *
- * Corrigido em 24/09/2026 (dono reportou iPhone 12 e Perfumes caindo em
- * Acessórios): antes só existiam 5 valores (iphone/apple_watch/ipad/mac/
- * acessorio), então TUDO que não era esses 4 caía no catch-all — inclusive
- * categorias que a Fase 243/244 já sabia classificar direito no import,
- * mas que não tinham "lugar" próprio na loja. `categoria_id` (FK) carrega
- * a fidelidade completa pra quem quiser usar; isso aqui é só o que a loja
- * pública usa hoje pra filtrar.
+ * NOTA IMPORTANTE (24/09/2026, pedido do dono de simplificar o menu):
+ * Samsung/Xiaomi/outras marcas Android e tablets Android/infantil NÃO
+ * aparecem neste switch — não é esquecimento. Esses `categoria_slug`
+ * chegam com `condicao: "Lacrado"` (`parser-realeza-linha-unica.ts`,
+ * tipoLista "android"), então `resolverDestino` manda pro destino
+ * "lacrado" (`catalogo_lacrados_*`), NUNCA passam por
+ * `aplicarProdutoGenerico`/esta função. A loja mostra esse catálogo
+ * filtrado por marca em `/loja/android` (não-Apple) — é o "lugar"
+ * único "Android / Tablet" que o dono pediu, e o iPhone Lacrado usa o
+ * mesmo mecanismo em `/loja/lacrados` (marca Apple). Isso já funcionava
+ * antes das Fases 243-245 e não foi tocado.
+ *
+ * `computadores_notebook` (Notebook não-Apple) não tem "lugar" próprio
+ * no menu pedido — decidi encaixar em "Eletrônicos e Mobilidade" por
+ * ser o bucket mais parecido (eletrônico avulso, fora do fluxo
+ * Android/iPhone). Sinalizado ao dono pra confirmar/trocar se preferir
+ * outro lugar.
  */
 export function categoriaSlugParaCategoriaLoja(slug: string): CategoriaLoja {
   switch (slug) {
-    case "smartphones_iphone": return "iphone";
-    case "smartphones_samsung":
-    case "smartphones_xiaomi":
-    case "smartphones_outras_marcas": return "smartphone";
+    case "smartphones_iphone": return "iphone"; // rótulo na loja: "iPhone Seminovo" — lacrado nunca chega aqui (ver nota acima)
     case "smartwatches_apple_watch": return "apple_watch";
     case "tablets_ipad": return "ipad";
-    case "tablets_android":
-    case "tablets_infantil": return "tablet";
     case "computadores_macbook": return "mac";
-    case "computadores_notebook": return "notebook";
-    case "audio_fones": return "fone";
-    case "audio_caixas_de_som": return "caixa_de_som";
-    case "audio_microfones": return "microfone";
+    case "audio_fones":
+    case "audio_caixas_de_som":
+    case "audio_microfones": return "audio";
     case "perfumaria_perfumes_arabes":
     case "perfumaria_kits": return "perfume";
-    case "casa_inteligente_robos_aspiradores": return "robo_aspirador";
-    case "mobilidade_triciclos_patinetes": return "triciclo_eletrico";
+    case "casa_inteligente_robos_aspiradores":
+    case "mobilidade_triciclos_patinetes":
+    case "computadores_notebook": return "eletronicos_mobilidade";
     default: return "acessorio";
   }
 }
@@ -261,7 +267,16 @@ async function calcularPrecoVenda(admin: Admin, item: ItemExtraido): Promise<num
 
 async function obterOuCriarProduto(admin: Admin, nome: string, categoriaSlug: string, categoriaIdParaFk: string | null, marca: string | null): Promise<{ id: string; jaExistia: boolean }> {
   const { data: existente } = await admin.from("produtos").select("id").eq("nome", nome).maybeSingle();
-  if (existente) return { id: existente.id, jaExistia: true };
+  if (existente) {
+    // Mesmo bug do reafirmarItemAtivo (ver nota lá): se o produto pai já
+    // existia mas estava oculto (visivel_loja=false) e chega estoque
+    // novo (seminovo) pra ele, tinha que voltar a ficar visível — sem
+    // isso, um modelo que zerou estoque uma vez ficava oculto pra
+    // sempre mesmo com unidades novas chegando depois.
+    const { error: erroReativar } = await admin.from("produtos").update({ visivel_loja: true }).eq("id", existente.id);
+    if (erroReativar) throw new Error(`Falha ao reativar visibilidade do produto "${nome}": ${erroReativar.message}`);
+    return { id: existente.id, jaExistia: true };
+  }
 
   const slug = gerarSlug(nome);
   const { data: novo, error } = await admin
@@ -632,5 +647,21 @@ async function reafirmarItemAtivo(admin: Admin, item: ItemArmazenado): Promise<v
       .in("id", linha.aparelho_ids)
       .eq("status", "disponivel");
     if (error) throw new Error(`Falha ao reafirmar disponibilidade dos aparelhos: ${error.message}`);
+
+    // Bug real encontrado 24/09/2026 (dono reportou iPhone seminovo com
+    // estoque não aparecendo): este branch só reafirmava a UNIDADE
+    // (`aparelhos.disponivel_loja_virtual`), nunca o PRODUTO PAI
+    // (`produtos.visivel_loja`) que a `aparelhos` referencia — diferente
+    // dos outros dois branches acima, que sempre reafirmam o nível
+    // certo. Se o produto pai ficasse oculto por qualquer motivo (ex:
+    // todas as unidades vendidas uma vez, escondido manualmente), o
+    // reimport seguinte recriava/reativava as UNIDADES mas o produto
+    // continuava oculto pra sempre — estoque > 0 e mesmo assim
+    // invisível na loja. Corrigido reafirmando os dois níveis juntos.
+    const { data: aparelho } = await admin.from("aparelhos").select("produto_id").in("id", linha.aparelho_ids).limit(1).maybeSingle();
+    if (aparelho?.produto_id) {
+      const { error: erroProduto } = await admin.from("produtos").update({ visivel_loja: true }).eq("id", aparelho.produto_id);
+      if (erroProduto) throw new Error(`Falha ao reafirmar visibilidade do produto pai (seminovo): ${erroProduto.message}`);
+    }
   }
 }

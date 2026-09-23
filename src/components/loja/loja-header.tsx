@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ShoppingBag, Menu, X, Repeat, Sparkles, User } from "lucide-react";
 import { useState } from "react";
-import { CATEGORIAS_LOJA } from "./categorias";
+import { CATEGORIAS_LOJA, hrefCategoria } from "./categorias";
 import { useCarrinho } from "./carrinho-context";
 import { BuscaLoja } from "./busca-loja";
 import { Button } from "@/components/ui/button";
@@ -38,14 +38,8 @@ export function LojaHeader() {
             <Link href="/loja/encontre-seu-iphone" className="flex items-center gap-1 text-sm font-semibold text-primary">
               <Sparkles className="h-3.5 w-3.5" />Encontre seu iPhone ideal
             </Link>
-            <Link href="/loja/lacrados" className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
-              iPhone Lacrado
-            </Link>
-            <Link href="/loja/android" className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
-              Android
-            </Link>
             {CATEGORIAS_LOJA.map((c) => (
-              <Link key={c.valor} href={`/loja/categoria/${c.valor}`} className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
+              <Link key={c.valor} href={hrefCategoria(c.valor)} className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
                 {c.label}
               </Link>
             ))}
@@ -79,14 +73,8 @@ export function LojaHeader() {
           <Link href="/loja/encontre-seu-iphone" className="flex items-center gap-1.5 py-2.5 text-sm font-semibold text-primary" onClick={() => setMenuAberto(false)}>
             <Sparkles className="h-4 w-4" />Encontre seu iPhone ideal
           </Link>
-          <Link href="/loja/lacrados" className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
-            📱 iPhone Lacrado
-          </Link>
-          <Link href="/loja/android" className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
-            🤖 Android
-          </Link>
           {CATEGORIAS_LOJA.map((c) => (
-            <Link key={c.valor} href={`/loja/categoria/${c.valor}`} className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
+            <Link key={c.valor} href={hrefCategoria(c.valor)} className="py-2.5 text-sm font-medium text-foreground" onClick={() => setMenuAberto(false)}>
               {c.emoji} {c.label}
             </Link>
           ))}
