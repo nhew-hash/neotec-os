@@ -4,6 +4,54 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 244] - iPhone seminovo da Realeza agora importa (classificação + parser novos)
+
+Pedido do dono (23/09/2026): "ainda semi novos nao entrou". Na Fase 243
+eu tinha identificado a causa raiz (`apple_seminovos` nunca era
+detectado pelo classificador, e o parser usado forçava sempre
+`condicao: "Lacrado"`) mas não dava pra construir o parser certo sem
+ver como a Realeza realmente formata essa lista — pedi um exemplo real
+duas vezes e o dono mandou a mensagem completa dessa vez.
+
+Formato da lista de seminovo é bem diferente do Apple lacrados: 1 linha
+por modelo, número solto sem "iPhone" escrito ("13", "13 PRO", "16E"),
+armazenamento podendo vir antes OU depois da bateria, e várias unidades
+(bateria% + cor) na mesma linha compartilhando o mesmo preço.
+
+- **`classificarMensagem`**: novo cabeçalho reconhecido — "semi novos
+  ... garantia" (ex: `*semi novos 30 dias de garantia*`) — roteia pra
+  `apple_seminovos` em vez de cair em `apple_lacrados`/ignorar
+- **Parser novo** (`parser-realeza-apple-seminovos.ts`), roteado no
+  orquestrador só pra `apple_seminovos` (Apple lacrados continua
+  intocado):
+  - resolve modelo pelo número solto + sufixo opcional PRO/PRO MAX/
+    PLUS/E (16E → "iPhone 16e"), sem depender do catálogo geral (que
+    espera "iPhone" escrito)
+  - acha armazenamento em qualquer posição da linha (antes ou depois
+    da bateria)
+  - separa 1 linha com várias baterias/cores em várias unidades
+    (mesmo modelo/armazenamento/preço, bateria e cor cada uma) —
+    inclusive quando a cor aparece ANTES da bateria (fornecedor não é
+    consistente na ordem)
+  - descarta bateria < 80% (mesma regra do Goat), com motivo detalhado
+  - captura observação livre no meio da linha ("tela com um
+    trincadinho", "tampa traseira trocada") como tag informativa, sem
+    bloquear nem descartar o item
+  - marcador "🧨" (significado ainda não confirmado com o dono) vira
+    tag "atencao", não afeta o parsing
+  - garantia extraída do cabeçalho da própria mensagem ("30 dias")
+- Mensagem real do dono virou fixture de teste
+  (`FIXTURE_8_REALEZA_APPLE_SEMINOVOS`) — 12 testes novos do parser +
+  1 do classificador, todos batendo contra o texto exatamente como foi
+  recebido no grupo
+
+**Pendente, ainda precisa de confirmação do dono:**
+- O que significa o marcador "🧨" antes de um modelo (por ora só vira
+  tag informativa "atencao", não muda preço nem bloqueia)
+- **Importação de fotos**: continua sem nenhum suporte (não mudou
+  desde a Fase 243) — falta o dono explicar como uma foto avulsa se
+  associa a um item específico da lista antes de dar pra desenhar isso
+
 ## [Fase 243] - Novas categorias na importação automática (Notebook, Caixa de som/Microfone genéricos)
 
 Pedido do dono (23/09/2026): reconhecer mais tipos de produto nas

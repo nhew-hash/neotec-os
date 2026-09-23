@@ -60,6 +60,11 @@ export function classificarMensagem(texto: string, fornecedor: Fornecedor): Resu
     /macbook/.test(normalizado) ||
     /apple watch/.test(normalizado);
 
+  // Fase 244: cabeçalho específico da lista de seminovos da Realeza, ex:
+  // "*semi novos 30 dias de garantia*" — formato compacto sem a palavra
+  // "iphone" escrita (só número), então não cai no `pareceApple` acima.
+  const pareceAppleSeminovo = /semi\s*novos?[^\n]{0,25}garantia/.test(normalizado);
+
   const parecePerfume =
     /perfumes? árabes?/.test(normalizado) ||
     /\bkit\b.*\bpcs\b/.test(normalizado) ||
@@ -85,7 +90,7 @@ export function classificarMensagem(texto: string, fornecedor: Fornecedor): Resu
     /spark go/.test(normalizado);
 
   // Mensagens avulsas/conversa (sem estrutura de lista) → ignorar.
-  if (linhasComPreco < 2 && !pareceApple && !parecePerfume && !pareceAudioExtras && !pareceAndroid) {
+  if (linhasComPreco < 2 && !pareceApple && !pareceAppleSeminovo && !parecePerfume && !pareceAudioExtras && !pareceAndroid) {
     return { classificacao: "ignorar", tipoLista: null };
   }
   // Mesmo com 1-2 números, uma frase corrida de aviso/conversa não é lista.
@@ -98,6 +103,7 @@ export function classificarMensagem(texto: string, fornecedor: Fornecedor): Resu
   // como na fixture 6), então checa pistas mais específicas primeiro.
   if (pareceAudioExtras && !pareceApple) return { classificacao: "lista", tipoLista: "audio_extras" };
   if (parecePerfume) return { classificacao: "lista", tipoLista: "perfumes" };
+  if (pareceAppleSeminovo) return { classificacao: "lista", tipoLista: "apple_seminovos" };
   if (pareceApple) return { classificacao: "lista", tipoLista: "apple_lacrados" };
   if (pareceAndroid) return { classificacao: "lista", tipoLista: "android" };
 

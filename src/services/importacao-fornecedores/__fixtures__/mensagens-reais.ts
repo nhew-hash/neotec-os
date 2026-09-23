@@ -285,6 +285,65 @@ Fone air dots play 6 79,0⚫️
 
 Robô aspirador Xiaomi h50 pro  3099⚪️`;
 
+// Fase 244: mensagem real da Realeza · iPhone seminovo, enviada pelo dono em
+// 23/09/2026 (o pedido "ainda semi novos nao entrou" ficava bloqueado até eu
+// ter um exemplo real — formato compacto, bem diferente do Apple lacrados:
+// modelo é só o número (sem "iPhone" escrito), armazenamento pode vir antes
+// OU depois da bateria, várias unidades (bateria%+cor) por linha, mesmo
+// preço pra todas as unidades da linha, e observações livres no meio
+// ("tela com um trincadinho", "tampa traseira trocada").
+export const FIXTURE_8_REALEZA_APPLE_SEMINOVOS = `*semi novos 30 dias de garantia*
+
+📲13 128G 85%🔵 1780,0
+
+📲13 256G 90% 100%🔵 86%💜1899,0
+
+📲13 PRO 128G 90% 92%⚪️88%💛2280
+
+📲🧨🧨13 PRO MAX 128G 79%💚2450
+
+📲13 PRO MAX 128G 90%💚2649
+
+📲14 128G tela com um trincadinho 82%⚫️1599
+
+📲14 128G 72% ⚫️1699,0
+
+📲14 128G 86% 84%85%84% ⚫️ 85%90%💜89%83%🔵2149
+
+📲14 PLUS 84% 128G🔵2149,0
+
+📲14 PRO MAX 128G 86%💜 90%⚪️ 89%⚫️ 2999
+
+📲14 PRO MAX 256G 90%💜3299
+
+📲15 128G 85%🩷80% 86%⚪️🔵82% 84% 88%⚫️2599
+
+📲15 plus 128G 84%88%⚫️ 2799
+
+📲15 PRO 128G 84%⚪️ 90%🩶3299
+
+📲15 PRO 256G 87%🔵 3499
+
+📲15 PRO MAX 256G 81%🔵3700,00
+
+📲15 PRO MAX 256G 86%⚫️ 90% 91%🩶 3999
+
+📲16E 128G 87%⚫️ 2450
+
+📲16 128G 88% 🩷89%⚫️3399
+
+📲16 plus 128G 87%⚪️3699,0
+
+📲16 PRO 128G 90% 🩶 91%⚪️4250,0
+
+📲16 PRO 256G 89% 93%💛4399
+
+📲16 PRO 512G🩶💛90%91%4499
+
+📲16 PRO MAX 256G 91%💛tampa traseira trocada 4649
+
+📲16 PRO MAX 256G 92%91%⚪️ 92%🩶93%💛5080,0`;
+
 export const FIXTURE_7_IGNORAR_1 = `Chegou 18 pro max 256G bordo`;
 export const FIXTURE_7_IGNORAR_2 = `Entrando iPhone 16 plus 128G 90% apenas 3499 com capa e película`;
 export const FIXTURE_7_IGNORAR_3 = `QUEM PAGOU OS 18 pro max chegou como prometido no prazo, chamar pra quitar e entregar`;

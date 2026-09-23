@@ -9,6 +9,7 @@ import {
   FIXTURE_7_IGNORAR_1,
   FIXTURE_7_IGNORAR_2,
   FIXTURE_7_IGNORAR_3,
+  FIXTURE_8_REALEZA_APPLE_SEMINOVOS,
 } from "../__fixtures__/mensagens-reais";
 
 describe("classificarMensagem", () => {
@@ -68,5 +69,13 @@ describe("classificarMensagem", () => {
     const r = classificarMensagem("Microfone lapela sem fio 🔵 280\nMicrofone de mesa USB ⚫ 350", "realeza");
     expect(r.classificacao).toBe("lista");
     expect(r.tipoLista).toBe("audio_extras");
+  });
+
+  // Fase 244: mensagem real "*semi novos 30 dias de garantia*" (23/09/2026)
+  // — formato compacto sem "iphone" escrito, não cai no pareceApple comum.
+  it("classifica lista de iPhone seminovo da Realeza (cabeçalho 'semi novos ... garantia') como apple_seminovos", () => {
+    const r = classificarMensagem(FIXTURE_8_REALEZA_APPLE_SEMINOVOS, "realeza");
+    expect(r.classificacao).toBe("lista");
+    expect(r.tipoLista).toBe("apple_seminovos");
   });
 });

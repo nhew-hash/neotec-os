@@ -1,6 +1,7 @@
 import { classificarMensagem, type Fornecedor } from "./classificador";
 import { parseGoat } from "./parser-goat";
 import { parseRealezaAppleLacrados } from "./parser-realeza-apple";
+import { parseRealezaAppleSeminovos } from "./parser-realeza-apple-seminovos";
 import { parseRealezaLinhaUnica } from "./parser-realeza-linha-unica";
 import { parseRealezaPerfumes } from "./parser-realeza-perfumes";
 import { validarItens, type ResultadoValidacao } from "./validacao";
@@ -47,8 +48,9 @@ function executarParser(texto: string, fornecedor: Fornecedor, tipoLista: NonNul
 
   switch (tipoLista) {
     case "apple_lacrados":
-    case "apple_seminovos":
       return parseRealezaAppleLacrados(texto);
+    case "apple_seminovos":
+      return parseRealezaAppleSeminovos(texto);
     case "android":
     case "audio_extras":
       return parseRealezaLinhaUnica(texto, tipoLista);
