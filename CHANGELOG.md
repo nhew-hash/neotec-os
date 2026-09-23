@@ -4,6 +4,79 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 237] - As 3 formas de comprar usando o aparelho como troca
+
+Pedido do dono: texto explicando as 3 formas de comprar um iPhone
+usando o aparelho antigo como parte do pagamento (pagamento
+antecipado + estorno, enviar o aparelho antes, ou presencial) — revisado
+e tornado **funcional** no site e no bot, não só um texto solto.
+
+- `src/services/trade-in/como-funciona.ts` — fonte única das 3 opções
+  (usada tanto pelas telas quanto pelo texto que o bot manda).
+- Site (`/loja/trade-in`): depois da estimativa, o cliente escolhe uma
+  das 3 formas, informa nome/WhatsApp e confirma — a escolha grava na
+  avaliação (a opção "enviar o aparelho" já move o status pra
+  `aguardando_avaliacao`, que a tela do Neotec OS já lista) e avisa a
+  equipe por WhatsApp com o aparelho, a estimativa e o contato, mesmo
+  padrão de notificação já usado no lead de trade-in da Fase 60.
+- Bot (Iara): quando o cliente pergunta como funciona a troca (não só
+  o valor), ela explica as 3 formas usando exatamente esse texto —
+  nunca inventa uma 4ª opção nem muda as regras.
+- Segue fora do escopo (decisão já registrada na Fase 236): o
+  desdobramento automático em dois pagamentos com estorno via Mercado
+  Pago da opção 1 — hoje a equipe é avisada e organiza isso manualmente
+  pelo WhatsApp.
+
+## [Fase 236] - Trade-in / Avaliação de aparelhos (motor único)
+
+Módulo completo de avaliação de troca, substituindo o antigo formulário
+sem cálculo (Fase 60, que continua existindo como fallback de lead
+manual). Regra central pedida pelo dono: **um único motor de cálculo**
+usado pelo site, pelo Neotec OS e pelo bot — nenhum dos três calcula
+nada por conta própria.
+
+- `avaliarTradeIn()` (`src/services/trade-in/motor.ts`) — função pura,
+  sem banco: valor base → desconto por avaria marcada (ou bloqueio
+  total, ex: sinal de líquido/IMEI restrito) → bônus opcional → valor
+  final. 10 testes automatizados cobrindo os casos obrigatórios
+  (condição perfeita, bateria ruim, tela danificada, Face ID
+  defeituoso, bloqueio por avaria crítica, modelo sem valor
+  cadastrado, alteração manual da base).
+- Checklist único (`src/services/trade-in/checklist.ts`) reaproveitando
+  os itens que já existiam nos checklists de qualidade de estoque e de
+  recebimento de assistência — nenhum checklist novo foi criado do
+  zero.
+- Migration `fase236_avaliacao_trade_in.sql`: `troca_modelos` (tabela
+  de valor de troca SEPARADA do preço de venda), `troca_avarias`
+  (catálogo, com `bloqueia`), `troca_modelo_avarias` (desconto por
+  modelo), `troca_config` (corte de bateria, bônus), `avaliacoes_trade_in`
+  (histórico com SNAPSHOT — mudar a tabela de valores não altera
+  avaliação já feita) e `avaliacoes_trade_in_alteracoes` (auditoria de
+  alteração manual de valor, com motivo obrigatório).
+- Neotec OS: tela de nova avaliação com o checklist real, prévia do
+  cálculo, aprovação/recusa (exige motivo se o valor for alterado), e
+  admin da tabela de valores (`/trade-in/modelos`).
+- Site: wizard de 7 passos (marca → modelo → variante → checklist
+  simples → bateria → estimativa) em `/loja/trade-in`, mostrando só o
+  resultado necessário — nunca o detalhamento de desconto por avaria,
+  nem regras internas.
+- PDV: trade-in como abatimento na venda (`vendas.trade_in_avaliacao_id`/
+  `trade_in_valor`), mesmo padrão de segurança do cashback — o valor
+  usado é sempre o aprovado no banco, nunca o que vier do formulário, e
+  só aceita avaliação já com status `aprovado`.
+- Bot/IA (`ia-atendimento-trocas.service.ts`): mesma consulta ao motor,
+  nunca inventa valor — se não encontrar o modelo, responde com a
+  mensagem padrão de avaliação manual necessária.
+- Conversão para estoque: aparelho aprovado vira item de estoque
+  (`origem_entrada: 'troca'`, custo = valor aprovado), reaproveitando o
+  mesmo padrão de busca-ou-cria de produto já usado no cadastro rápido
+  do PDV — nunca duplica um modelo já cadastrado no catálogo.
+- Fora do escopo desta fase (por decisão explícita, não pedida na
+  conversa): abatimento automático de trade-in no checkout online
+  (Pix/Cartão) — hoje o "Usar na compra" no site salva a estimativa e
+  direciona pro WhatsApp/loja física, já que o valor só vira definitivo
+  depois da aprovação presencial.
+
 ## [Fase 235] - Importação automática: regra de lucro por categoria (+ condição)
 
 Pedido do dono: margem diferente pra Mac, iPhone lacrado, iPad, Android,

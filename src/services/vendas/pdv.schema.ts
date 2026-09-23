@@ -25,6 +25,10 @@ export const pdvVendaSchema = z.object({
   indicador_id: z.string().uuid().optional(),
   cashback_utilizado: z.coerce.number().min(0).default(0),
   cashback_concedido: z.coerce.number().min(0).default(0),
+  // Abatimento por trade-in — o valor usado no cálculo NUNCA vem daqui:
+  // o servidor busca o valor aprovado da avaliação e ignora qualquer
+  // número mandado pelo client (mesmo padrão do cashback_utilizado).
+  trade_in_avaliacao_id: z.string().uuid().optional(),
   itens: z.array(pdvItemSchema).min(1, "Adicione pelo menos um item à venda"),
 }).refine(
   (dados) => dados.forma_pagamento !== "misto" || (dados.pagamentos && dados.pagamentos.length >= 2),

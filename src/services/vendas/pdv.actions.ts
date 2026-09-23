@@ -42,3 +42,19 @@ export async function buscarSaldoCashbackAction(clienteId: string): Promise<Acti
     return { success: false, error: err instanceof Error ? err.message : "Erro ao buscar saldo" };
   }
 }
+
+/** Avaliações de troca já aprovadas do cliente e ainda não usadas numa venda — únicas que podem virar abatimento no PDV. */
+export async function listarTradeInsAprovadosClienteAction(clienteId: string): Promise<ActionResult<{ id: string; modeloNome: string; valor: number }[]>> {
+  try {
+    const { listarAvaliacoes } = await import("@/services/trade-in/aplicacao.service");
+    const avaliacoes = await listarAvaliacoes({ status: "aprovado", clienteId });
+    return {
+      success: true,
+      data: avaliacoes
+        .filter((a) => !a.venda_id)
+        .map((a) => ({ id: a.id, modeloNome: a.modelo_nome, valor: a.valor_aprovado ?? a.valor_calculado })),
+    };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao buscar trade-ins aprovados" };
+  }
+}

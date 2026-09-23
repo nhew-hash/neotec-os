@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { obterCustoItem } from "@/services/estoque/estoque.service";
 import { obterSaldoCashback, registrarCashback } from "@/services/cashback/cashback.service";
+import { obterAvaliacao } from "@/services/trade-in/aplicacao.service";
 import type { PdvVendaValues } from "./pdv.schema";
 import type { Venda } from "@/types";
 
@@ -26,6 +27,23 @@ export async function criarVendaPDV(input: PdvVendaValues, usuarioId: string): P
     }
   }
 
+  // Trade-in como abatimento — igual ao cashback, o valor usado no
+  // cálculo é sempre o `valor_aprovado` gravado no banco (nunca um
+  // número vindo do formulário). A estimativa calculada pelo cliente no
+  // site não vira abatimento sozinha: só uma avaliação já 'aprovado'
+  // pela equipe conta aqui — é essa a diferença entre estimativa e
+  // aprovação que o módulo de trade-in exige.
+  let tradeInValor = 0;
+  if (input.trade_in_avaliacao_id) {
+    const avaliacao = await obterAvaliacao(input.trade_in_avaliacao_id, supabase);
+    if (!avaliacao) throw new Error("Avaliação de trade-in não encontrada");
+    if (avaliacao.status !== "aprovado") throw new Error("Só uma avaliação de trade-in já aprovada pela equipe pode ser usada como abatimento");
+    if (input.cliente_id && avaliacao.cliente_id && avaliacao.cliente_id !== input.cliente_id) {
+      throw new Error("Essa avaliação de trade-in pertence a outro cliente");
+    }
+    tradeInValor = avaliacao.valor_aprovado ?? avaliacao.valor_calculado;
+  }
+
   // Custo real de cada item, via RPC — igual à venda por orçamento, o
   // vendedor nunca precisa ter acesso de leitura ao custo pra isso funcionar.
   const itensComCusto = await Promise.all(
@@ -39,7 +57,7 @@ export async function criarVendaPDV(input: PdvVendaValues, usuarioId: string): P
   );
 
   const valorBruto = itensComCusto.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
-  const valorTotal = Math.max(0, valorBruto - (input.desconto ?? 0) - input.cashback_utilizado);
+  const valorTotal = Math.max(0, valorBruto - (input.desconto ?? 0) - input.cashback_utilizado - tradeInValor);
   const custoTotal = itensComCusto.reduce((acc, i) => acc + i.custo * i.quantidade, 0);
   const lucro = valorTotal - custoTotal;
 
@@ -66,11 +84,20 @@ export async function criarVendaPDV(input: PdvVendaValues, usuarioId: string): P
       indicador_id: input.indicador_id || null,
       cashback_utilizado: input.cashback_utilizado,
       cashback_concedido: input.cashback_concedido,
+      trade_in_avaliacao_id: input.trade_in_avaliacao_id ?? null,
+      trade_in_valor: tradeInValor,
     })
     .select("*")
     .single();
 
   if (erroVenda) throw new Error(`Não foi possível registrar a venda: ${erroVenda.message}`);
+
+  if (input.trade_in_avaliacao_id) {
+    await supabase
+      .from("avaliacoes_trade_in")
+      .update({ status: "convertido_venda", venda_id: venda.id })
+      .eq("id", input.trade_in_avaliacao_id);
+  }
 
   if (input.forma_pagamento === "misto" && input.pagamentos) {
     await supabase.from("venda_pagamentos").insert(

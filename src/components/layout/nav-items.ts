@@ -23,6 +23,7 @@ import {
   Sparkles,
   Settings,
   Bot,
+  Repeat,
 } from "lucide-react";
 import type { CargoUsuario } from "@/types";
 
@@ -69,6 +70,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
       { label: "Cotações", href: "/cotacoes", icon: Tags, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Catálogo de fotos", href: "/catalogo-fotos", icon: Camera, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Vendas", href: "/vendas", icon: ShoppingCart, cargos: ["admin", "gerente", "vendedor"] },
+      { label: "Trade-in", href: "/trade-in", icon: Repeat, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Assistência", href: "/assistencia", icon: Wrench, cargos: ["admin", "gerente", "tecnico"] },
     ],
   },

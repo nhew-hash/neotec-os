@@ -2,13 +2,13 @@
 
 import { useState, useTransition, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Plus, Minus, Search, UserPlus, Smartphone, Package, X, Gift, ShieldCheck, PackagePlus } from "lucide-react";
+import { Trash2, Plus, Minus, Search, UserPlus, Smartphone, Package, X, Gift, ShieldCheck, PackagePlus, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { finalizarVendaPDVAction, buscarSaldoCashbackAction } from "@/services/vendas/pdv.actions";
+import { finalizarVendaPDVAction, buscarSaldoCashbackAction, listarTradeInsAprovadosClienteAction } from "@/services/vendas/pdv.actions";
 import { criarClienteAction } from "@/services/clientes/clientes.actions";
 import { criarAparelhoRapidoVendaAction } from "@/services/estoque/estoque.actions";
 import { formatCurrency, getInitials } from "@/utils";
@@ -59,6 +59,8 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
   const [cashbackSaldo, setCashbackSaldo] = useState<number>(0);
   const [cashbackUtilizado, setCashbackUtilizado] = useState<number>(0);
   const [cashbackConcedido, setCashbackConcedido] = useState<number>(0);
+  const [tradeInsDisponiveis, setTradeInsDisponiveis] = useState<{ id: string; modeloNome: string; valor: number }[]>([]);
+  const [tradeInSelecionadoId, setTradeInSelecionadoId] = useState<string>("");
 
   // Modo de venda — "rápida" esconde a busca de aparelho (só
   // acessório/produto de giro rápido); "aparelho" mostra tudo,
@@ -116,12 +118,21 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
     if (!clienteId) {
       setCashbackSaldo(0);
       setCashbackUtilizado(0);
+      setTradeInsDisponiveis([]);
+      setTradeInSelecionadoId("");
       return;
     }
     buscarSaldoCashbackAction(clienteId).then((result) => {
       if (result.success) setCashbackSaldo(result.data.saldo);
     });
+    listarTradeInsAprovadosClienteAction(clienteId).then((result) => {
+      setTradeInsDisponiveis(result.success ? result.data : []);
+      setTradeInSelecionadoId("");
+    });
   }, [clienteId]);
+
+  const tradeInSelecionado = tradeInsDisponiveis.find((t) => t.id === tradeInSelecionadoId);
+  const tradeInValor = tradeInSelecionado?.valor ?? 0;
 
   const termoBusca = busca.trim().toLowerCase();
 
@@ -137,7 +148,7 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
   );
 
   const subtotal = useMemo(() => itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0), [itens]);
-  const total = Math.max(0, subtotal - desconto - cashbackUtilizado);
+  const total = Math.max(0, subtotal - desconto - cashbackUtilizado - tradeInValor);
 
   function adicionarAparelho(aparelho: AparelhoComProduto) {
     setItens((prev) => [
@@ -226,6 +237,7 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
         indicador_id: indicadorId || undefined,
         cashback_utilizado: cashbackUtilizado,
         cashback_concedido: cashbackConcedido,
+        trade_in_avaliacao_id: tradeInSelecionadoId || undefined,
         itens,
       };
       const result = await finalizarVendaPDVAction(payload);
@@ -570,6 +582,23 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
             </div>
           )}
 
+          {clienteId && tradeInsDisponiveis.length > 0 && (
+            <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
+              <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <Repeat className="h-3 w-3" />Trade-in aprovado
+              </p>
+              <Select value={tradeInSelecionadoId || "nenhum"} onValueChange={(v) => setTradeInSelecionadoId(v === "nenhum" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Não usar trade-in nessa venda" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nenhum">Não usar trade-in nessa venda</SelectItem>
+                  {tradeInsDisponiveis.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.modeloNome} — {formatCurrency(t.valor)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {clienteId && (
             <div className="flex flex-col gap-2 rounded-md border border-border p-3">
               <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
@@ -605,6 +634,12 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
               <div className="flex items-center justify-between text-muted-foreground">
                 <span>Cashback usado</span>
                 <span className="neotec-dado text-danger">-{formatCurrency(cashbackUtilizado)}</span>
+              </div>
+            )}
+            {tradeInValor > 0 && (
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Trade-in ({tradeInSelecionado?.modeloNome})</span>
+                <span className="neotec-dado text-danger">-{formatCurrency(tradeInValor)}</span>
               </div>
             )}
             <div className="flex items-center justify-between pt-1">

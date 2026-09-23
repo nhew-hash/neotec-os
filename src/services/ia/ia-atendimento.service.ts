@@ -1,5 +1,7 @@
 import { executarPromptIA } from "@/services/ia/ia.service";
 import { buscarPrecoParaAtendimento } from "./ia-atendimento-busca.service";
+import { buscarValorTrocaParaAtendimento, pareceInteressadoEmTroca, pareceQuererEntenderProcessoDeTroca } from "./ia-atendimento-trocas.service";
+import { montarTextoComoFuncionaTroca } from "@/services/trade-in/como-funciona";
 import type { WhatsappMensagem } from "@/types";
 
 export interface RespostaIAAtendimento {
@@ -48,6 +50,10 @@ REGRAS QUE VOCÊ NUNCA PODE QUEBRAR:
 
 5. Sempre que citar um preço, deixe claro que é o valor praticado no site da Neotec (neotecbrasil.com) — e se vier parcelamento junto no PREÇO ENCONTRADO, mencione também (ex: "R$ 2.999 à vista no site, ou em até 10x sem juros"). Isso reforça confiança e já direciona o cliente pra fechar por lá.
 
+6. Se o cliente perguntar quanto a Neotec paga/dá de troca por um aparelho dele: NUNCA invente um valor de troca. Se vier um "VALOR DE TROCA ENCONTRADO" nesta conversa, use exatamente esse número, deixando claro que é uma estimativa pro aparelho em ótimo estado e que o valor final depende de uma avaliação física (ex: "em ótimo estado, seu aparelho vale até R$X de troca — o valor final é confirmado quando trouxer pra avaliarmos"). Pode perguntar sobre o estado (tela, bateria, se liga normal) pra deixar a conversa mais completa, mas sem recalcular nada sozinha. Se vier "nenhum valor de troca encontrado", diga exatamente que esse aparelho precisa de uma avaliação da equipe pra informarem o valor, e marque confianca_baixa como true.
+
+7. Se o cliente perguntar COMO FUNCIONA a troca (o processo, as formas de pagamento, não só o valor), e vier um "COMO FUNCIONA A TROCA" nesta conversa, explique as 3 formas usando exatamente essas informações (pode resumir/adaptar o tom, mas sem inventar uma 4ª forma nem mudar as regras descritas). Termine perguntando qual das 3 formas faz mais sentido pra ela, ou oferecendo encaminhar pra equipe se preferir.
+
 CLASSIFICAÇÃO DE TEMPERATURA (campo temperatura):
 - "quente": cliente quer comprar, perguntou forma de pagamento, pediu pra reservar o aparelho, ou está comparando modelos ativamente pra decidir.
 - "morno": cliente está pesquisando, perguntando preço sem urgência, ainda avaliando.
@@ -81,7 +87,13 @@ export async function gerarRespostaAtendimento(input: {
   promptNegocio: string | null;
 }): Promise<RespostaIAAtendimento> {
   const termoBusca = extrairTermoBusca(input.mensagemCliente);
-  const precosEncontrados = termoBusca.length >= 2 ? await buscarPrecoParaAtendimento(termoBusca) : [];
+  const interessadoEmTroca = pareceInteressadoEmTroca(input.mensagemCliente);
+  const querEntenderProcesso = pareceQuererEntenderProcessoDeTroca(input.mensagemCliente);
+
+  const [precosEncontrados, valorTroca] = await Promise.all([
+    termoBusca.length >= 2 ? buscarPrecoParaAtendimento(termoBusca) : Promise.resolve([]),
+    interessadoEmTroca && termoBusca.length >= 2 ? buscarValorTrocaParaAtendimento(termoBusca) : Promise.resolve(null),
+  ]);
 
   const contextoPreco = precosEncontrados.length > 0
     ? `\nPREÇO ENCONTRADO (use exatamente estes dados, nunca outros, nunca arredonde — esse é o valor praticado no site neotecbrasil.com, sempre deixe isso claro pro cliente):\n${
@@ -93,13 +105,21 @@ export async function gerarRespostaAtendimento(input: {
         .join("\n")}`
     : "\nNenhum preço encontrado nas fontes disponíveis pra essa pergunta.";
 
+  const contextoTroca = !interessadoEmTroca
+    ? ""
+    : valorTroca
+      ? `\nVALOR DE TROCA ENCONTRADO (use exatamente este número, nunca outro): ${valorTroca.modelo} — até R$ ${valorTroca.valorEstimadoOtimoEstado.toFixed(2)} de troca, aparelho em ótimo estado (motor oficial de trade-in da Neotec).`
+      : `\nNenhum valor de troca encontrado nas fontes disponíveis pra essa pergunta.`;
+
+  const contextoComoFunciona = querEntenderProcesso ? `\nCOMO FUNCIONA A TROCA:\n${montarTextoComoFuncionaTroca()}` : "";
+
   const historicoTexto = input.historico
     .slice(-6)
     .map((m) => `${m.direcao === "entrada" ? "Cliente" : "Loja"}: ${m.conteudo}`)
     .join("\n");
 
   const prompt = `${historicoTexto ? `Histórico recente da conversa:\n${historicoTexto}\n\n` : ""}Mensagem nova do cliente: "${input.mensagemCliente}"
-${contextoPreco}`;
+${contextoPreco}${contextoTroca}${contextoComoFunciona}`;
 
   const resultado = await executarPromptIA({
     modulo: "atendimento",
