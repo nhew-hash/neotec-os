@@ -114,11 +114,7 @@ export async function statusJob(id: string): Promise<StatusJobScraperResposta> {
   return comRetry(async () => {
     const res = await fetchComTimeout(`/api/v1/jobs/${id}`, { method: "GET" }, 10000);
     if (!res.ok) throw new ScraperError(`Falha ao consultar status do job (HTTP ${res.status})`, res.status);
-    // A v1.15.0 do gosom devolve os campos com inicial maiúscula ("ID",
-    // "Status") — normaliza aqui pra quem chama sempre receber id/status.
-    const json = (await res.json()) as Record<string, unknown>;
-    const status = String(json.status ?? json.Status ?? "").toLowerCase();
-    return { id: String(json.id ?? json.ID ?? id), status };
+    return (await res.json()) as StatusJobScraperResposta;
   });
 }
 

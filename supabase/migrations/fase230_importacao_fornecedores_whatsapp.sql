@@ -268,39 +268,24 @@ create table if not exists import_execucoes (
 create index if not exists idx_import_execucoes_escopo on import_execucoes (fornecedor, tipo_lista, created_at desc);
 
 -- ============================================================================
--- 10) Terceira instância do Bridge (Baileys/WhatsApp Web) — só pra ler
---     as comunidades de fornecedor. Reaproveita `integracoes_whatsapp`
---     (fase22) em vez de criar tabela nova: mesmo shape (qr_code, status
---     de conexão) que a instância "loja" já usa. Precisa relaxar o
---     `unique(loja_id)` pra `unique(loja_id, provider)`, senão não dá
---     pra ter uma segunda linha (provider diferente) pra mesma loja.
+-- 10) [REMOVIDO na Fase 234] Terceira instância do Bridge só pra
+--     fornecedores. Decisão revista: em vez de subir uma instância nova
+--     (mais um número, mais um QR Code pra escanear), a importação
+--     automática reaproveita a MESMA instância/número já conectado no
+--     CRM (Bridge da loja) — as comunidades de fornecedor são grupos
+--     comuns do WhatsApp (`@g.us`), e o Bridge já lê grupo desde sempre
+--     (`PROCESSAR_GRUPOS=true`, ver Fase 234). Não precisa de linha nova
+--     em `integracoes_whatsapp` nem de valor novo no enum
+--     `whatsapp_provider_tipo` — ambos ficariam sem uso.
+--
+--     (Nota técnica de por que isso saiu daqui: `alter type ... add
+--     value` não pode ser usado na MESMA transação em que é criado —
+--     Postgres exige commit antes de usar o valor novo. O SQL Editor do
+--     Supabase roda o script colado inteiro numa transação só, então
+--     isso sempre ia quebrar ao rodar tudo de uma vez. Como a feature
+--     também não é mais necessária, a solução foi remover, não separar
+--     em duas transações.)
 -- ============================================================================
-
-alter type whatsapp_provider_tipo add value if not exists 'whatsapp_fornecedores';
-
-do $$
-declare
-  nome_constraint text;
-begin
-  select conname into nome_constraint
-  from pg_constraint
-  where conrelid = 'integracoes_whatsapp'::regclass
-    and contype = 'u'
-    and array_length(conkey, 1) = 1
-    and conkey[1] = (select attnum from pg_attribute where attrelid = 'integracoes_whatsapp'::regclass and attname = 'loja_id');
-  if nome_constraint is not null then
-    execute format('alter table integracoes_whatsapp drop constraint %I', nome_constraint);
-  end if;
-end $$;
-
-do $$ begin
-  alter table integracoes_whatsapp add constraint integracoes_whatsapp_loja_id_provider_key unique (loja_id, provider);
-exception when duplicate_table then null; -- constraint já existe (nome de índice único gerado) — idempotente
-end $$;
-
-insert into integracoes_whatsapp (loja_id, provider, status)
-select id, 'whatsapp_fornecedores', 'desconectado' from lojas
-on conflict (loja_id, provider) do nothing;
 
 -- ============================================================================
 -- 11) Colunas novas em `aparelhos`/`produtos` — SEM migrar dado

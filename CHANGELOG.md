@@ -4,6 +4,29 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 239] - Import dos 112 modelos + valores de troca (trade-in)
+
+A Fase 236 criou as tabelas e o catálogo de avarias do trade-in, mas
+não tinha importado os modelos e valores reais que vieram no briefing
+original (tabela da conta Neotec no QuantoPega, 22/09/2026). Sem isso
+a tela "Trade-in > Modelos" ficava vazia — precisava cadastrar tudo na
+mão pra avaliação funcionar de verdade.
+
+- 112 modelos (iPhone 8 Plus até iPhone 17 Pro Max 2TB) com valor base
+  de troca, agrupados por família (iPhone 15, iPhone 16, XS já incluindo
+  XS Max, SE 2020 e SE 2022 como famílias separadas, etc.)
+- 1.178 linhas de desconto por avaria/modelo — só os campos que a
+  tabela original tinha preenchido (campo vazio = avaria não se aplica
+  àquele modelo, não vira linha)
+- 4 avarias novas no catálogo pra bater com o detalhamento por peça da
+  tabela original: `traseira` (vidro traseiro), `notif_camera`,
+  `notif_bateria`, `notif_tela` (mais específicas que o `notif_peca`
+  genérico já existente)
+- São valores de PARTIDA — dá pra editar cada um na tela de Modelos
+  a qualquer momento, sem afetar avaliações já feitas (snapshot)
+- Migration 100% idempotente (`on conflict do nothing`): rodar de novo
+  nunca sobrescreve um valor que você já tiver ajustado manualmente
+
 ## [Fase 238] - Pagamento antecipado do trade-in, de verdade, no site
 
 Pedido do dono: a opção "pagamento antecipado" (Fase 237) deixou de só
