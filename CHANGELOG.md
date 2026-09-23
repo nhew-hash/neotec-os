@@ -4,6 +4,42 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 242] - Corrige itens "aplicados" mas ocultos/zerados no site + trava de cor em áudio
+
+Investigação de acompanhamento à Fase 241: a Fase 241 resolveu o
+travamento da lista inteira, mas o dono continuou vendo itens aplicados
+no banco (`import_execucoes.aplicado = true`) que não apareciam no
+site. Causa raiz real, achada com o Supabase/Vercel:
+
+- **A importação só escrevia no banco quando o preço mudava.** Itens
+  `semMudanca` (preço igual ao da lista anterior) nunca eram
+  retocados — então quando algo por fora zerou a quantidade de 55
+  variantes de lacrado (atualização em massa não rastreada, 23/09
+  00:12) ou o dono ocultou 39 perfumes manualmente, a importação
+  seguinte não corrigia isso de volta, porque pra ela "nada mudou"
+  naqueles itens. Ficavam escondidos/zerados pra sempre até o preço do
+  fornecedor mudar de novo.
+  - Corrigido: itens sem mudança de preço agora passam por
+    `reafirmarItemAtivo` — reaplica a mesma oferta/preço só pra
+    garantir que quantidade (lacrado) e visibilidade (produto
+    genérico/seminovo) batem com "está na lista mais recente do
+    fornecedor".
+- **Áudio/extras nunca aplicava nenhuma lista.** A trava de "cor não
+  identificada" contava caixa de som/cabo/fone (que legitimamente não
+  tem cor) como sinal de lista malformada e travava tudo, sempre.
+  Corrigido: essa trava específica agora ignora `tipoLista ===
+  "audio_extras"`; continua valendo normal pra iPhone/Android.
+- **Risco de mensagem "perdida" corrigido também**: a mensagem do
+  WhatsApp era marcada como processada ANTES de aplicar a lista — se
+  desse erro no meio, nunca seria tentada de novo mesmo reenviando.
+  Agora só marca como processada depois de aplicar com sucesso.
+- 2 testes novos (trava de cor por tipo de lista).
+- **Reparo pontual dos dados já afetados** (script separado, fora do
+  código): recalcula quantidade/preço de todas as variantes de lacrado
+  a partir das ofertas ativas de verdade, e reativa a visibilidade de
+  produtos que estão numa lista ativa do fornecedor mas ficaram
+  ocultos por engano.
+
 ## [Fase 241] - Corrige trava de segurança que travava listas seguidas da importação automática
 
 Bug relatado pelo dono (23/09/2026): "as primeiras lista rodou de boa,

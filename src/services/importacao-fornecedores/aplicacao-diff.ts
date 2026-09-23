@@ -164,8 +164,13 @@ export function avaliarTravasDeSeguranca(plano: PlanoAplicacao, itensAtivosAnter
     motivos.push(`Muitos descartes (${opcoes.descartados}) em relação aos itens aceitos (${opcoes.itensNovosValidos.length}).`);
   }
 
+  // "audio_extras" (caixa de som, cabo, fone etc.) frequentemente não
+  // tem cor nenhuma — isso é o normal do produto, não falha de parsing.
+  // Contar como sinal de lista malformada aqui travava TODA lista de
+  // áudio pra sempre (bug relatado pelo dono, 23/09/2026): nenhuma
+  // lista de audio_extras jamais foi aplicada por causa disso.
   const comCorDesconhecida = opcoes.itensNovosValidos.filter(
-    (i): i is ItemFlagado => "flags" in i && i.flags.includes("cor_nao_informada")
+    (i): i is ItemFlagado => "flags" in i && i.flags.includes("cor_nao_informada") && i.tipoLista !== "audio_extras"
   );
   if (comCorDesconhecida.length > 0) {
     motivos.push(`${comCorDesconhecida.length} item(ns) com cor não identificada (emoji desconhecido ou sem cor escrita).`);

@@ -85,17 +85,24 @@ export async function POST(request: NextRequest) {
     const fornecedor = fonte.fornecedor as Fornecedor;
     const processado = processarMensagemFornecedor(body.conteudo, fornecedor);
 
-    await admin.from("import_mensagens_processadas").insert({
-      id_externo: body.idExterno,
-      hash_conteudo: hashConteudo,
-      fonte_id: fonte.id,
-      grupo_id: body.grupoId,
-      autor: body.autor,
-    });
+    // Marca como processada só DEPOIS de aplicar com sucesso (ver mais
+    // abaixo) — se marcasse aqui e `aplicarListaFornecedor` explodisse no
+    // meio, a mensagem nunca seria tentada de novo mesmo reenviando a
+    // mesma lista (risco apontado na investigação de 23/09/2026).
+    const marcarMensagemProcessada = () =>
+      admin.from("import_mensagens_processadas").insert({
+        id_externo: body.idExterno,
+        hash_conteudo: hashConteudo,
+        fonte_id: fonte.id,
+        grupo_id: body.grupoId,
+        autor: body.autor,
+      });
 
     if (processado.classificacao !== "lista" || !processado.resultado || !processado.tipoLista) {
       // "ignorar" (comentário solto no grupo) ou "tipo_desconhecido" —
-      // não é lista, não faz nada, não precisa responder no grupo.
+      // não é lista, não faz nada, não precisa responder no grupo. Não
+      // tem nenhuma escrita arriscada aqui, então pode marcar direto.
+      await marcarMensagemProcessada();
       return NextResponse.json({ ok: true, classificacao: processado.classificacao });
     }
 
@@ -135,6 +142,10 @@ export async function POST(request: NextRequest) {
       snapshot_para_rollback: resultadoAplicacao.itensAtivosAnteriores,
       resumo_whatsapp: resumo,
     });
+
+    // Só marca como processada agora que aplicou (ou bloqueou de forma
+    // controlada) com sucesso — nada explodiu no meio.
+    await marcarMensagemProcessada();
 
     // Responde no próprio grupo — é o jeito do dono ver, sem precisar
     // abrir o sistema, que a lista chegou e o que mudou (ou por que não

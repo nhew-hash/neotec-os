@@ -465,6 +465,9 @@ export async function aplicarListaFornecedor(
   for (const antigo of plano.desativar) {
     await desativarItem(admin, antigo);
   }
+  for (const semMudanca of plano.semMudanca) {
+    await reafirmarItemAtivo(admin, semMudanca);
+  }
 
   return {
     aplicado: true,
@@ -561,4 +564,50 @@ async function desativarItem(admin: Admin, item: ItemArmazenado): Promise<void> 
 
   const { error } = await admin.from("import_itens_ativos").update({ ativo: false, desativado_em: new Date().toISOString() }).eq("id", item.id);
   if (error) throw new Error(`Falha ao desativar item ativo: ${error.message}`);
+}
+
+/**
+ * "Presença" — reafirma que um item de `semMudanca` (preço igual ao da
+ * última lista) continua ativo/visível, mesmo sem nenhuma mudança de
+ * preço pra disparar `atualizarPrecoItem`.
+ *
+ * Bug relatado pelo dono (23/09/2026): a importação só tocava no banco
+ * quando um item era novo, mudava de preço, ou saía da lista — itens
+ * "sem mudança" nunca eram reprocessados. Então quando algo por fora da
+ * importação zerava a quantidade de uma variante de lacrado (uma
+ * atualização em massa não rastreada) ou ocultava um produto
+ * manualmente (`visivel_loja = false`), a importação seguinte não
+ * corrigia isso de volta — pra ela, "nada mudou" naquele item, então
+ * nada era escrito. O item ficava pra sempre fora do site mesmo com
+ * `aplicado = true` em todas as listas seguintes, até o preço do
+ * fornecedor mudar de novo.
+ *
+ * Reaplica a MESMA oferta/preço (não muda nada visível pro cliente),
+ * só garante que o estado de "ativo no site" bate com "está na lista
+ * mais recente do fornecedor".
+ */
+async function reafirmarItemAtivo(admin: Admin, item: ItemArmazenado): Promise<void> {
+  const { data: linha, error: erroLeitura } = await admin
+    .from("import_itens_ativos")
+    .select("aparelho_ids, variante_lacrado_id, produto_id")
+    .eq("id", item.id)
+    .single();
+  if (erroLeitura) throw new Error(`Falha ao ler item ativo pra reafirmar presença: ${erroLeitura.message}`);
+
+  if (linha.variante_lacrado_id) {
+    // Reaplica a oferta com o preço que já estava — re-ativa se algo
+    // desativou por fora, e recalcula a quantidade a partir das ofertas
+    // ativas de novo (é exatamente isso que zerava as 55 variantes).
+    await aplicarOfertaLacrado(admin, item, linha.variante_lacrado_id);
+  } else if (linha.produto_id) {
+    const { error } = await admin.from("produtos").update({ visivel_loja: true }).eq("id", linha.produto_id);
+    if (error) throw new Error(`Falha ao reafirmar visibilidade do produto: ${error.message}`);
+  } else if (linha.aparelho_ids?.length) {
+    const { error } = await admin
+      .from("aparelhos")
+      .update({ disponivel_loja_virtual: true })
+      .in("id", linha.aparelho_ids)
+      .eq("status", "disponivel");
+    if (error) throw new Error(`Falha ao reafirmar disponibilidade dos aparelhos: ${error.message}`);
+  }
 }

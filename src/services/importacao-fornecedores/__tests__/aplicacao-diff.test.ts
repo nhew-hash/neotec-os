@@ -118,4 +118,18 @@ describe("avaliarTravasDeSeguranca — variação de preço retém só o item, n
     expect(travas.itensRetidos[0].id).toBe("id-variacao");
     expect(travas.motivosRetencao[0]).toMatch(/variação de preço/i);
   });
+
+  it("NÃO bloqueia lista de audio_extras por 'cor não identificada' — caixa de som/cabo/fone normalmente não tem cor", () => {
+    const semCor = { ...itemBase({ tipoLista: "audio_extras", modeloCanonico: "JBL Charge 5", cor: "Não informada" }), flags: ["cor_nao_informada"] };
+    const plano: PlanoAplicacao = { inserir: [semCor], atualizarPreco: [], desativar: [], semMudanca: [] };
+    const travas = avaliarTravasDeSeguranca(plano, [], { itensNovosValidos: [semCor], descartados: 0 });
+    expect(travas.bloqueado).toBe(false);
+  });
+
+  it("continua bloqueando por 'cor não identificada' em listas de celular (iphone/android)", () => {
+    const semCor = { ...itemBase({ tipoLista: "apple_lacrados", modeloCanonico: "iPhone 15", cor: "Não informada" }), flags: ["cor_nao_informada"] };
+    const plano: PlanoAplicacao = { inserir: [semCor], atualizarPreco: [], desativar: [], semMudanca: [] };
+    const travas = avaliarTravasDeSeguranca(plano, [], { itensNovosValidos: [semCor], descartados: 0 });
+    expect(travas.bloqueado).toBe(true);
+  });
 });
