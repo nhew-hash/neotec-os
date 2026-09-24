@@ -11,7 +11,7 @@ import {
   criarEstimativaSiteAction,
   escolherFormaCompraSiteAction,
 } from "@/services/loja/trade-in-wizard.actions";
-import { CHECKLIST_TRADE_IN } from "@/services/trade-in/checklist";
+import { CHECKLIST_TRADE_IN, OPCOES_TAMPA_TRASEIRA } from "@/services/trade-in/checklist";
 import { OPCOES_COMPRA_TROCA, type FormaCompraTroca } from "@/services/trade-in/como-funciona";
 import { salvarTradeInPendente } from "@/services/loja/trade-in-pendente";
 import { formatCurrency } from "@/utils";
@@ -58,6 +58,10 @@ export function TradeInWizard() {
   const [variante, setVariante] = useState<{ id: string; nome: string } | null>(null);
 
   const [respostas, setRespostas] = useState<Record<string, Resposta>>({});
+  // Fase 250 — estado da tampa traseira: pergunta própria, separada do
+  // checklist Sim/Não (4 opções mutuamente excludentes). Default "sem
+  // danos" — o cliente troca só se a traseira tiver algum problema.
+  const [tampaTraseiraId, setTampaTraseiraId] = useState<string>("sem_danos");
   const [bateriaSaude, setBateriaSaude] = useState<number | null>(null);
 
   const [resultado, setResultado] = useState<{ encontrado: boolean; valorEstimado?: number; bloqueado?: boolean; mensagem?: string } | null>(null);
@@ -107,12 +111,19 @@ export function TradeInWizard() {
     setEtapa("bateria");
   }
 
+  /** Códigos das perguntas Sim/Não + o código da tampa traseira escolhida (se houver). */
+  function montarCodigos(): string[] {
+    const codigos = new Set(PERGUNTAS_SITE.filter((p) => respostas[p.id] === "reprovado").flatMap((p) => p.avariasSeReprovado));
+    const codigoTraseira = OPCOES_TAMPA_TRASEIRA.find((o) => o.id === tampaTraseiraId)?.avariaCodigo;
+    if (codigoTraseira) codigos.add(codigoTraseira);
+    return [...codigos];
+  }
+
   function calcular() {
     if (!variante) return;
     setErro(null);
     setCarregando(true);
-    const codigos = PERGUNTAS_SITE.filter((p) => respostas[p.id] === "reprovado").flatMap((p) => p.avariasSeReprovado);
-    calcularEstimativaSiteAction({ modeloId: variante.id, avariasMarcadas: [...new Set(codigos)], bateriaSaude }).then((result) => {
+    calcularEstimativaSiteAction({ modeloId: variante.id, avariasMarcadas: montarCodigos(), bateriaSaude }).then((result) => {
       setCarregando(false);
       if (!result.success) return setErro(result.error);
       setResultado(result.data);
@@ -122,7 +133,7 @@ export function TradeInWizard() {
 
   function refazer() {
     setMarca(null); setFamilia(null); setVariante(null);
-    setRespostas({}); setBateriaSaude(null); setResultado(null); setAvaliacaoId(null);
+    setRespostas({}); setTampaTraseiraId("sem_danos"); setBateriaSaude(null); setResultado(null); setAvaliacaoId(null);
     setUsarNaCompra(false); setFormaAberta(null); setFormaEscolhida(null);
     setContatoNome(""); setContatoTelefone("");
     setEtapa("marca");
@@ -132,8 +143,7 @@ export function TradeInWizard() {
   async function garantirAvaliacaoCriada(): Promise<string | null> {
     if (avaliacaoId) return avaliacaoId;
     if (!variante) return null;
-    const codigos = PERGUNTAS_SITE.filter((p) => respostas[p.id] === "reprovado").flatMap((p) => p.avariasSeReprovado);
-    const result = await criarEstimativaSiteAction({ modeloId: variante.id, avariasMarcadas: [...new Set(codigos)], bateriaSaude });
+    const result = await criarEstimativaSiteAction({ modeloId: variante.id, avariasMarcadas: montarCodigos(), bateriaSaude });
     if (result.success && "id" in result.data && result.data.id) {
       setAvaliacaoId(result.data.id);
       setUsarNaCompra(true);
@@ -251,6 +261,20 @@ export function TradeInWizard() {
                 </div>
               ))}
             </div>
+
+            <p className="mt-1 text-sm font-medium text-foreground">E a tampa traseira, como está?</p>
+            <div className="flex flex-wrap gap-1.5">
+              {OPCOES_TAMPA_TRASEIRA.map((op) => (
+                <button
+                  key={op.id}
+                  onClick={() => setTampaTraseiraId(op.id)}
+                  className={`rounded-full px-3.5 py-2 text-xs font-medium transition-colors ${tampaTraseiraId === op.id ? "bg-primary text-white" : "bg-secondary text-muted-foreground"}`}
+                >
+                  {op.titulo}
+                </button>
+              ))}
+            </div>
+
             <button
               onClick={avancarParaBateria}
               disabled={PERGUNTAS_SITE.some((p) => !respostas[p.id])}

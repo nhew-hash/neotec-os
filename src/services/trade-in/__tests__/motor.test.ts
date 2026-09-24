@@ -121,4 +121,30 @@ describe("avaliarTradeIn", () => {
     expect(resultado.totalDescontos).toBe(500);
     expect(resultado.valorFinal).toBe(0);
   });
+
+  // Fase 250: "estado da tampa traseira" (4 níveis) não exigiu nenhuma
+  // mudança no motor — são só 2 códigos de avaria novos (marcas leves /
+  // marcas fortes) somando-se ao já existente 'traseira' (quebrada,
+  // Fase 239). O motor continua tratando cada um genericamente.
+  it("Fase 250: tampa traseira com marcas leves desconta o valor configurado, sem bloquear", () => {
+    const modeloComTraseira: ModeloTradeIn = {
+      ...modelo,
+      avariasDisponiveis: [...modelo.avariasDisponiveis, { codigo: "traseira_marcas_leves", nome: "Traseira — marcas leves", desconto: 60, bloqueia: false }],
+    };
+    const resultado = avaliarTradeIn(modeloComTraseira, config, { avariasMarcadas: ["traseira_marcas_leves"], bateriaSaude: 90 });
+    expect(resultado.totalDescontos).toBe(60);
+    expect(resultado.valorFinal).toBe(1940);
+    expect(resultado.bloqueado).toBe(false);
+  });
+
+  it("Fase 250: tampa traseira quebrada (código 'traseira', reaproveitado da Fase 239) desconta sem bloquear", () => {
+    const modeloComTraseira: ModeloTradeIn = {
+      ...modelo,
+      avariasDisponiveis: [...modelo.avariasDisponiveis, { codigo: "traseira", nome: "Traseira quebrada", desconto: 200, bloqueia: false }],
+    };
+    const resultado = avaliarTradeIn(modeloComTraseira, config, { avariasMarcadas: ["traseira"], bateriaSaude: 90 });
+    expect(resultado.totalDescontos).toBe(200);
+    expect(resultado.valorFinal).toBe(1800);
+    expect(resultado.bloqueado).toBe(false);
+  });
 });

@@ -36,10 +36,14 @@ export function BlocoCategorias() {
             key={c.valor}
             href={hrefCategoria(c.valor)}
             style={{ animationDelay: `${i * 60}ms` }}
-            className="animate-reveal-up flex flex-col items-center gap-2.5 rounded-2xl border border-border bg-card py-9 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:shadow-md"
+            className="animate-reveal-up flex flex-col items-center gap-2.5 rounded-2xl border border-border bg-card px-2 py-9 text-center transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:shadow-md"
           >
             <span className="text-3xl">{c.emoji}</span>
-            <span className="text-sm font-medium text-foreground">{c.label}</span>
+            {/* Fase 250: rótulos longos ("Eletrônicos e Mobilidade") em células de 2
+                colunas no mobile quebravam em 2-3 linhas com altura desigual entre
+                vizinhos — `line-clamp-2` + fonte um pouco menor no mobile resolve
+                sem esconder nenhuma categoria. */}
+            <span className="line-clamp-2 text-xs font-medium leading-snug text-foreground sm:text-sm">{c.label}</span>
           </Link>
         ))}
       </div>

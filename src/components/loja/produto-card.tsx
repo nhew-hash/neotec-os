@@ -61,8 +61,12 @@ export function ProdutoCard({ produto, maisVendido, ultimasUnidades }: ProdutoCa
         </div>
         <div className="flex flex-col gap-1.5 p-4">
           <BadgesProduto selosManuais={produto.selos_manuais} maisVendido={maisVendido} ultimasUnidades={ultimasUnidades} />
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{labelCategoria(produto.categoria)}</span>
-          <span className="text-base font-semibold leading-snug text-foreground">{produto.nome}</span>
+          <span className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{labelCategoria(produto.categoria)}</span>
+          {/* Fase 250: `line-clamp-2` com altura mínima reservada — nome de seminovo
+              costuma ser longo ("iPhone 13 Pro Max 256GB Grafite Seminovo Excelente")
+              e sem isso cada card crescia até uma altura diferente, desalinhando a
+              grade entre vizinhos (2 colunas no mobile). */}
+          <span className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug text-foreground sm:text-base">{produto.nome}</span>
           {produto.preco_venda != null && (
             <>
               <span className="text-xs font-medium text-muted-foreground">A partir de</span>

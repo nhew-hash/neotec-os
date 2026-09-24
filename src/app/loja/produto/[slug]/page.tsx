@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Wrench, ArrowRight, Repeat } from "lucide-react";
+import { Wrench, ArrowRight } from "lucide-react";
 import { buscarProdutoLojaPorSlug, listarAparelhosDisponiveisLoja } from "@/services/loja/loja-publica.service";
 import { obterConfigMarketingPublico, contarVendasRealDoProduto, contarEstoqueRealDoProduto } from "@/services/marketing/marketing-publico.service";
 import { ProdutoPdpCliente } from "@/components/loja/produto-pdp-cliente";
@@ -8,6 +8,7 @@ import { BadgesProduto, AvisoEstoque } from "@/components/loja/badges-e-economia
 import { FaixaSelosConfianca } from "@/components/loja/faixa-selos-confianca";
 import { RegistrarVisto, VistosRecentesLista } from "@/components/loja/vistos-recentes";
 import { labelCategoria } from "@/components/loja/categorias";
+import { CtaTradeIn } from "@/components/loja/cta-trade-in";
 
 // Mesmo motivo das páginas de lacrado — estoque nunca pode ficar em cache.
 export const revalidate = 0;
@@ -51,17 +52,14 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
         }
         conteudoDepois={
           <>
-            {produto.mostrar_trade_in && (
-              <Link
-                href="/loja/trade-in"
-                className="flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
-              >
-                <div className="flex items-center gap-3">
-                  <Repeat className="h-4 w-4 shrink-0 text-primary" />
-                  <p className="text-xs font-medium text-foreground">Tem um aparelho pra dar de entrada? Avalie o seu agora</p>
-                </div>
-                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary" />
-              </Link>
+            {/* iPhone Seminovo (categoria "iphone"): CTA específico e sempre visível — é
+                justamente aqui que faz mais sentido o cliente pensar em dar o usado como
+                parte do pagamento (Fase 250). Outros produtos mantêm o comportamento de
+                antes, controlado pelo toggle manual `mostrar_trade_in` do Central de Cadastro. */}
+            {produto.categoria === "iphone" ? (
+              <CtaTradeIn texto="Dê seu iPhone como parte do pagamento" />
+            ) : (
+              produto.mostrar_trade_in && <CtaTradeIn />
             )}
 
             {produto.descricao_loja && (

@@ -77,3 +77,16 @@
   border: 1px solid hsl(220 13% 88%);
   color: hsl(220 9% 40%);
 }
+
+/* Fase 250 — menu de categorias da loja: em telas de notebook (~1024–1366px)
+   os itens não cabem mais numa linha rígida sem quebrar/espremer. Em vez de
+   diminuir fonte ou remover categoria, o menu rola horizontalmente com essa
+   classe escondendo a barra de rolagem (mantém o scroll funcional, só tira
+   o visual "feio" da barra). */
+.neotec-scroll-x {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.neotec-scroll-x::-webkit-scrollbar {
+  display: none;
+}

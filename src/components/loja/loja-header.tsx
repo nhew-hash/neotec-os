@@ -15,8 +15,8 @@ export function LojaHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/90 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <div className="flex items-center gap-8">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
+        <div className="flex min-w-0 items-center gap-6">
           <Link href="/loja" className="flex shrink-0 items-center gap-2">
             {logoFalhou ? (
               <>
@@ -34,22 +34,26 @@ export function LojaHeader() {
             )}
           </Link>
 
-          <nav className="hidden items-center gap-6 lg:flex">
-            <Link href="/loja/encontre-seu-iphone" className="flex items-center gap-1 text-sm font-semibold text-primary">
+          {/* Fase 250: rola horizontalmente em vez de espremer/quebrar os rótulos —
+              12 itens não cabem numa linha rígida nem em telas de notebook
+              (~1024–1366px). `whitespace-nowrap` em cada item garante que o rótulo
+              nunca quebra "no meio"; quem quiser ver o resto, arrasta ou usa o mouse. */}
+          <nav className="neotec-scroll-x hidden min-w-0 items-center gap-5 overflow-x-auto lg:flex">
+            <Link href="/loja/encontre-seu-iphone" className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-semibold text-primary">
               <Sparkles className="h-3.5 w-3.5" />Encontre seu iPhone ideal
             </Link>
             {CATEGORIAS_LOJA.map((c) => (
-              <Link key={c.valor} href={hrefCategoria(c.valor)} className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
+              <Link key={c.valor} href={hrefCategoria(c.valor)} className="shrink-0 whitespace-nowrap text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
                 {c.label}
               </Link>
             ))}
-            <Link href="/loja/trade-in" className="flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
+            <Link href="/loja/trade-in" className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
               <Repeat className="h-3.5 w-3.5" />Troque seu usado
             </Link>
           </nav>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <BuscaLoja />
           <Link href="/portal/login" className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-secondary" title="Minha conta">
             <User className="h-5 w-5 text-foreground" />
@@ -69,7 +73,7 @@ export function LojaHeader() {
       </div>
 
       {menuAberto && (
-        <nav className="flex flex-col border-t border-black/[0.06] bg-white px-4 py-2 lg:hidden">
+        <nav className="flex max-h-[70vh] flex-col overflow-y-auto border-t border-black/[0.06] bg-white px-4 py-2 lg:hidden">
           <Link href="/loja/encontre-seu-iphone" className="flex items-center gap-1.5 py-2.5 text-sm font-semibold text-primary" onClick={() => setMenuAberto(false)}>
             <Sparkles className="h-4 w-4" />Encontre seu iPhone ideal
           </Link>

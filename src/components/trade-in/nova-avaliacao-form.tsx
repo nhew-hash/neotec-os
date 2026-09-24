@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { CHECKLIST_TRADE_IN, avariasDoChecklist } from "@/services/trade-in/checklist";
+import { CHECKLIST_TRADE_IN, avariasDoChecklist, OPCOES_TAMPA_TRASEIRA } from "@/services/trade-in/checklist";
 import { calcularPreviaTradeInAction, criarAvaliacaoAction } from "@/services/trade-in/trade-in.actions";
 import type { TrocaModeloComAvarias } from "@/services/trade-in/aplicacao.service";
 import type { ResultadoAvaliacaoTradeIn } from "@/services/trade-in/motor";
@@ -22,6 +22,10 @@ export function NovaAvaliacaoForm({ modelos }: { modelos: TrocaModeloComAvarias[
   const [busca, setBusca] = useState("");
   const [modeloId, setModeloId] = useState<string | null>(null);
   const [respostas, setRespostas] = useState<Record<string, Resposta>>({});
+  // Fase 250 — estado da tampa traseira: seleção única entre as 4 opções,
+  // separado do resto do checklist (que é OK/Reprovado). Default "sem
+  // danos" (nenhuma avaria marcada) até o funcionário escolher outra coisa.
+  const [tampaTraseiraId, setTampaTraseiraId] = useState<string>("sem_danos");
   const [bateriaSaude, setBateriaSaude] = useState("");
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTelefone, setClienteTelefone] = useState("");
@@ -45,12 +49,20 @@ export function NovaAvaliacaoForm({ modelos }: { modelos: TrocaModeloComAvarias[
     setBusca(modelo?.nome ?? "");
   }
 
+  /** Códigos do checklist OK/Reprovado + o código da tampa traseira escolhida (se houver). */
+  function montarCodigos(): string[] {
+    const codigos = new Set(avariasDoChecklist(respostas));
+    const codigoTraseira = OPCOES_TAMPA_TRASEIRA.find((o) => o.id === tampaTraseiraId)?.avariaCodigo;
+    if (codigoTraseira) codigos.add(codigoTraseira);
+    return [...codigos];
+  }
+
   function calcular() {
     setErro(null);
     if (!modeloSelecionado) return setErro("Selecione o modelo do aparelho");
 
     startTransition(async () => {
-      const codigos = avariasDoChecklist(respostas);
+      const codigos = montarCodigos();
       const result = await calcularPreviaTradeInAction({
         modeloId: modeloSelecionado.id,
         avariasMarcadas: codigos,
@@ -67,7 +79,7 @@ export function NovaAvaliacaoForm({ modelos }: { modelos: TrocaModeloComAvarias[
     if (!modeloSelecionado) return setErro("Selecione o modelo do aparelho");
 
     startTransition(async () => {
-      const codigos = avariasDoChecklist(respostas);
+      const codigos = montarCodigos();
       const result = await criarAvaliacaoAction({
         origem: "neotec_os",
         modeloId: modeloSelecionado.id,
@@ -114,6 +126,23 @@ export function NovaAvaliacaoForm({ modelos }: { modelos: TrocaModeloComAvarias[
       {modeloSelecionado && (
         <Card>
           <CardContent className="flex flex-col gap-5 p-4">
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Estado da tampa traseira</p>
+              <div className="flex flex-wrap gap-1.5">
+                {OPCOES_TAMPA_TRASEIRA.map((op) => (
+                  <Button
+                    key={op.id}
+                    type="button"
+                    size="sm"
+                    variant={tampaTraseiraId === op.id ? (op.id === "quebrada" ? "destructive" : "default") : "outline"}
+                    onClick={() => setTampaTraseiraId(op.id)}
+                  >
+                    {op.titulo}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
             {CHECKLIST_TRADE_IN.map((grupo) => (
               <div key={grupo.grupo} className="flex flex-col gap-2">
                 <p className="text-xs font-semibold uppercase text-muted-foreground">{grupo.grupo}</p>

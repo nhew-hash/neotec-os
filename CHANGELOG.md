@@ -4,6 +4,81 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 250] - Correções e melhorias do site (Trade-in, iPhone, categorias, mobile, cupons)
+
+Primeira leva de correções em cima da estrutura atual (sem reconstrução),
+a partir do prompt de correções do site. Prioridade: mobile funcional,
+Trade-in, compra de iPhone + Trade-in, cupons no mobile, organização
+visual das categorias.
+
+**1. Novo critério de avaliação: estado da tampa traseira (Trade-in).**
+Já existia uma avaria binária `traseira` (Fase 239, "vidro trincado ou
+quebrado"). Adicionados os 2 níveis intermediários que faltavam — hoje
+são 4 estados: Sem danos (nenhuma avaria) / Marcas leves / Marcas fortes
+/ Quebrada (reaproveita o código `traseira` já existente, preservando o
+histórico de avaliações antigas). Como o motor (`motor.ts`) já soma
+genericamente qualquer avaria marcada, **nenhuma mudança no motor foi
+necessária** — só 2 códigos novos no catálogo (`troca_avarias`) e a
+avaliação de valor por modelo semeada proporcionalmente ao desconto já
+cadastrado pra "quebrada" (o admin pode ajustar depois em Trade-in >
+Tabela de valores). A escolha é seleção única (mutuamente excludente),
+exposta como uma pergunta própria — separada do checklist genérico
+OK/Reprovado — tanto no formulário do cliente (site) quanto no do
+funcionário (Neotec OS). O resultado entra automaticamente em
+`avarias_marcadas` da avaliação, então já aparece no painel de
+aprovação do funcionário e não muda nada no bot (que já usa o mesmo
+motor).
+- Migração: `fase250_trade_in_tampa_traseira.sql`.
+- `src/services/trade-in/checklist.ts`: nova constante `OPCOES_TAMPA_TRASEIRA`.
+- `src/components/trade-in/nova-avaliacao-form.tsx` e
+  `src/components/loja/trade-in-wizard.tsx`: nova seção de seleção.
+
+**2. Botão "Dê seu iPhone como parte do pagamento".** Nas páginas de
+iPhone Lacrado e iPhone Seminovo, logo abaixo do bloco de compra, agora
+sempre aparece esse CTA (antes, no seminovo, dependia de um toggle
+manual por produto) apontando pro **mesmo** fluxo de avaliação de
+Trade-in já existente (`/loja/trade-in`) — nenhum sistema novo.
+Extraído um componente `CtaTradeIn` reutilizado nas duas páginas (e nos
+demais produtos, que mantêm o texto genérico e o toggle de antes).
+
+**3. Organização visual das categorias (menu da loja).** O menu
+desktop tinha 12 itens numa linha rígida sem quebra nem scroll —
+estourava já em telas de notebook (~1024–1366px), não só no celular.
+Agora o menu rola horizontalmente (com a barra de rolagem escondida) em
+vez de espremer ou quebrar os rótulos no meio — nenhuma categoria foi
+removida ou renomeada. O painel mobile ganhou um teto de altura
+(`max-h-[70vh]` com scroll interno) pra não empurrar demais o conteúdo
+da página.
+
+**4. Cupons no mobile (painel admin).** O formulário de criar cupom
+tinha um grid de 2 colunas fixo mesmo no celular, deixando o Select de
+"Cashback" (rótulo longo) ilegível — virou 1 coluna no mobile. Também
+foi adicionado o campo de validade (`Válido até`), que a action já
+aceitava mas não estava exposto na UI. Na listagem, o card de cada
+cupom agora empilha texto/ações em telas pequenas (antes ficava tudo
+espremido lado a lado) e a informação, antes uma única string longa
+concatenada com "·", virou spans próprios que quebram de forma legível.
+
+**5. Cards de produto e categorias da home.** Nome do produto sem
+`truncate`/`line-clamp` fazia os cards da grade (2 colunas no mobile)
+crescerem em alturas diferentes entre vizinhos — agora usa
+`line-clamp-2` com altura mínima reservada. Rótulos longos de categoria
+na home ("Eletrônicos e Mobilidade") também ganharam `line-clamp-2`.
+
+**Não coberto nesta fase** (fica pra uma próxima leva, se quiser
+priorizar): auditoria completa página a página do mobile (login,
+cadastro, área do cliente, checkout, demais painéis do admin —
+produtos, pedidos, clientes, vendas, estoque, configurações); a
+listagem de produtos por categoria não tem UI de filtro nenhuma hoje
+(nem tinha antes) — não foi criada uma agora, por não ter sido pedido
+explicitamente e por ser funcionalidade nova, não correção.
+
+Sem mudança em classificação automática de produtos, sem novo sistema
+de cupom, sem novo Trade-in, sem novo cálculo de avaliação — só
+correções em cima do que já existia, como pedido. `tsc --noEmit` e
+`vitest run` passando (224/224 — 8 testes novos: tampa traseira no
+motor e no checklist).
+
 ## [Fase 249] - Ajustes na importação em lote do Banco de Imagens (após rodar em produção)
 
 Depois que a importação em lote da Fase 247 rodou de verdade em produção

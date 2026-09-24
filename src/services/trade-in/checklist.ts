@@ -79,6 +79,30 @@ export const CHECKLIST_TRADE_IN: GrupoChecklistTradeIn[] = [
 
 export const CHECKLIST_TRADE_IN_TOTAL = CHECKLIST_TRADE_IN.reduce((soma, grupo) => soma + grupo.itens.length, 0);
 
+export interface OpcaoTampaTraseira {
+  id: string;
+  titulo: string;
+  /** Código de `troca_avarias` marcado quando esta opção é escolhida — `null` = "Sem danos", nenhuma avaria. */
+  avariaCodigo: string | null;
+}
+
+/**
+ * Fase 250 — critério próprio pra "estado da tampa traseira", separado
+ * do item genérico `riscos_carcaca` (que continua cobrindo carcaça e
+ * laterais). É seleção única (as 4 opções são mutuamente excludentes —
+ * um aparelho só está em UM desses estados), diferente do resto do
+ * checklist (que é OK/Reprovado por item). Os códigos já existem no
+ * catálogo de avarias (Fase 250: `traseira_marcas_leves`/`_fortes`;
+ * Fase 239: `traseira` = quebrada) — nenhuma mudança no motor foi
+ * necessária, ele já soma qualquer avaria marcada genericamente.
+ */
+export const OPCOES_TAMPA_TRASEIRA: OpcaoTampaTraseira[] = [
+  { id: "sem_danos", titulo: "Sem danos", avariaCodigo: null },
+  { id: "marcas_leves", titulo: "Marcas leves", avariaCodigo: "traseira_marcas_leves" },
+  { id: "marcas_fortes", titulo: "Marcas fortes", avariaCodigo: "traseira_marcas_fortes" },
+  { id: "quebrada", titulo: "Quebrada", avariaCodigo: "traseira" },
+];
+
 /** Converte respostas do checklist ({itemId: 'ok'|'reprovado'}) na lista de códigos de avaria a marcar no motor. */
 export function avariasDoChecklist(respostas: Record<string, "ok" | "reprovado">): string[] {
   const codigos = new Set<string>();
