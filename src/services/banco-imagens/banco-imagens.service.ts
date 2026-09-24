@@ -5,6 +5,9 @@ import {
   normalizar,
   resolverGrupo,
   equivalentesPadraoParaCor,
+  marcaBate,
+  modeloBate,
+  corBate,
   type GrupoParaCorrespondencia,
 } from "./correspondencia";
 
@@ -145,6 +148,7 @@ export interface RelatorioVinculacao {
 interface CandidatoProduto {
   id: string;
   nome: string;
+  modelo: string | null;
   marca: string | null;
   banco_imagens_grupo_id: string | null;
 }
@@ -201,7 +205,7 @@ export async function vincularGrupos(
   const relatorio: RelatorioVinculacao = { vinculados: 0, jaVinculados: 0, ambiguos: [], semGrupo: [], vinculadosDetalhe: [] };
 
   // --- Produtos (genéricos + seminovo pai) ---
-  const { data: produtosRaw } = await supabase.from("produtos").select("id, nome, marca, banco_imagens_grupo_id");
+  const { data: produtosRaw } = await supabase.from("produtos").select("id, nome, modelo, marca, banco_imagens_grupo_id");
   const produtos = (produtosRaw ?? []) as CandidatoProduto[];
   for (const p of produtos) {
     const jaVinculado = !!p.banco_imagens_grupo_id;
@@ -209,7 +213,11 @@ export async function vincularGrupos(
       relatorio.jaVinculados++;
       continue;
     }
-    const resultado = resolverGrupo({ marca: p.marca, modelo: p.nome, cor: null }, todosOsGrupos);
+    // Fase 249: compara com `nome` E `modelo` (quando preenchido) — em
+    // produção, itens genéricos batiam certinho pelo nome mas nunca
+    // vinculavam porque a correspondência só olhava um campo.
+    const candidatosDeNome = p.modelo ? [p.nome, p.modelo] : p.nome;
+    const resultado = resolverGrupo({ marca: p.marca, modelo: candidatosDeNome, cor: null }, todosOsGrupos);
     if (resultado.status === "vinculado") {
       if (grupoIdsAlvo && !grupoIdsAlvo.has(resultado.grupoId)) continue;
       if (jaVinculado && resultado.grupoId === p.banco_imagens_grupo_id) { relatorio.jaVinculados++; continue; }
@@ -290,6 +298,151 @@ export async function vincularGrupos(
 export async function revincularTudo(opts: { forcar?: boolean; dryRun?: boolean } = {}): Promise<RelatorioVinculacao> {
   const supabase = await createClient();
   return vincularGrupos(supabase, null, { forcar: opts.forcar ?? false, dryRun: opts.dryRun ?? false });
+}
+
+export interface ResumoVinculacaoGrupo {
+  vinculos: { produtos: number; aparelhos: number; lacrados: number };
+  ambiguos: ItemAmbiguo[];
+}
+
+/** Reformata um `RelatorioVinculacao` (que é sobre TODO o catálogo) em contagens por grupo — mesmo formato usado por `/lote/status`, pra padronizar a resposta de `/lote/confirmar` e `/lote/revincular`. */
+export function resumoVinculacaoPorGrupo(relatorio: RelatorioVinculacao, grupoIds: string[]): Record<string, ResumoVinculacaoGrupo> {
+  const resumo: Record<string, ResumoVinculacaoGrupo> = {};
+  for (const id of grupoIds) resumo[id] = { vinculos: { produtos: 0, aparelhos: 0, lacrados: 0 }, ambiguos: [] };
+
+  for (const v of relatorio.vinculadosDetalhe) {
+    const bucket = resumo[v.grupoId];
+    if (!bucket) continue;
+    if (v.tipo === "produto") bucket.vinculos.produtos++;
+    else if (v.tipo === "aparelho") bucket.vinculos.aparelhos++;
+    else bucket.vinculos.lacrados++;
+  }
+  for (const a of relatorio.ambiguos) {
+    for (const candidatoId of a.candidatos) {
+      resumo[candidatoId]?.ambiguos.push(a);
+    }
+  }
+  return resumo;
+}
+
+/** Remove (zera) o vínculo de todos os itens que hoje apontam pra algum dos grupos informados — usado por `/lote/revincular` com `forcar: true`, antes de rodar a correspondência de novo do zero. */
+export async function removerVinculosDeGrupos(supabase: SupabaseClient, grupoIds: string[]): Promise<void> {
+  if (grupoIds.length === 0) return;
+  const [{ error: e1 }, { error: e2 }, { error: e3 }] = await Promise.all([
+    supabase.from("produtos").update({ banco_imagens_grupo_id: null }).in("banco_imagens_grupo_id", grupoIds),
+    supabase.from("aparelhos").update({ banco_imagens_grupo_id: null }).in("banco_imagens_grupo_id", grupoIds),
+    supabase.from("catalogo_lacrados_variantes").update({ banco_imagens_grupo_id: null }).in("banco_imagens_grupo_id", grupoIds),
+  ]);
+  const erro = e1 ?? e2 ?? e3;
+  if (erro) throw new Error(`Falha ao remover vínculos antigos: ${erro.message}`);
+}
+
+// ---------------------------------------------------------------------------
+// Fase 249 — mesclagem de grupos antigos (criados antes da importação em
+// lote, sem `origem_id`, com cor simplificada) nos grupos novos
+// equivalentes. Move os vínculos e apaga o grupo antigo (fotos saem em
+// cascata; arquivos do Storage do grupo antigo podem ficar órfãos).
+// ---------------------------------------------------------------------------
+
+export interface GrupoMesclado {
+  antigoId: string;
+  novoOrigemId: string;
+  vinculosMovidos: number;
+}
+
+export interface GrupoNaoMesclado {
+  antigoId: string;
+  marca: string;
+  modelo: string;
+  cor: string | null;
+  motivo: "sem_grupo_novo_compativel" | "ambiguo";
+  candidatos: string[];
+}
+
+export interface RelatorioMesclagem {
+  mesclados: GrupoMesclado[];
+  naoMesclados: GrupoNaoMesclado[];
+}
+
+async function contarOuMoverVinculos(
+  supabase: SupabaseClient,
+  tabela: "produtos" | "aparelhos" | "catalogo_lacrados_variantes",
+  antigoId: string,
+  novoId: string,
+  dryRun: boolean
+): Promise<number> {
+  if (dryRun) {
+    const { count } = await supabase.from(tabela).select("id", { count: "exact", head: true }).eq("banco_imagens_grupo_id", antigoId);
+    return count ?? 0;
+  }
+  const { count, error } = await supabase.from(tabela).update({ banco_imagens_grupo_id: novoId }, { count: "exact" }).eq("banco_imagens_grupo_id", antigoId);
+  if (error) throw new Error(`Falha ao mover vínculos de "${tabela}": ${error.message}`);
+  return count ?? 0;
+}
+
+/**
+ * Acha, pra cada grupo antigo (sem `origem_id`, criados pela tela
+ * "Importar pasta" antes da carga em lote), o(s) grupo(s) novo(s)
+ * (com `origem_id`) do MESMO modelo cuja cor bate — direto ou via
+ * `cores_equivalentes` do novo. Só mescla quando existe exatamente 1
+ * candidato; 0 ou 2+ ficam listados em `naoMesclados` pra decisão manual.
+ * `dryRun: true` calcula tudo (inclusive quantos vínculos seriam
+ * movidos) sem gravar nada.
+ */
+export async function mesclarGruposAntigos(supabase: SupabaseClient, dryRun: boolean): Promise<RelatorioMesclagem> {
+  const { data: todosOsGrupos, error } = await supabase
+    .from("banco_imagens_grupos")
+    .select("id, marca, modelo, cor, origem_id, cores_equivalentes, modelos_equivalentes");
+  if (error) throw new Error(`Falha ao carregar grupos: ${error.message}`);
+
+  const antigos = (todosOsGrupos ?? []).filter((g) => !g.origem_id);
+  const novos: GrupoParaCorrespondencia[] = (todosOsGrupos ?? [])
+    .filter((g) => g.origem_id)
+    .map((g) => ({
+      id: g.id, marca: g.marca, modelo: g.modelo, cor: g.cor,
+      coresEquivalentes: g.cores_equivalentes ?? [], modelosEquivalentes: g.modelos_equivalentes ?? [],
+    }));
+  const origemIdPorNovoId = new Map((todosOsGrupos ?? []).filter((g) => g.origem_id).map((g) => [g.id, g.origem_id as string]));
+
+  const relatorio: RelatorioMesclagem = { mesclados: [], naoMesclados: [] };
+
+  for (const antigo of antigos) {
+    // Grupo antigo sem cor (produto genérico "padrão") não é o caso
+    // deste problema — esses passam a vincular direto por modelo
+    // (Fase 249, problema 4), não por duplicidade de cor equivalente.
+    if (!antigo.cor) continue;
+
+    const candidatos = novos.filter(
+      (novo) => marcaBate(antigo.marca, novo.marca) && modeloBate(antigo.modelo, novo) && corBate(antigo.cor as string, novo)
+    );
+
+    if (candidatos.length === 0) {
+      relatorio.naoMesclados.push({ antigoId: antigo.id, marca: antigo.marca, modelo: antigo.modelo, cor: antigo.cor, motivo: "sem_grupo_novo_compativel", candidatos: [] });
+      continue;
+    }
+    if (candidatos.length > 1) {
+      relatorio.naoMesclados.push({
+        antigoId: antigo.id, marca: antigo.marca, modelo: antigo.modelo, cor: antigo.cor, motivo: "ambiguo",
+        candidatos: candidatos.map((c) => origemIdPorNovoId.get(c.id) ?? c.id),
+      });
+      continue;
+    }
+
+    const novo = candidatos[0];
+    const vinculosMovidos =
+      (await contarOuMoverVinculos(supabase, "produtos", antigo.id, novo.id, dryRun)) +
+      (await contarOuMoverVinculos(supabase, "aparelhos", antigo.id, novo.id, dryRun)) +
+      (await contarOuMoverVinculos(supabase, "catalogo_lacrados_variantes", antigo.id, novo.id, dryRun));
+
+    if (!dryRun) {
+      const { error: erroDelete } = await supabase.from("banco_imagens_grupos").delete().eq("id", antigo.id);
+      if (erroDelete) throw new Error(`Falha ao apagar grupo antigo "${antigo.id}": ${erroDelete.message}`);
+    }
+
+    relatorio.mesclados.push({ antigoId: antigo.id, novoOrigemId: origemIdPorNovoId.get(novo.id) ?? novo.id, vinculosMovidos });
+  }
+
+  return relatorio;
 }
 
 // ---------------------------------------------------------------------------

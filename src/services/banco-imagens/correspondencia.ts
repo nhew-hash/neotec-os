@@ -27,7 +27,8 @@ export interface GrupoParaCorrespondencia {
 
 export interface ItemParaCorrespondencia {
   marca: string | null;
-  modelo: string;
+  /** Nome pra comparar com o modelo do grupo. Aceita mais de um candidato (Fase 249: `produtos.nome` E `produtos.modelo`, quando preenchido) — basta UM bater. */
+  modelo: string | string[];
   cor: string | null;
 }
 
@@ -41,34 +42,55 @@ const MARCAS_EQUIVALENTES: Record<string, string> = {
   poco: "xiaomi",
 };
 
-/** Sem acento, minúsculo, trim, espaços/hífens/underscores unificados — "Titânio-preto" e "titanio  preto" viram a mesma string. */
+/**
+ * "Marcas" que na prática significam "marca não preenchida direito" —
+ * cadastradas assim na importação de fornecedor (perfume genérico,
+ * lacrado sem marca real informada) e que NUNCA podem bloquear um
+ * vínculo por marca (Fase 249, problema real em produção: todos os
+ * perfumes tinham `marca = "Não informada"` e nunca vinculavam com o
+ * grupo real, ex: "Lattafa"). Comparação sempre normalizada.
+ */
+const MARCAS_CURINGA = new Set(["", "nao informada", "outra", "outras", "generica", "generico", "sem marca", "n/a"]);
+
+function ehMarcaCuringa(marca: string | null | undefined): boolean {
+  return MARCAS_CURINGA.has(normalizar(marca));
+}
+
+/**
+ * Sem acento, minúsculo, trim, espaços/hífens/underscores unificados —
+ * "Titânio-preto" e "titanio  preto" viram a mesma string. Também
+ * remove espaço entre letra e número em qualquer direção ("JBL Go4" =
+ * "JBL Go 4", "Kit Mandarin Sky 4pcs" = "KIT MANDARIN SKY 4 PCS") —
+ * aplicado sempre nos dois lados de qualquer comparação, então
+ * modelos genuinamente diferentes continuam distintos entre si.
+ */
 export function normalizar(texto: string | null | undefined): string {
   if (!texto) return "";
-  return texto
+  const base = texto
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .trim()
     .replace(/[-_]+/g, " ")
     .replace(/\s+/g, " ");
+  return base.replace(/([a-z])\s+(?=\d)/g, "$1").replace(/(\d)\s+(?=[a-z])/g, "$1");
 }
 
-/** Compara marca com normalização e trata Xiaomi como equivalente de Redmi/POCO (sub-marcas vendidas como se fossem a própria Xiaomi no estoque). Item sem marca informada não bloqueia o match (produtos sem marca cadastrada). */
+/** Compara marca com normalização e trata Xiaomi como equivalente de Redmi/POCO (sub-marcas vendidas como se fossem a própria Xiaomi no estoque). Marca "curinga" (vazia, "Não informada", "Outra", "Genérica", "N/A"...) de qualquer um dos dois lados nunca bloqueia o match — só marca REAL diferente bloqueia. */
 export function marcaBate(marcaItem: string | null, marcaGrupo: string): boolean {
-  if (!marcaItem) return true;
-  const a = normalizar(marcaItem);
-  const b = normalizar(marcaGrupo);
-  const canonA = MARCAS_EQUIVALENTES[a] ?? a;
-  const canonB = MARCAS_EQUIVALENTES[b] ?? b;
+  if (ehMarcaCuringa(marcaItem) || ehMarcaCuringa(marcaGrupo)) return true;
+  const canonA = MARCAS_EQUIVALENTES[normalizar(marcaItem)] ?? normalizar(marcaItem);
+  const canonB = MARCAS_EQUIVALENTES[normalizar(marcaGrupo)] ?? normalizar(marcaGrupo);
   return canonA === canonB;
 }
 
-/** Match EXATO de modelo — nome do produto igual ao modelo do grupo OU a algum modelo_equivalente. Nunca "contém". */
-export function modeloBate(nomeProduto: string, grupo: GrupoParaCorrespondencia): boolean {
-  const nome = normalizar(nomeProduto);
-  if (!nome) return false;
-  if (nome === normalizar(grupo.modelo)) return true;
-  return (grupo.modelosEquivalentes ?? []).some((m) => normalizar(m) === nome);
+/** Match EXATO de modelo — algum dos nomes candidatos do produto (nome e, quando houver, modelo) igual ao modelo do grupo OU a algum modelo_equivalente. Nunca "contém". */
+export function modeloBate(nomeProduto: string | string[], grupo: GrupoParaCorrespondencia): boolean {
+  const candidatos = (Array.isArray(nomeProduto) ? nomeProduto : [nomeProduto]).map(normalizar).filter(Boolean);
+  if (candidatos.length === 0) return false;
+  const modeloGrupo = normalizar(grupo.modelo);
+  const equivalentes = (grupo.modelosEquivalentes ?? []).map(normalizar);
+  return candidatos.some((c) => c === modeloGrupo || equivalentes.includes(c));
 }
 
 /** Match de uma cor simples (já sem "/") contra a cor oficial do grupo ou suas equivalentes. */

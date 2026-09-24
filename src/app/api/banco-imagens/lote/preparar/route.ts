@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   for (const grupo of parsed.data.grupos) {
     try {
       let grupoId: string;
-      let acao: "criado" | "atualizado" | "simulado";
+      let acao: "criado" | "atualizado" | "adotado" | "simulado";
 
       if (dryRun) {
         grupoId = "dry-run";
@@ -75,9 +75,13 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        // `upsert: true` — sem isso, reenviar uma foto pra um caminho
+        // que já existe (reimportação/correção de um grupo) falha com
+        // "The resource already exists" e a importação em lote deixa
+        // de ser idempotente (Fase 249, problema real em produção).
         const { data: assinada, error: erroAssinatura } = await admin.storage
           .from(BUCKET_BANCO_IMAGENS)
-          .createSignedUploadUrl(caminhoStorage);
+          .createSignedUploadUrl(caminhoStorage, { upsert: true });
         if (erroAssinatura || !assinada) {
           throw new Error(`Falha ao gerar URL de upload para "${foto.arquivo}": ${erroAssinatura?.message ?? "erro desconhecido"}`);
         }

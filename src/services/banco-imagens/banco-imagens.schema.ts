@@ -55,3 +55,9 @@ export const confirmarLoteSchema = z.object({
     .min(1, "Informe pelo menos 1 grupo"),
 });
 export type ConfirmarLoteValues = z.infer<typeof confirmarLoteSchema>;
+
+export const revincularLoteSchema = z.object({
+  origem_ids: z.array(z.string().min(1)).min(1, "Informe pelo menos 1 origem_id"),
+  forcar: z.boolean().optional().default(false),
+});
+export type RevincularLoteValues = z.infer<typeof revincularLoteSchema>;

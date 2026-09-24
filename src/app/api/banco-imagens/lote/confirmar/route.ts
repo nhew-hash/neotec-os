@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { confirmarLoteSchema } from "@/services/banco-imagens/banco-imagens.schema";
 import { autenticarRequisicaoLote, obterLojaIdParaLote, BUCKET_BANCO_IMAGENS } from "@/services/banco-imagens/banco-imagens-lote.service";
-import { vincularGrupos } from "@/services/banco-imagens/banco-imagens.service";
+import { vincularGrupos, resumoVinculacaoPorGrupo } from "@/services/banco-imagens/banco-imagens.service";
 
 /**
  * POST /api/banco-imagens/lote/confirmar — segundo passo da importação
@@ -60,17 +60,22 @@ export async function POST(request: NextRequest) {
         throw new Error(`Grupo com origem_id "${grupoConfirmar.origem_id}" não existe — rode /preparar antes de /confirmar.`);
       }
 
-      // Confere que cada arquivo de fato chegou no Storage antes de
-      // mexer em qualquer linha do banco.
+      // Confere que TODO arquivo de fato chegou no Storage antes de
+      // mexer em qualquer linha do banco — lista TODOS os que
+      // faltarem de uma vez (não só o primeiro) e não altera nada
+      // neste grupo se algum estiver faltando. Fase 249: já houve caso
+      // em produção de um `/confirmar` com caminho inexistente ser
+      // aceito e apagar fotos reais — essa checagem é a primeira coisa
+      // que roda, antes de qualquer gravação ou remoção.
       const { data: arquivosNoBucket, error: erroList } = await admin.storage.from(BUCKET_BANCO_IMAGENS).list(`banco-imagens/${grupo.id}`);
       if (erroList) throw new Error(`Falha ao consultar o Storage: ${erroList.message}`);
       const nomesNoBucket = new Set((arquivosNoBucket ?? []).map((f) => f.name));
 
-      for (const foto of grupoConfirmar.fotos) {
-        const nomeArquivo = foto.caminho_storage.split("/").pop() ?? "";
-        if (!nomesNoBucket.has(nomeArquivo)) {
-          throw new Error(`Arquivo "${foto.caminho_storage}" não foi encontrado no Storage — confirme que o upload pra URL assinada terminou antes de chamar /confirmar.`);
-        }
+      const faltando = grupoConfirmar.fotos
+        .map((f) => f.caminho_storage)
+        .filter((caminho) => !nomesNoBucket.has(caminho.split("/").pop() ?? ""));
+      if (faltando.length > 0) {
+        throw new Error(`Arquivo(s) não encontrado(s) no Storage: ${faltando.join(", ")} — confirme que o upload pra URL assinada terminou antes de chamar /confirmar. Nada foi alterado neste grupo.`);
       }
 
       const { data: existentes } = await admin.from("banco_imagens_fotos").select("id, caminho_storage").eq("grupo_id", grupo.id);
@@ -79,19 +84,25 @@ export async function POST(request: NextRequest) {
       const paraRemover = (existentes ?? []).filter((f) => f.caminho_storage && !novosCaminhos.has(f.caminho_storage));
 
       if (!dryRun) {
-        if (paraRemover.length > 0) {
-          await admin.storage.from(BUCKET_BANCO_IMAGENS).remove(paraRemover.map((f) => f.caminho_storage!));
-          await admin.from("banco_imagens_fotos").delete().in("id", paraRemover.map((f) => f.id));
-        }
-
+        // Grava as fotos NOVAS primeiro — só depois de tudo gravado com
+        // sucesso é que as antigas que saíram da lista são apagadas.
+        // Ordem importa: se algo falhar no meio da gravação, as fotos
+        // antigas (ainda válidas) continuam intactas.
         for (const foto of grupoConfirmar.fotos) {
           const url = `${supabaseUrl}/storage/v1/object/public/${BUCKET_BANCO_IMAGENS}/${foto.caminho_storage}`;
           const idExistente = existentesPorCaminho.get(foto.caminho_storage);
           if (idExistente) {
-            await admin.from("banco_imagens_fotos").update({ tipo: foto.tipo, ordem: foto.ordem, url }).eq("id", idExistente);
+            const { error } = await admin.from("banco_imagens_fotos").update({ tipo: foto.tipo, ordem: foto.ordem, url }).eq("id", idExistente);
+            if (error) throw new Error(`Falha ao atualizar foto "${foto.caminho_storage}": ${error.message}`);
           } else {
-            await admin.from("banco_imagens_fotos").insert({ grupo_id: grupo.id, tipo: foto.tipo, ordem: foto.ordem, url, caminho_storage: foto.caminho_storage });
+            const { error } = await admin.from("banco_imagens_fotos").insert({ grupo_id: grupo.id, tipo: foto.tipo, ordem: foto.ordem, url, caminho_storage: foto.caminho_storage });
+            if (error) throw new Error(`Falha ao gravar foto "${foto.caminho_storage}": ${error.message}`);
           }
+        }
+
+        if (paraRemover.length > 0) {
+          await admin.storage.from(BUCKET_BANCO_IMAGENS).remove(paraRemover.map((f) => f.caminho_storage!));
+          await admin.from("banco_imagens_fotos").delete().in("id", paraRemover.map((f) => f.id));
         }
       }
 
@@ -111,16 +122,20 @@ export async function POST(request: NextRequest) {
     relatorioVinculacao = await vincularGrupos(admin, grupoIdsConfirmados, { forcar: false, dryRun });
   }
 
+  // Fase 249: formato de `vinculos` padronizado igual ao de
+  // `/lote/status` ({ produtos, aparelhos, lacrados }) — antes vinha
+  // como lista, num formato que não somava com o do /status.
+  const resumo = relatorioVinculacao ? resumoVinculacaoPorGrupo(relatorioVinculacao, grupoIdsConfirmados) : {};
+
   const grupos = Object.entries(resultadoGrupos).map(([origemId, info]) => {
     if (info.erro) return { origem_id: origemId, erro: info.erro };
-    const vinculos = relatorioVinculacao?.vinculadosDetalhe.filter((v) => v.grupoId === info.grupoId) ?? [];
-    const ambiguos = relatorioVinculacao?.ambiguos.filter((a) => a.candidatos.includes(info.grupoId)) ?? [];
+    const ambiguos = resumo[info.grupoId]?.ambiguos ?? [];
     return {
       origem_id: origemId,
       grupo_id: info.grupoId,
       fotos_gravadas: info.fotosGravadas,
       fotos_removidas: info.fotosRemovidas,
-      vinculos: vinculos.map((v) => ({ tipo: v.tipo, id: v.id, nome: v.nome })),
+      vinculos: resumo[info.grupoId]?.vinculos ?? { produtos: 0, aparelhos: 0, lacrados: 0 },
       ambiguos: ambiguos.map((a) => ({ tipo: a.tipo, id: a.id, nome: a.nome, cor: a.cor, candidatos: a.candidatos })),
     };
   });

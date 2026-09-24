@@ -498,11 +498,25 @@ export default function CheckoutPage() {
               cartão pra sempre, mesmo com o texto acima mostrando o
               valor certo. Por isso só monta quando totalCartao já
               está resolvido.
+
+              Fase 248: cupom (e cashback/frete, que também mudam
+              `totalComDesconto`) fazem `totalCartaoValido` cair pra
+              false até o valor ser recalculado — esse bloco some da
+              árvore e volta, desmontando e remontando o Brick. Sem
+              `key`, a segunda montagem reusa a MESMA instância React
+              (só o container DOM some/volta) e o SDK do Mercado Pago
+              trava sem nunca disparar `onReady` de novo, deixando o
+              spinner "Carregando formulário seguro..." preso pra
+              sempre — era exatamente o bug reportado ("cupom trava o
+              cartão"). `key={totalCartaoBase}` força uma remontagem
+              de verdade (nó DOM novo) sempre que um valor novo e já
+              resolvido chega — mesma técnica já usada abaixo, no 2º
+              pagamento do trade-in, com `tentativaCartaoTroca`.
             */}
             {metodo === "cartao" && publicKey && totalCartaoValido && totalFinal > 0 && (
               <>
                 <p className="rounded-lg bg-secondary/60 p-2.5 text-[11px] text-muted-foreground">Parcelamento em mais de uma vez pode ter acréscimo — o valor final de cada opção aparece na confirmação, antes de você concluir o pagamento.</p>
-                <CardPaymentBrick publicKey={publicKey} valor={totalFinal} onSubmit={handlePagarCartao} onErro={setErro} />
+                <CardPaymentBrick key={totalCartaoBase} publicKey={publicKey} valor={totalFinal} onSubmit={handlePagarCartao} onErro={setErro} />
               </>
             )}
             {metodo === "cartao" && publicKey && (!totalCartaoValido || totalFinal <= 0) && <p className="text-sm text-muted-foreground">Carregando valor do pedido...</p>}

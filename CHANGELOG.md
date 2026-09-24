@@ -4,6 +4,127 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 249] - Ajustes na importação em lote do Banco de Imagens (após rodar em produção)
+
+Depois que a importação em lote da Fase 247 rodou de verdade em produção
+(237/240 grupos criados, 1056 fotos, 62 aparelhos + 62 lacrados
+vinculados), 6 problemas concretos apareceram. Todos corrigidos:
+
+**1. Grupo antigo (pré-lote) disputando com grupo novo equivalente.**
+Grupos criados antes da carga em lote (sem `origem_id`, cor
+simplificada — "iPhone 13 Branco" em vez de "Estelar") ou colidem de
+frente com o grupo novo idêntico (erro de chave duplicada — casos reais:
+IPHONE14PLUS-ROXO, IPHONE15-PRETO, IPHONE16E-PRETO) ou disputam o mesmo
+aparelho como ambíguo quando a cor é só equivalente, não idêntica (6
+casos reais).
+- `POST /api/banco-imagens/lote/preparar`: quando não existe grupo com
+  aquele `origem_id` mas existe um grupo antigo com marca+modelo+cor+
+  armazenamento EXATAMENTE iguais, o grupo antigo é **adotado**
+  (atualizado com o `origem_id` e o resto dos metadados) em vez de
+  tentar inserir e colidir com a constraint única.
+- `POST /api/banco-imagens/lote/mesclar-antigos` (Bearer, `?dry_run=1`):
+  varre os grupos antigos com cor equivalente (não idêntica) e mescla no
+  grupo novo — só quando existe exatamente 1 candidato; 0 ou 2+ ficam
+  listados em `nao_mesclados` pra decisão manual. Move os vínculos
+  (produtos/aparelhos/lacrados) e apaga o grupo antigo.
+- Botão "Mesclar antigos" em `/estoque/banco-imagens`, com prévia
+  (dry-run) antes de aplicar.
+
+**2. Reenviar uma foto pro mesmo caminho falhava.** `createSignedUploadUrl`
+sem `{ upsert: true }` não é idempotente — corrigir e reenviar uma foto
+pra um `caminho_storage` que já existe respondia "The resource already
+exists". Adicionado `{ upsert: true }`.
+
+**3. Revincular nunca desfazia um vínculo errado.** Um grupo reenviado
+com `modelos_equivalentes` corrigidos (caso real: lacrado "Poco C81 Pro"
+tinha "roubado" o vínculo do grupo `POCOC81-PRETO`) continuava com o
+vínculo velho, porque a revinculação nunca sobrescreve vínculo
+existente por design. `POST /api/banco-imagens/lote/revincular` (Bearer,
+`?dry_run=1`), body `{ origem_ids: [...], forcar: true }`: com `forcar`,
+primeiro REMOVE o vínculo de tudo que aponta pros grupos informados e
+só depois roda a correspondência de novo (pega tanto os grupos
+informados quanto qualquer item que ficou solto).
+
+**4 e 6. `produtos` nunca recebiam vínculo, mesmo com nome idêntico.**
+`vinculos.produtos = 0` em todos os 237 grupos de produção. Duas causas,
+ambas em `src/services/banco-imagens/correspondencia.ts`:
+- A comparação de modelo só olhava `produtos.nome`, nunca
+  `produtos.modelo` — agora `modeloBate`/`ItemParaCorrespondencia.modelo`
+  aceitam uma LISTA de candidatos (nome E modelo, quando preenchido),
+  basta um bater.
+- `marcaBate` bloqueava em cima de valores "curinga" que na prática
+  significam "marca não preenchida" — perfumes com `marca = "Não
+  informada"` nunca batiam com o grupo real ("Lattafa"), lacrados com
+  `marca = "Outra"` (Redmi 15C, Poco C85, Poco X8 Pro, Apple Watch
+  Series 11) ou `"Genérica"` (Tablet Infantil) nunca vinculavam. Esses
+  valores (e variações: "Nao informada", "Outras", "Genérico", "Sem
+  marca", "N/A", vazio) agora nunca bloqueiam a comparação, de nenhum
+  dos dois lados — marca REAL diferente continua bloqueando
+  normalmente.
+- `normalizar()` também passou a ignorar espaço entre letra e dígito
+  adjacentes ("JBL Go4" = "JBL Go 4", "KIT MANDARIN SKY 4PCS" = "Kit
+  Mandarin Sky 4pcs"), nos dois sentidos, sem criar falsa colisão entre
+  modelos genuinamente diferentes.
+
+**5. `/confirmar` apagava fotos reais quando um arquivo não existia.**
+Um `caminho_storage` inexistente foi aceito e a rota apagou fotos de
+verdade do grupo IPHONE14-MEIANOITE (corrigido manualmente reenviando).
+Agora: (a) confere TODOS os `caminho_storage` no Storage ANTES de
+alterar qualquer coisa — se algum faltar, lista todos os que faltam e
+não mexe em nada daquele grupo; (b) as fotos novas são gravadas
+primeiro, e só depois de tudo gravado com sucesso é que as antigas que
+saíram da lista são removidas do Storage/banco — uma falha no meio não
+deixa mais o grupo pior do que estava.
+
+**Ajuste**: `vinculos` no `/confirmar` agora usa o mesmo formato
+padronizado do `/status` e do novo `/revincular`:
+`{ produtos: number, aparelhos: number, lacrados: number }` por grupo
+(antes vinha como lista, num formato que não somava com o `/status`).
+
+Sem migração nova. `tsc --noEmit` e `vitest run` passando (216/216 — 16
+testes novos: marca curinga, `produtos.nome`/`modelo`, espaço
+letra-dígito, mesclagem de grupo antigo com cor equivalente/ambígua,
+adoção de grupo antigo idêntico).
+
+## [Fase 248] - Cupom travando o formulário de cartão no checkout
+
+**Bug relatado**: no checkout da loja, ao aplicar um cupom com o método
+"cartão" selecionado, o formulário de cartão (Card Payment Brick do
+Mercado Pago) ficava preso para sempre em "Carregando formulário
+seguro...".
+
+**Causa raiz** (`src/app/loja/checkout/page.tsx`): o valor cobrado no
+cartão usa o motor de precificação, recalculado via Server Action toda
+vez que `totalComDesconto` muda (cupom, cashback e frete alimentam essa
+variável). Enquanto recalcula, `totalCartaoValido` fica `false` e o
+JSX condicional que renderiza `<CardPaymentBrick>` some da árvore;
+quando o recálculo termina, o bloco volta e o Brick é montado de novo
+— só que como uma instância React SEM `key`, então era a MESMA
+instância "voltando", com o container DOM reaproveitado. O SDK do
+Mercado Pago trava nesse cenário e nunca dispara `onReady` de novo, e
+`carregando` (que só é desligado dentro desse callback) fica preso em
+`true` pra sempre.
+
+O próprio código já tinha a correção certa aplicada em outro lugar (2º
+pagamento do trade-in, `key={tentativaCartaoTroca}`), com comentário
+explícito de que o Brick "só aceita remontar do zero" — só não tinha
+sido replicada no fluxo principal.
+
+**Correção:**
+- `<CardPaymentBrick key={totalCartaoBase} .../>` no fluxo principal —
+  força uma remontagem de verdade (nó DOM novo) toda vez que um valor
+  novo e já resolvido chega do motor de precificação, em vez de reusar
+  a instância antiga. Mesmo efeito colateral também podia ser
+  disparado por cashback ou troca de frete — corrigido junto, mesma
+  causa.
+- `src/components/loja/card-payment-brick.tsx`: cleanup defensivo no
+  `useEffect` chamando `controller.unmount?.()` quando o componente
+  desmonta de verdade (a API do Brick oficial expõe isso; opcional
+  porque nem toda versão do SDK garante o método) — evita deixar uma
+  instância órfã presa ao SDK.
+
+Sem migração. `tsc --noEmit` e `vitest run` passando (200/200).
+
 ## [Fase 247.1] - Libera a API de lote do Banco de Imagens no middleware
 
 As rotas da Fase 247 (`/api/banco-imagens/lote/preparar|confirmar|status`)

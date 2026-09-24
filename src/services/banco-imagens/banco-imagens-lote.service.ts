@@ -52,7 +52,35 @@ export function caminhoStorageLote(grupoId: string, origemId: string, ordem: num
 
 interface ResultadoUpsertGrupo {
   id: string;
-  acao: "criado" | "atualizado";
+  acao: "criado" | "atualizado" | "adotado";
+}
+
+/**
+ * Acha um grupo ANTIGO (criado pela tela "Importar pasta", antes da
+ * carga em lote — por isso `origem_id` nulo) com exatamente a mesma
+ * marca+modelo+cor+armazenamento do grupo que está chegando agora.
+ *
+ * Existe porque a constraint única de `banco_imagens_grupos` é em
+ * (loja_id, marca, modelo, cor, armazenamento) — sem essa checagem, o
+ * INSERT de um grupo novo com a mesma combinação de um antigo batia de
+ * frente com essa constraint (`duplicate key ...`), já visto em
+ * produção com IPHONE14PLUS-ROXO, IPHONE15-PRETO, IPHONE16E-PRETO.
+ * `armazenamento` é sempre null nos grupos da importação em lote.
+ */
+async function encontrarGrupoAntigoParaAdotar(admin: SupabaseClient, lojaId: string, grupo: GrupoLoteValues): Promise<string | null> {
+  let query = admin
+    .from("banco_imagens_grupos")
+    .select("id")
+    .eq("loja_id", lojaId)
+    .is("origem_id", null)
+    .eq("marca", grupo.marca)
+    .eq("modelo", grupo.modelo)
+    .is("armazenamento", null);
+  query = grupo.cor === null ? query.is("cor", null) : query.eq("cor", grupo.cor);
+
+  const { data, error } = await query.maybeSingle();
+  if (error) throw new Error(`Falha ao procurar grupo antigo pra adotar: ${error.message}`);
+  return data?.id ?? null;
 }
 
 /**
@@ -62,6 +90,13 @@ interface ResultadoUpsertGrupo {
  * como alvo de `ON CONFLICT` quando a cláusula repete o mesmo predicado
  * — o cliente supabase-js não permite isso. Fazer manual evita esse
  * problema e é o mesmo padrão já usado em `encontrarOuNulo()`.
+ *
+ * Fase 249: quando não existe grupo com esse `origem_id` ainda, mas
+ * existe um grupo ANTIGO idêntico em marca+modelo+cor+armazenamento
+ * (sem `origem_id`), adota esse grupo em vez de tentar inserir um novo
+ * — evita o erro de chave duplicada e já resolve, de graça, o caso em
+ * que a cor do grupo antigo era EXATAMENTE igual à nova (cor
+ * equivalente diferente é resolvido à parte, por `/lote/mesclar-antigos`).
  */
 export async function upsertGrupoPorOrigemId(admin: SupabaseClient, lojaId: string, grupo: GrupoLoteValues): Promise<ResultadoUpsertGrupo> {
   const { data: existente, error: erroBusca } = await admin
@@ -90,6 +125,13 @@ export async function upsertGrupoPorOrigemId(admin: SupabaseClient, lojaId: stri
     const { error } = await admin.from("banco_imagens_grupos").update(payload).eq("id", existente.id);
     if (error) throw new Error(`Falha ao atualizar grupo "${grupo.origem_id}": ${error.message}`);
     return { id: existente.id, acao: "atualizado" };
+  }
+
+  const antigoId = await encontrarGrupoAntigoParaAdotar(admin, lojaId, grupo);
+  if (antigoId) {
+    const { error } = await admin.from("banco_imagens_grupos").update(payload).eq("id", antigoId);
+    if (error) throw new Error(`Falha ao adotar grupo antigo "${antigoId}" para "${grupo.origem_id}": ${error.message}`);
+    return { id: antigoId, acao: "adotado" };
   }
 
   const { data: novo, error } = await admin.from("banco_imagens_grupos").insert(payload).select("id").single();

@@ -3,11 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
+interface BrickController {
+  unmount?: () => void;
+}
+
 declare global {
   interface Window {
     MercadoPago: new (publicKey: string, options?: { locale?: string }) => {
       bricks: () => {
-        create: (tipo: string, containerId: string, config: Record<string, unknown>) => Promise<unknown>;
+        create: (tipo: string, containerId: string, config: Record<string, unknown>) => Promise<BrickController | undefined>;
       };
     };
   }
@@ -38,6 +42,7 @@ const CONTAINER_ID = "cardPaymentBrick_container";
  */
 export function CardPaymentBrick({ publicKey, valor, onSubmit, onErro }: CardPaymentBrickProps) {
   const carregado = useRef(false);
+  const controllerRef = useRef<BrickController | undefined>(undefined);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -61,7 +66,7 @@ export function CardPaymentBrick({ publicKey, valor, onSubmit, onErro }: CardPay
       const mp = new window.MercadoPago(publicKey, { locale: "pt-BR" });
       const bricksBuilder = mp.bricks();
 
-      await bricksBuilder.create("cardPayment", CONTAINER_ID, {
+      controllerRef.current = await bricksBuilder.create("cardPayment", CONTAINER_ID, {
         initialization: { amount: valor },
         customization: {
           visual: { style: { theme: "default" } },
@@ -81,6 +86,14 @@ export function CardPaymentBrick({ publicKey, valor, onSubmit, onErro }: CardPay
     }
 
     montar().catch((err) => onErro(err instanceof Error ? err.message : "Erro ao carregar o formulário de cartão"));
+
+    // Desliga o Brick anterior quando o componente desmonta de verdade
+    // (troca de `key`, saída da tela) — sem isso a instância antiga
+    // fica "presa" ao container e uma remontagem seguinte (mesmo com
+    // `key` novo/nó DOM novo) corre risco de disputar estado interno
+    // do SDK com a instância órfã. Defensivo: nem toda versão do Brick
+    // expõe `unmount`, por isso o optional chaining.
+    return () => controllerRef.current?.unmount?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

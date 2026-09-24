@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
 import { identificarPasta, type IdentificacaoPasta } from "./banco-imagens-ia.service";
 import {
   buscarGrupoExistente,
@@ -12,8 +13,10 @@ import {
   atualizarEquivalentesGrupo,
   reordenarFotosGrupo,
   vincularManualmente,
+  mesclarGruposAntigos,
   type GrupoImagem,
   type RelatorioVinculacao,
+  type RelatorioMesclagem,
   type GrupoListado,
   type FiltrosGrupos,
   type DetalheGrupo,
@@ -129,5 +132,23 @@ export async function vincularManualmenteAction(tipo: "produto" | "aparelho" | "
     return { success: true, data: null };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao vincular" };
+  }
+}
+
+// Fase 249, problema 1: grupos criados antes da importação em lote (sem
+// origem_id, cor simplificada) competem com os grupos novos equivalentes.
+// `dryRun: true` só calcula o que SERIA mesclado, pra mostrar uma prévia
+// antes do usuário confirmar.
+export async function mesclarGruposAntigosAction(dryRun = true): Promise<ActionResult<RelatorioMesclagem>> {
+  try {
+    const supabase = await createClient();
+    const resultado = await mesclarGruposAntigos(supabase, dryRun);
+    if (!dryRun) {
+      revalidatePath("/estoque");
+      revalidatePath("/loja", "layout");
+    }
+    return { success: true, data: resultado };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao mesclar grupos antigos" };
   }
 }
