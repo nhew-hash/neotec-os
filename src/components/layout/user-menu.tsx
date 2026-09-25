@@ -28,8 +28,16 @@ export function UserMenu({ nome, email, cargo }: UserMenuProps) {
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    // Navega só no próximo frame, depois que o Radix termina de fechar o
+    // menu (o `pointer-events: none` que ele aplica no <body> enquanto o
+    // DropdownMenu está aberto precisa ser desfeito ANTES da navegação
+    // desmontar o topbar/menu — se a navegação corta esse ciclo no meio,
+    // em mobile isso pode deixar o <body> travado com pointer-events:
+    // none pra sempre, mesmo depois de trocar de página).
+    requestAnimationFrame(() => {
+      router.push("/login");
+      router.refresh();
+    });
   }
 
   return (

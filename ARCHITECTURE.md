@@ -198,3 +198,51 @@ tocou em Button, Input, Select, Badge (já estavam consistentes e não
 foram apontados como problema) nem redesenhou telas inteiras — refinar a
 base compartilhada por component reuso já eleva o sistema inteiro de uma
 vez, sem o risco de uma reescrita tela por tela.
+
+## Fase 252 — NeoLoc (Milestone 2: camada de negócio, sem MDM real ainda)
+
+### Por que NeoLoc não recriou contrato/parcelas/régua de cobrança
+Antes de escrever qualquer tabela nova, a análise (feita em resposta ao
+prompt do módulo, antes de tocar em código) achou que o Neotec OS já tem
+praticamente todo o "cérebro" de negócio que o NeoLoc pedia: `contratos`
+(Fase 205, com `frequencia_pagamento`, `numero_pagamentos`,
+`tem_opcao_aquisicao`) e `crediario_parcelas`/`crediario_regua_cobranca`
+(Fase 206, com `dias_atraso` e uma régua de cobrança configurável por
+`dias_offset`) já modelam contrato de locação com opção de aquisição e
+inadimplência configurável. Recriar isso do zero seria duplicar
+exatamente o que a Fase 22 do prompt do NeoLoc pedia pra não duplicar.
+O NeoLoc só lê esse estado (via `neoloc.service.ts`) pra decidir quando
+gerar um comando — nunca escreve em `crediario_parcelas` nem em
+`contratos` além do vínculo (`neoloc_dispositivos.contrato_id`).
+
+### Por que `status_mdm` é um campo separado de `aparelhos.status_crediario`
+São dois estados genuinamente diferentes: um é técnico (o que o MDM
+enxerga do aparelho), o outro é de cobrança (o que o Crediário já
+controla). Misturar os dois num enum só criaria uma tabela de
+transição de estados combinatorialmente maior e mais frágil. Cada
+domínio evolui seu próprio estado; o NeoLoc só lê o do Crediário pra
+decidir uma ação, nunca escreve nele.
+
+### Por que os comandos MDM ficam sempre em `pending` nesta fase
+Não existe, neste ambiente de desenvolvimento, como provisionar um
+servidor NanoMDM real, obter um certificado de push APNs assinado pela
+Apple, nem testar em um iPhone físico — e a análise técnica (ver
+histórico do projeto) levantou um risco real de elegibilidade do
+Apple Business Manager para o estoque de aparelhos seminovos/usados, que
+só um teste físico resolve. Em vez de simular um sucesso falso, a fila de
+comandos (`neoloc_comandos`) foi construída completa — idempotente
+(`command_id` único), auditada (`neoloc_eventos`), com todos os status
+que o protocolo MDM realmente tem (`pending/sent/acknowledged/success/
+failed/expired`) — mas nenhum comando é de fato enviado a lugar nenhum.
+Isso é o Milestone 2 do plano (camada de negócio + painel); o Milestone 1
+(prova de conceito em hardware real) e o Milestone 3 (integração real)
+dependem de infraestrutura e testes fora do alcance deste ambiente.
+
+### Por que a régua automática do NeoLoc entra no MESMO cron do Crediário
+`executarReguaCobranca()` já roda diariamente e já calcula `dias_atraso`
+por parcela. Criar um segundo cron pra reavaliar a mesma informação
+duplicaria trabalho e arriscaria os dois ficarem dessincronizados (ex:
+crediário marca "atrasado" num dia, NeoLoc só reavalia no dia seguinte).
+`avaliarBloqueiosAutomaticosNeoLoc()` roda logo depois, na mesma
+execução, lendo o resultado que o Crediário acabou de calcular — sem
+tocar em nenhuma linha da função do Crediário em si.

@@ -5,6 +5,7 @@ import { expirarPerguntasAntigas } from "@/services/ia/ia-pergunta-equipe.servic
 import { gerarFollowupsAutomaticos } from "@/services/crm-pipeline/crm-pipeline.service";
 import { gerarFollowupsAutomaticosProstec, verificarTaxaOptOutProstec, recalcularNextBestActionTodosLeads } from "@/services/prostec/prostec.service";
 import { executarReguaCobranca } from "@/services/crediario/crediario.service";
+import { avaliarBloqueiosAutomaticosNeoLoc } from "@/services/neoloc/avaliar-bloqueios";
 
 /**
  * Chamada pelo Vercel Cron (ver vercel.json) — nunca pelo navegador.
@@ -33,7 +34,8 @@ export async function GET(request: NextRequest) {
     const circuitBreakerOptOut = await verificarTaxaOptOutProstec();
     const nextBestAction = await recalcularNextBestActionTodosLeads();
     const reguaCobranca = await executarReguaCobranca();
-    return NextResponse.json({ ok: true, ...resultado, retiradas, perguntasExpiradas, followupsAutomaticos, followupsProstec, circuitBreakerOptOut, nextBestAction, reguaCobranca });
+    const neolocBloqueios = await avaliarBloqueiosAutomaticosNeoLoc();
+    return NextResponse.json({ ok: true, ...resultado, retiradas, perguntasExpiradas, followupsAutomaticos, followupsProstec, circuitBreakerOptOut, nextBestAction, reguaCobranca, neolocBloqueios });
   } catch (err) {
     console.error("Falha ao processar follow-ups de venda:", err);
     return NextResponse.json(

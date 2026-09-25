@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { RadixOverlaySafetyNet } from "@/components/layout/radix-overlay-safety-net";
 import { contarConversasNaoLidas } from "@/services/whatsapp/whatsapp.service";
 import type { ReactNode } from "react";
 import type { CargoUsuario } from "@/types";
@@ -46,6 +47,7 @@ export default async function SistemaLayout({ children }: { children: ReactNode 
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8">{children}</main>
       </div>
       <BottomNav cargo={perfil.cargo} />
+      <RadixOverlaySafetyNet />
     </div>
   );
 }

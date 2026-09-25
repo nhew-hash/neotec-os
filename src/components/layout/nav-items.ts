@@ -24,6 +24,7 @@ import {
   Settings,
   Bot,
   Repeat,
+  Smartphone,
 } from "lucide-react";
 import type { CargoUsuario } from "@/types";
 
@@ -86,6 +87,12 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
     label: "Neotec Prostec",
     items: [
       { label: "Prostec", href: "/prostec", icon: Rocket, cargos: ["admin", "gerente", "vendedor_prostec"] },
+    ],
+  },
+  {
+    label: "NeoLoc",
+    items: [
+      { label: "NeoLoc", href: "/neoloc", icon: Smartphone, cargos: ["admin", "gerente", "vendedor", "tecnico"] },
     ],
   },
   {

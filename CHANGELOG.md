@@ -4,6 +4,127 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 252] - NeoLoc: locação de iPhones + MDM (Milestone 2 — camada de negócio e painel)
+
+Primeira implementação do módulo NeoLoc, a partir da análise de
+arquitetura apresentada e aprovada antes desta fase (reaproveitar
+Contratos + Crediário em vez de recriar contrato/parcelas/cobrança do
+zero). Escopo desta fase: cadastro de dispositivo, vínculo com
+contrato/cliente já existentes, fila de comandos auditada, painel e
+configuração por loja. **Não inclui integração real com NanoMDM/APNs/
+Apple Business** — essa parte (Milestone 1: prova de conceito em iPhone
+físico; Milestone 3: integração real) depende de infraestrutura de
+produção (servidor público, certificado de push da Apple, conta Apple
+Business) e de um aparelho físico, nenhum dos dois disponível neste
+ambiente de desenvolvimento. Todo comando registrado fica com status
+`pending`, pronto para ser consumido assim que essa integração existir.
+
+- Migração `fase252_neoloc.sql`: `neoloc_configuracoes` (dias de
+  cobrança/recolhimento, liberação automática ao quitar, campos visíveis
+  configuráveis), `neoloc_dispositivos` (1:1 com `aparelhos`, só campos
+  técnicos de MDM — UDID, iOS, `status_mdm`, supervisão, Activation Lock,
+  último check-in — nunca duplica IMEI/serial/modelo/cor, que já existem
+  em `aparelhos`), `neoloc_enrollments`, `neoloc_comandos` (fila
+  idempotente via `command_id` único), `neoloc_eventos` (auditoria). RLS
+  seguindo o mesmo padrão de Contratos/Crediário.
+- `src/services/neoloc/motor.ts`: motor de decisão puro
+  (`decidirAcaoAutomatica`) — lê o atraso já calculado pelo Crediário e
+  decide bloquear/desbloquear/remover MDM, sem duplicar a régua de
+  cobrança que já existe. 10 testes novos.
+- `src/services/neoloc/avaliar-bloqueios.ts`: roda dentro do mesmo cron
+  diário que já executa `executarReguaCobranca()` (Crediário), logo
+  depois dela — nunca no lugar. `src/app/api/cron/follow-up-vendas/route.ts`
+  só ganhou uma chamada a mais, nenhuma linha existente foi alterada.
+- `src/services/neoloc/neoloc.service.ts` + `neoloc.actions.ts`: leitura
+  e Server Actions (cadastrar dispositivo, iniciar enrollment, criar
+  comando com idempotência e confirmação forte para ações destrutivas,
+  atualizar configuração).
+- Painel em `/neoloc` (dashboard), `/neoloc/dispositivos` (lista +
+  cadastro), `/neoloc/dispositivos/[id]` (detalhe, ações, comandos,
+  auditoria), `/neoloc/configuracoes` — reaproveita layout, cargos e
+  padrão visual do resto do sistema. Entrada nova em `nav-items.ts`.
+- Análise completa da arquitetura, do NanoMDM (suporta PostgreSQL
+  nativamente, não inclui SCEP/UI/lógica de negócio) e das limitações
+  reais da Apple (Activation Lock organizacional exige o aparelho já
+  estar no Apple Business Manager antes de ativar o bloqueio; risco de
+  elegibilidade de ABM para aparelhos seminovos/usados, que só um teste
+  físico resolve) foi apresentada e aprovada antes de qualquer código
+  — ver ARCHITECTURE.md.
+
+## [Fase 251] - Correção: Dashboard travando ao clicar nos 3 pontinhos no mobile
+
+Investigação de bug relatado: no celular, ao tocar no menu de "3
+pontinhos" e escolher uma opção, a interface parava de responder a
+toque/clique (travamento visual, sem tela branca e sem erro de JS
+visível). Busca exaustiva no código (grep por Dropdown/Popover/Menu,
+leitura de toda a página do Dashboard e seus subcomponentes, dos
+quadros Kanban etc.) confirmou que o **único** menu de "3 pontinhos"
+existente em todo o sistema é o menu do usuário (avatar) no topbar,
+presente em toda página de `(sistema)/*` — inclusive no Dashboard.
+
+**Causa identificada.** O `DropdownMenu` (Radix UI) aplica
+`pointer-events: none` no `<body>` enquanto está aberto, pra bloquear
+cliques fora dele, e desfaz isso quando termina de fechar. O item
+"Sair" do menu do usuário (`user-menu.tsx`) disparava uma navegação
+(`router.push("/login")`) logo depois de um `await
+supabase.auth.signOut()`, sem fechar o menu explicitamente antes. Se
+a navegação do Next.js interrompe esse ciclo de fechamento no meio —
+um cenário conhecido e documentado do Radix UI combinado com
+navegação client-side —, o `<body>` pode ficar com `pointer-events:
+none` travado permanentemente, mesmo após trocar de página: a
+interface toda para de responder a toque, o que aparece como
+"Dashboard travando".
+
+Reproduzi o fluxo em um ambiente isolado (Playwright/Chromium com
+emulação de toque, viewport mobile), incluindo um teste dedicado ao
+padrão exato do `handleSignOut` (ação assíncrona seguida de
+navegação sem fechar o menu antes). **Não consegui reproduzir o
+travamento** nesse teste — o Chromium reverteu o `pointer-events`
+corretamente em todos os casos. Isso não descarta o bug: o sandbox
+não tem o motor WebKit/Safari disponível, e esse é exatamente o tipo
+de corrida (race condition) que costuma variar entre motores e
+aparelhos. Por isso, apliquei a correção da causa raiz mais concreta
+e documentada, e não apenas uma correção "no escuro": os 3 pontinhos
+continuam exatamente como estão, a causa é que foi endereçada.
+
+**O que foi alterado:**
+- `src/components/layout/user-menu.tsx`: `handleSignOut` agora adia a
+  navegação (`router.push` + `router.refresh`) para o próximo frame
+  (`requestAnimationFrame`), depois do `await` do sign-out — dando
+  tempo do Radix terminar de desfazer o `pointer-events: none` do
+  `<body>` antes da navegação desmontar o menu/topbar.
+- `src/hooks/use-radix-overlay-safety-net.ts` (novo) +
+  `src/components/layout/radix-overlay-safety-net.tsx` (novo,
+  componente-ponte client-only): rede de segurança que roda a cada
+  troca de rota em qualquer página de `(sistema)/*` — se não existe
+  nenhuma camada do Radix aberta (`[role="dialog"]`, `[role="menu"]`,
+  `[role="listbox"]`, `[data-radix-popper-content-wrapper]`) mas o
+  `<body>` ainda está com `pointer-events: none`, o hook desfaz isso.
+  Nunca interfere com um modal/menu que devia continuar na tela —
+  só age quando não há camada nenhuma aberta.
+- `src/app/(sistema)/layout.tsx`: passou a renderizar o novo
+  componente de rede de segurança (sem alterar nada visual do
+  layout).
+
+Nenhuma outra funcionalidade foi tocada — nem o conteúdo do menu, nem
+os 3 pontinhos, nem qualquer outro componente do Dashboard.
+
+**Como validei:**
+- `npx tsc --noEmit`: sem erros.
+- `npx vitest run`: 224/224 testes passando (nenhum teste novo — a
+  correção é de comportamento de runtime do DOM, não de lógica de
+  negócio testável por unidade).
+- Reprodução manual com Playwright + Chromium (emulação de toque,
+  viewport de iPhone 13): ciclo completo de abrir/fechar o menu
+  várias vezes, tocar fora pra fechar, rolar a página, navegar para
+  outra rota e voltar, reabrir — sem travamento em nenhum cenário,
+  antes e depois da correção (o bug não reproduziu no Chromium; a
+  correção foi validada por não introduzir regressão nesse fluxo e
+  por endereçar a causa raiz documentada do padrão Radix + Next.js).
+- Limitação honesta: não há motor WebKit/Safari disponível neste
+  ambiente, então o comportamento específico do Safari no iPhone não
+  pôde ser confirmado diretamente aqui.
+
 ## [Fase 250] - Correções e melhorias do site (Trade-in, iPhone, categorias, mobile, cupons)
 
 Primeira leva de correções em cima da estrutura atual (sem reconstrução),
