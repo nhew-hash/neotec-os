@@ -35,7 +35,10 @@ export function MetricaCard({ titulo, icon: Icon, metrica, formatador = (v) => S
           <span className="text-sm font-medium text-foreground">{formatador(metrica.semana)}</span>
         </div>
         <div className="flex items-baseline justify-between">
-          <span className="text-xs text-muted-foreground">Mês</span>
+          {/* Fase 254: era rotulado "Mês", mas o valor é uma janela
+              rolante de 30 dias (hoje - 30), não o mês-calendário —
+              "30 dias" é o rótulo honesto pro que o número realmente é. */}
+          <span className="text-xs text-muted-foreground">30 dias</span>
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-medium text-foreground">{formatador(metrica.mes)}</span>
             {metrica.variacaoMes != null && <Variacao valor={metrica.variacaoMes} />}

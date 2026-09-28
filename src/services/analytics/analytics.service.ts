@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { obterDataHoraBrasilia } from "@/utils/data-brasilia";
 
 export interface FaturamentoPorDia {
   data: string;
@@ -50,9 +51,13 @@ export async function obterResumoAnalytics(dias: number = 30): Promise<ResumoAna
   const faturamentoTotal = (vendas ?? []).reduce((acc, v) => acc + Number(v.valor_total), 0);
   const lucroTotal = (vendas ?? []).reduce((acc, v) => acc + Number(v.lucro ?? 0), 0);
 
+  // Fase 254 — chave do dia no fuso de Brasília (fixo UTC-3), não o
+  // prefixo cru do timestamp (que é UTC e jogava vendas de fim de noite
+  // pro dia seguinte nos gráficos/relatórios por dia).
   const porDia = new Map<string, number>();
   (vendas ?? []).forEach((v) => {
-    const dia = v.data_venda.slice(0, 10);
+    const { ano, mes, dia: diaNum } = obterDataHoraBrasilia(new Date(v.data_venda));
+    const dia = `${ano}-${String(mes).padStart(2, "0")}-${String(diaNum).padStart(2, "0")}`;
     porDia.set(dia, (porDia.get(dia) ?? 0) + Number(v.valor_total));
   });
   const faturamentoPorDia = Array.from(porDia.entries())

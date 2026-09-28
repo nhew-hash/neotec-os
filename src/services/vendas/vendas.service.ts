@@ -97,6 +97,7 @@ export async function aprovarOrcamentoEConverterEmVenda(
       orcamento_id: orcamento.id,
       valor_total: orcamento.valor,
       lucro,
+      canal: "loja_fisica",
       forma_pagamento: orcamento.forma_pagamento ?? "pix",
       status: "concluida",
     })

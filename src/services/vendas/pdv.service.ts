@@ -79,6 +79,7 @@ export async function criarVendaPDV(input: PdvVendaValues, usuarioId: string): P
       valor_total: valorTotal,
       desconto: input.desconto ?? 0,
       lucro,
+      canal: "loja_fisica",
       forma_pagamento: input.forma_pagamento,
       status: "concluida",
       indicador_id: input.indicador_id || null,

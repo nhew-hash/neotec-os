@@ -4,6 +4,110 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 254] - Correções da auditoria de Analytics (C1–C7)
+
+Implementa as correções para todos os 7 problemas confirmados na
+auditoria completa de `/loja-admin/analytics` e `/analytics` entregue
+na fase anterior (auditoria em si não alterou nada — só código, banco
+e estrutura, agora sim). Cada item abaixo corresponde ao achado (Cn) do
+relatório de auditoria.
+
+- **C1 (lucro zerado no e-commerce)** —
+  `src/services/pagamentos/payment.service.ts`: o fluxo de aprovação de
+  pagamento online (`processarPagamentoAprovado`) agora apura o custo de
+  cada item ANTES de criar a `venda` e grava `lucro` no insert, igual
+  já era feito em `pdv.service.ts` e `vendas.service.ts`. Antes desse
+  campo nunca ser setado aqui, toda venda vinda do site reportava
+  lucro = 0 em `/analytics`, subestimando o lucro total proporcionalmente
+  à participação do e-commerce no faturamento.
+- **C2 (custo de lacrado)** — **não corrigido, intencionalmente.** Itens
+  de lacrado seguem sem custo cadastrado por variante no catálogo mestre,
+  então o lucro desses itens específicos continua em aberto (fica 0) mesmo
+  após o C1. Isso é uma lacuna de dado real, não um bug de cálculo — corrigir
+  exigiria cadastrar custo por variante de lacrado, o que não foi feito aqui
+  para não inventar números.
+- **C3 (canal de venda indistinguível)** — migração `fase254_analytics_correcoes.sql`
+  adiciona a coluna `vendas.canal` (nullable, sem backfill de vendas
+  antigas — não dava pra reconstruir o canal retroativamente com
+  confiança, então fica `null` = "não classificado" em vez de um valor
+  inventado). Passa a ser setada em toda venda nova: `'loja_fisica'` em
+  `pdv.service.ts` e `vendas.service.ts` (conversão de orçamento
+  aprovado), `'site'` em `payment.service.ts` (checkout online).
+- **C4 (timezone)** — novo utilitário `src/utils/data-brasilia.ts`
+  (com testes em `src/utils/__tests__/data-brasilia.test.ts`), que
+  calcula limites de dia/hora no fuso fixo de Brasília (America/Sao_Paulo
+  = UTC-3, sem horário de verão desde 2019) em vez do fuso do servidor.
+  Aplicado em `analytics.service.ts` (agrupamento de faturamento por dia)
+  e `loja-analytics.service.ts` (início do dia, janelas hoje/semana/mês,
+  bucket por hora do gráfico "hoje", bucket por dia dos gráficos de
+  7/30 dias) — corrige o deslocamento de até 3h que existia quando o
+  servidor roda em UTC (caso típico da Vercel), que podia jogar vendas
+  ou visitas de fim de noite pro dia seguinte nos relatórios.
+- **C5 (rótulo "Mês" enganoso)** — `metrica-card.tsx`: relabeled para
+  "30 dias", já que o valor sempre foi uma janela rolante (hoje − 30
+  dias), nunca o mês-calendário. Campo interno continua chamado `mes`
+  (evita um refactor maior só por causa do texto exibido).
+- **C6 (RLS/permissão do tráfego do site)** — mesma migração aperta
+  `loja_sessoes_select_staff` e `loja_eventos_select_staff` de
+  `using (true)` (qualquer autenticado) para
+  `using (current_user_cargo() in ('admin','gerente'))`. Além disso,
+  `src/app/(sistema)/loja-admin/analytics/page.tsx` ganhou a mesma
+  checagem de cargo (`podeVerCusto` + redirect) que `/analytics` já
+  tinha — antes só o item do menu ficava escondido para outros cargos,
+  a rota e as tabelas em si não bloqueavam nada.
+- **C7 (fan-out de queries)** — `obterResumoLojaAnalytics()` buscava
+  cada tabela relevante uma vez por janela de tempo (~20 queries
+  separadas por carregamento/refresh). Agora busca `loja_sessoes`,
+  `loja_eventos` e `pedidos_loja` uma única vez cada (só filtrando pela
+  janela mais larga necessária) e conta/soma tudo em memória por
+  janela — mesmos números, 4 queries no total em vez de ~20. O polling
+  duplicado de "online agora" (`AutoRefreshPainel` a cada 30s +
+  `OnlineAgoraCard` a cada 15s, ambos batendo na mesma métrica) foi
+  identificado mas **não restructurado nesta fase** — é uma ineficiência
+  menor (uma requisição extra a cada 15s) e mexer nisso arriscava
+  degradar a sensação de "tempo real" do painel sem ganho proporcional;
+  fica registrado como possível ajuste futuro.
+
+`npx tsc --noEmit` limpo. `npx vitest run` 238/238 (234 anteriores + 4
+testes novos para `data-brasilia.ts`, cobrindo especificamente o caso
+que causava o bug do C4: um evento perto da virada da meia-noite UTC
+caindo no dia errado).
+
+## [Fase 253] - Popup de Trade-in nas páginas de iPhone (Seminovo e Lacrado)
+
+Popup que aparece ~1s depois da página de produto carregar, convidando o
+cliente a avaliar o aparelho atual como parte do pagamento. Só a camada
+de exibição — sempre aponta para o mesmo fluxo de Trade-in já existente
+(`/loja/trade-in`), nenhum sistema, formulário ou cálculo duplicado.
+
+- `src/components/loja/trade-in-popup.tsx` (novo): modal client-side,
+  `role="dialog"`, fecha por X/"Agora não"/ESC/clique fora, bloqueia e
+  restaura o scroll do fundo, sem duplicar listener nem reabrir a cada
+  re-render. Lembrado **por página** (chave = `pathname`, via
+  `sessionStorage`) — fechar num iPhone não impede o popup de aparecer
+  de novo em outro iPhone, como pedido; se `sessionStorage` não estiver
+  disponível (ex. modo privado), falha em aberto sem quebrar nada.
+- `src/app/loja/produto/[slug]/page.tsx`: popup exibido só quando
+  `produto.categoria === "iphone"` (iPhone Seminovo — mesma checagem já
+  usada pelo `CtaTradeIn`, nenhuma regra de categorização nova).
+- `src/app/loja/lacrados/[modelo]/page.tsx`: popup sempre exibido — toda
+  página desta rota já é iPhone Lacrado por definição (ver
+  `categorias.ts`), não precisa checar categoria.
+- Link do botão "QUERO FAZER UMA TROCA" carrega o produto de origem via
+  query string (`/loja/trade-in?origem=...`) para uso futuro — o wizard
+  de Trade-in em si não foi alterado (fora do escopo desta fase), então
+  hoje esse parâmetro ainda não é lido lá; documentado como próximo passo
+  opcional, não uma limitação escondida.
+- Validado com Playwright contra o componente real (não uma
+  demonstração visual): abre depois de ~1s, não antes; fecha por X, por
+  "Agora não", por ESC e por clique fora; não reabre na mesma página
+  após fechado (mesma sessão); reaparece ao navegar para outro produto;
+  scroll do fundo trava e restaura corretamente; sem scroll horizontal
+  nem estouro de viewport em 320/375/390/430px e desktop; zero erros de
+  console. `npx tsc --noEmit` limpo e `npx vitest run` 234/234 (sem
+  testes novos — mudança é de comportamento de UI, verificada via
+  navegador real, não lógica pura isolável em unidade).
+
 ## [Fase 252] - NeoLoc: locação de iPhones + MDM (Milestone 2 — camada de negócio e painel)
 
 Primeira implementação do módulo NeoLoc, a partir da análise de

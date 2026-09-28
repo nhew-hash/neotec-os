@@ -9,6 +9,7 @@ import { FaixaSelosConfianca } from "@/components/loja/faixa-selos-confianca";
 import { RegistrarVisto, VistosRecentesLista } from "@/components/loja/vistos-recentes";
 import { labelCategoria } from "@/components/loja/categorias";
 import { CtaTradeIn } from "@/components/loja/cta-trade-in";
+import { TradeInPopup } from "@/components/loja/trade-in-popup";
 
 // Mesmo motivo das páginas de lacrado — estoque nunca pode ficar em cache.
 export const revalidate = 0;
@@ -31,6 +32,12 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
+      {/* Fase 253 — popup de Trade-in só em iPhone Seminovo (categoria "iphone",
+          ver categorias.ts); aponta pro mesmo fluxo de /loja/trade-in, nunca um
+          sistema paralelo. */}
+      {produto.categoria === "iphone" && (
+        <TradeInPopup produtoNome={produto.nome} linkTradeIn={`/loja/trade-in?origem=${encodeURIComponent(produto.slug ?? produto.id)}`} />
+      )}
       <ProdutoPdpCliente
         produto={produto}
         aparelhosDisponiveis={aparelhosDisponiveis}

@@ -180,25 +180,36 @@ export class PaymentService {
       }
     }
 
+    // Custo é apurado ANTES de criar a venda para que `lucro` já saia
+    // correto no insert (Fase 254 — antes disso o campo nunca era
+    // setado aqui, então toda venda online reportava lucro zerado nos
+    // relatórios). Lacrado ainda não tem custo por variante no catálogo
+    // mestre — fica 0 pra esse item específico até isso existir (não é
+    // inventado, é um limite de dado real, documentado no CHANGELOG).
+    const itensComCusto: { item: NonNullable<typeof itensPedido>[number]; custo: number }[] = [];
+    for (const item of itensPedido ?? []) {
+      let custo = 0;
+      if (item.aparelho_id) {
+        const { data: aparelho } = await supabase.from("aparelhos").select("custo").eq("id", item.aparelho_id).maybeSingle();
+        custo = aparelho?.custo ?? 0;
+      } else if (item.produto_id) {
+        const { data: produto } = await supabase.from("produtos").select("custo").eq("id", item.produto_id).maybeSingle();
+        custo = produto?.custo ?? 0;
+      }
+      itensComCusto.push({ item, custo });
+    }
+    const custoTotal = itensComCusto.reduce((acc, { item, custo }) => acc + custo * item.quantidade, 0);
+    const lucro = Number(pedido.valor_total) - custoTotal;
+
     // Cria a venda de verdade — mesma tabela que qualquer venda da loja física, aparece nos relatórios normalmente.
     const { data: venda } = await supabase
       .from("vendas")
-      .insert({ valor_total: pedido.valor_total, forma_pagamento: pagamento.tipo_pagamento ?? "pix", status: "concluida" })
+      .insert({ valor_total: pedido.valor_total, lucro, canal: "site", forma_pagamento: pagamento.tipo_pagamento ?? "pix", status: "concluida" })
       .select("id")
       .single();
 
     if (venda) {
-      for (const item of itensPedido ?? []) {
-        let custo = 0;
-        if (item.aparelho_id) {
-          const { data: aparelho } = await supabase.from("aparelhos").select("custo").eq("id", item.aparelho_id).maybeSingle();
-          custo = aparelho?.custo ?? 0;
-        } else if (item.produto_id) {
-          const { data: produto } = await supabase.from("produtos").select("custo").eq("id", item.produto_id).maybeSingle();
-          custo = produto?.custo ?? 0;
-        }
-        // Lacrado ainda não tem custo por variante no catálogo mestre — lucro desse item específico fica em aberto no relatório até isso existir.
-
+      for (const { item, custo } of itensComCusto) {
         await supabase.from("venda_itens").insert({
           venda_id: venda.id, produto_id: item.produto_id, aparelho_id: item.aparelho_id,
           quantidade: item.quantidade, valor: item.valor, custo,

@@ -3,6 +3,7 @@ import { ShieldCheck, FileText, Wallet, MapPin, Truck } from "lucide-react";
 import { buscarLacradoModeloPorNome, listarLacradosVariantesPublico } from "@/services/lacrados/lacrados-publico.service";
 import { LacradoPdpCliente } from "@/components/loja/lacrado-pdp-cliente";
 import { CtaTradeIn } from "@/components/loja/cta-trade-in";
+import { TradeInPopup } from "@/components/loja/trade-in-popup";
 
 // Estoque é informação crítica demais pra arriscar cache defasado —
 // depois de "substituir lista" no Central de Cadastro, um item que
@@ -33,6 +34,9 @@ export default async function LacradoProdutoPage({ params }: { params: Promise<{
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
+      {/* Fase 253 — toda página desta rota é iPhone Lacrado (ver categorias.ts),
+          então o popup sempre aparece aqui, sem precisar checar categoria. */}
+      <TradeInPopup produtoNome={modelo.nome} linkTradeIn={`/loja/trade-in?origem=${encodeURIComponent(modelo.id)}`} />
       <LacradoPdpCliente
         modelo={modelo}
         variantes={variantes}

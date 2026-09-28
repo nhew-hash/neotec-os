@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { inicioDoDiaBrasilia, horaBrasilia, obterDataHoraBrasilia } from "@/utils/data-brasilia";
 
 export interface MetricaPeriodo {
   hoje: number;
@@ -43,12 +44,6 @@ export interface PontoGrafico {
   valor: number;
 }
 
-function inicioDoDia(data: Date): Date {
-  const d = new Date(data);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 function variacaoPercentual(atual: number, anterior: number): number | null {
   if (anterior === 0) return null;
   return Math.round(((atual - anterior) / anterior) * 1000) / 10;
@@ -62,93 +57,115 @@ export async function obterOnlineAgora(): Promise<number> {
   return count ?? 0;
 }
 
-/** Resumo principal — cards do topo. */
+/**
+ * Resumo principal — cards do topo.
+ *
+ * Fase 254: antes disparava ~20 queries separadas (uma contagem por
+ * janela de tempo x métrica). Agora busca cada tabela UMA vez, só com o
+ * filtro `gte(desde a janela mais larga)`, e conta/soma tudo em memória
+ * por janela — cai pra 4 queries no total (sessões, eventos, vendas,
+ * online-agora), sem mudar nenhum número reportado. Os limites de cada
+ * janela agora usam o fuso de Brasília (fixo UTC-3, sem horário de
+ * verão desde 2019), não mais o horário local do servidor — corrige o
+ * deslocamento de até 3h que existia quando o servidor roda em UTC.
+ */
 export async function obterResumoLojaAnalytics(): Promise<ResumoLojaAnalytics> {
   const supabase = await createClient();
 
   const agora = new Date();
-  const hojeInicio = inicioDoDia(agora);
+  const hojeInicio = inicioDoDiaBrasilia(agora);
   const ontemInicio = new Date(hojeInicio);
-  ontemInicio.setDate(ontemInicio.getDate() - 1);
+  ontemInicio.setUTCDate(ontemInicio.getUTCDate() - 1);
   const semanaInicio = new Date(hojeInicio);
-  semanaInicio.setDate(semanaInicio.getDate() - 7);
+  semanaInicio.setUTCDate(semanaInicio.getUTCDate() - 7);
   const mesInicio = new Date(hojeInicio);
-  mesInicio.setMonth(mesInicio.getMonth() - 1);
+  mesInicio.setUTCMonth(mesInicio.getUTCMonth() - 1);
   const mesAnteriorInicio = new Date(mesInicio);
-  mesAnteriorInicio.setMonth(mesAnteriorInicio.getMonth() - 1);
+  mesAnteriorInicio.setUTCMonth(mesAnteriorInicio.getUTCMonth() - 1);
   const doisMinAtras = new Date(agora.getTime() - 2 * 60 * 1000);
+  const janelaMaisLarga = mesAnteriorInicio;
 
   const [
     { count: onlineAgora },
-    { count: visitantesHoje }, { count: visitantesOntem }, { count: visitantesSemana }, { count: visitantesMes }, { count: visitantesMesAnterior },
-    { count: viewsHoje }, { count: viewsOntem }, { count: viewsSemana }, { count: viewsMes }, { count: viewsMesAnterior },
-    { count: carrinhosHoje }, { count: carrinhosOntem }, { count: carrinhosSemana }, { count: carrinhosMes }, { count: carrinhosMesAnterior },
-    { data: vendasHojeData }, { data: vendasOntemData }, { data: vendasSemanaData }, { data: vendasMesData }, { data: vendasMesAnteriorData },
+    { data: sessoes },
+    { data: eventos },
+    { data: pedidos },
   ] = await Promise.all([
     supabase.from("loja_sessoes").select("*", { count: "exact", head: true }).gte("ultima_atividade_em", doisMinAtras.toISOString()),
-
-    supabase.from("loja_sessoes").select("*", { count: "exact", head: true }).gte("criado_em", hojeInicio.toISOString()),
-    supabase.from("loja_sessoes").select("*", { count: "exact", head: true }).gte("criado_em", ontemInicio.toISOString()).lt("criado_em", hojeInicio.toISOString()),
-    supabase.from("loja_sessoes").select("*", { count: "exact", head: true }).gte("criado_em", semanaInicio.toISOString()),
-    supabase.from("loja_sessoes").select("*", { count: "exact", head: true }).gte("criado_em", mesInicio.toISOString()),
-    supabase.from("loja_sessoes").select("*", { count: "exact", head: true }).gte("criado_em", mesAnteriorInicio.toISOString()).lt("criado_em", mesInicio.toISOString()),
-
-    supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "pageview").gte("criado_em", hojeInicio.toISOString()),
-    supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "pageview").gte("criado_em", ontemInicio.toISOString()).lt("criado_em", hojeInicio.toISOString()),
-    supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "pageview").gte("criado_em", semanaInicio.toISOString()),
-    supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "pageview").gte("criado_em", mesInicio.toISOString()),
-    supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "pageview").gte("criado_em", mesAnteriorInicio.toISOString()).lt("criado_em", mesInicio.toISOString()),
-
-    supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "add_to_cart").gte("criado_em", hojeInicio.toISOString()),
-    supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "add_to_cart").gte("criado_em", ontemInicio.toISOString()).lt("criado_em", hojeInicio.toISOString()),
-    supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "add_to_cart").gte("criado_em", semanaInicio.toISOString()),
-    supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "add_to_cart").gte("criado_em", mesInicio.toISOString()),
-    supabase.from("loja_eventos").select("*", { count: "exact", head: true }).eq("tipo", "add_to_cart").gte("criado_em", mesAnteriorInicio.toISOString()).lt("criado_em", mesInicio.toISOString()),
-
+    supabase.from("loja_sessoes").select("criado_em").gte("criado_em", janelaMaisLarga.toISOString()),
+    supabase.from("loja_eventos").select("tipo, criado_em").gte("criado_em", janelaMaisLarga.toISOString()),
     // Vendas/faturamento usa `pedidos_loja` (não `vendas`) — `vendas`
     // mistura PDV presencial com checkout online sem nenhuma forma de
     // diferenciar (checkout online cria a venda sem guardar referência
     // de volta pro pedido). `pedidos_loja` é especificamente do site,
     // então é a fonte certa pro Analytics da Loja.
-    supabase.from("pedidos_loja").select("valor_total").eq("status", "concluido").gte("updated_at", hojeInicio.toISOString()),
-    supabase.from("pedidos_loja").select("valor_total").eq("status", "concluido").gte("updated_at", ontemInicio.toISOString()).lt("updated_at", hojeInicio.toISOString()),
-    supabase.from("pedidos_loja").select("valor_total").eq("status", "concluido").gte("updated_at", semanaInicio.toISOString()),
-    supabase.from("pedidos_loja").select("valor_total").eq("status", "concluido").gte("updated_at", mesInicio.toISOString()),
-    supabase.from("pedidos_loja").select("valor_total").eq("status", "concluido").gte("updated_at", mesAnteriorInicio.toISOString()).lt("updated_at", mesInicio.toISOString()),
+    supabase.from("pedidos_loja").select("valor_total, updated_at").eq("status", "concluido").gte("updated_at", janelaMaisLarga.toISOString()),
   ]);
 
-  const somar = (rows: { valor_total: number }[] | null) => (rows ?? []).reduce((acc, v) => acc + Number(v.valor_total ?? 0), 0);
-  const contar = (rows: { valor_total: number }[] | null) => (rows ?? []).length;
+  const contarNaJanela = (linhas: { criado_em: string }[] | null, desde: Date, ate?: Date) =>
+    (linhas ?? []).filter((l) => l.criado_em >= desde.toISOString() && (!ate || l.criado_em < ate.toISOString())).length;
 
-  const faturamentoHoje = somar(vendasHojeData);
-  const faturamentoOntem = somar(vendasOntemData);
-  const faturamentoMes = somar(vendasMesData);
-  const faturamentoMesAnterior = somar(vendasMesAnteriorData);
+  const eventosPorTipo = (tipo: string) => (eventos ?? []).filter((e) => e.tipo === tipo);
+
+  const pedidosNaJanela = (desde: Date, ate?: Date) =>
+    (pedidos ?? []).filter((p) => p.updated_at >= desde.toISOString() && (!ate || p.updated_at < ate.toISOString()));
+  const somar = (linhas: { valor_total: number }[]) => linhas.reduce((acc, v) => acc + Number(v.valor_total ?? 0), 0);
+
+  const visitantesHoje = contarNaJanela(sessoes, hojeInicio);
+  const visitantesOntem = contarNaJanela(sessoes, ontemInicio, hojeInicio);
+  const visitantesSemana = contarNaJanela(sessoes, semanaInicio);
+  const visitantesMes = contarNaJanela(sessoes, mesInicio);
+  const visitantesMesAnterior = contarNaJanela(sessoes, mesAnteriorInicio, mesInicio);
+
+  const pageviews = eventosPorTipo("pageview");
+  const viewsHoje = contarNaJanela(pageviews, hojeInicio);
+  const viewsOntem = contarNaJanela(pageviews, ontemInicio, hojeInicio);
+  const viewsSemana = contarNaJanela(pageviews, semanaInicio);
+  const viewsMes = contarNaJanela(pageviews, mesInicio);
+  const viewsMesAnterior = contarNaJanela(pageviews, mesAnteriorInicio, mesInicio);
+
+  const addToCart = eventosPorTipo("add_to_cart");
+  const carrinhosHoje = contarNaJanela(addToCart, hojeInicio);
+  const carrinhosOntem = contarNaJanela(addToCart, ontemInicio, hojeInicio);
+  const carrinhosSemana = contarNaJanela(addToCart, semanaInicio);
+  const carrinhosMes = contarNaJanela(addToCart, mesInicio);
+  const carrinhosMesAnterior = contarNaJanela(addToCart, mesAnteriorInicio, mesInicio);
+
+  const vendasHoje = pedidosNaJanela(hojeInicio);
+  const vendasOntem = pedidosNaJanela(ontemInicio, hojeInicio);
+  const vendasSemana = pedidosNaJanela(semanaInicio);
+  const vendasMes = pedidosNaJanela(mesInicio);
+  const vendasMesAnterior = pedidosNaJanela(mesAnteriorInicio, mesInicio);
+
+  const faturamentoHoje = somar(vendasHoje);
+  const faturamentoOntem = somar(vendasOntem);
+  const faturamentoMes = somar(vendasMes);
+  const faturamentoMesAnterior = somar(vendasMesAnterior);
 
   return {
     onlineAgora: onlineAgora ?? 0,
     visitantes: {
-      hoje: visitantesHoje ?? 0, semana: visitantesSemana ?? 0, mes: visitantesMes ?? 0,
-      variacaoHoje: variacaoPercentual(visitantesHoje ?? 0, visitantesOntem ?? 0),
-      variacaoMes: variacaoPercentual(visitantesMes ?? 0, visitantesMesAnterior ?? 0),
+      hoje: visitantesHoje, semana: visitantesSemana, mes: visitantesMes,
+      variacaoHoje: variacaoPercentual(visitantesHoje, visitantesOntem),
+      variacaoMes: variacaoPercentual(visitantesMes, visitantesMesAnterior),
     },
     visualizacoes: {
-      hoje: viewsHoje ?? 0, semana: viewsSemana ?? 0, mes: viewsMes ?? 0,
-      variacaoHoje: variacaoPercentual(viewsHoje ?? 0, viewsOntem ?? 0),
-      variacaoMes: variacaoPercentual(viewsMes ?? 0, viewsMesAnterior ?? 0),
+      hoje: viewsHoje, semana: viewsSemana, mes: viewsMes,
+      variacaoHoje: variacaoPercentual(viewsHoje, viewsOntem),
+      variacaoMes: variacaoPercentual(viewsMes, viewsMesAnterior),
     },
     carrinhos: {
-      hoje: carrinhosHoje ?? 0, semana: carrinhosSemana ?? 0, mes: carrinhosMes ?? 0,
-      variacaoHoje: variacaoPercentual(carrinhosHoje ?? 0, carrinhosOntem ?? 0),
-      variacaoMes: variacaoPercentual(carrinhosMes ?? 0, carrinhosMesAnterior ?? 0),
+      hoje: carrinhosHoje, semana: carrinhosSemana, mes: carrinhosMes,
+      variacaoHoje: variacaoPercentual(carrinhosHoje, carrinhosOntem),
+      variacaoMes: variacaoPercentual(carrinhosMes, carrinhosMesAnterior),
     },
     vendas: {
-      hoje: contar(vendasHojeData), semana: contar(vendasSemanaData), mes: contar(vendasMesData),
-      variacaoHoje: variacaoPercentual(contar(vendasHojeData), contar(vendasOntemData)),
-      variacaoMes: variacaoPercentual(contar(vendasMesData), contar(vendasMesAnteriorData)),
+      hoje: vendasHoje.length, semana: vendasSemana.length, mes: vendasMes.length,
+      variacaoHoje: variacaoPercentual(vendasHoje.length, vendasOntem.length),
+      variacaoMes: variacaoPercentual(vendasMes.length, vendasMesAnterior.length),
     },
     faturamento: {
-      hoje: faturamentoHoje, semana: somar(vendasSemanaData), mes: faturamentoMes,
+      hoje: faturamentoHoje, semana: somar(vendasSemana), mes: faturamentoMes,
       variacaoHoje: variacaoPercentual(faturamentoHoje, faturamentoOntem),
       variacaoMes: variacaoPercentual(faturamentoMes, faturamentoMesAnterior),
     },
@@ -266,18 +283,18 @@ export async function obterGraficoVisitantes(periodo: "hoje" | "7dias" | "30dias
   const agora = new Date();
 
   if (periodo === "hoje") {
-    const hojeInicio = inicioDoDia(agora);
+    const hojeInicio = inicioDoDiaBrasilia(agora);
     const { data } = await supabase.from("loja_sessoes").select("criado_em").gte("criado_em", hojeInicio.toISOString());
 
     const porHora = new Array(24).fill(0);
-    for (const s of data ?? []) porHora[new Date(s.criado_em).getHours()]++;
+    for (const s of data ?? []) porHora[horaBrasilia(new Date(s.criado_em))]++;
 
     return porHora.map((valor, hora) => ({ rotulo: `${String(hora).padStart(2, "0")}h`, valor }));
   }
 
   const dias = periodo === "7dias" ? 7 : 30;
-  const inicio = new Date(inicioDoDia(agora));
-  inicio.setDate(inicio.getDate() - (dias - 1));
+  const inicio = new Date(inicioDoDiaBrasilia(agora));
+  inicio.setUTCDate(inicio.getUTCDate() - (dias - 1));
 
   const { data } = await supabase.from("loja_sessoes").select("criado_em").gte("criado_em", inicio.toISOString());
 
@@ -288,8 +305,11 @@ export async function obterGraficoVisitantes(periodo: "hoje" | "7dias" | "30dias
     porDia.set(d.toISOString().slice(0, 10), 0);
   }
   for (const s of data ?? []) {
-    const chave = s.criado_em.slice(0, 10);
-    porDia.set(chave, (porDia.get(chave) ?? 0) + 1);
+    // Chave do dia sempre no fuso de Brasília — usar o prefixo cru do
+    // timestamp (UTC) botava evento perto da meia-noite no dia errado.
+    const { ano, mes, dia } = obterDataHoraBrasilia(new Date(s.criado_em));
+    const chave = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    if (porDia.has(chave)) porDia.set(chave, (porDia.get(chave) ?? 0) + 1);
   }
 
   return Array.from(porDia.entries()).map(([data, valor]) => {

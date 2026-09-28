@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { Users, Eye, ShoppingCart, DollarSign, TrendingUp } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 import {
   obterResumoLojaAnalytics, obterAtividadeRecente, obterProdutosDestaque, obterOrigemAcessos, obterGraficoVisitantes,
 } from "@/services/analytics/loja-analytics.service";
@@ -10,7 +12,9 @@ import { ProdutosDestaqueTable } from "@/components/analytics-loja/produtos-dest
 import { FunilConversao } from "@/components/analytics-loja/funil-conversao";
 import { OrigemAcessos } from "@/components/analytics-loja/origem-acessos";
 import { AutoRefreshPainel } from "@/components/analytics-loja/auto-refresh-painel";
+import { podeVerCusto } from "@/utils/permissions";
 import { formatCurrency } from "@/utils";
+import type { CargoUsuario } from "@/types";
 
 /**
  * Analytics da Loja Virtual — V1. Foco em tráfego/comportamento do
@@ -21,6 +25,16 @@ import { formatCurrency } from "@/utils";
  * recarregar a página.
  */
 export default async function LojaAnalyticsPage() {
+  // Fase 254 (C6): faltava esta checagem — a tabela `loja_sessoes`/
+  // `loja_eventos` também teve o RLS apertado pra admin/gerente na
+  // mesma migração, mas a página em si não bloqueava nada além de
+  // esconder o link do menu. Mesma regra usada em `/analytics`.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: perfil } = await supabase
+    .from("usuarios").select("cargo").eq("id", user?.id ?? "").single<{ cargo: CargoUsuario }>();
+  if (!perfil || !podeVerCusto(perfil.cargo)) redirect("/dashboard");
+
   const [resumo, atividade, produtos, origens, graficoHoje] = await Promise.all([
     obterResumoLojaAnalytics(), obterAtividadeRecente(), obterProdutosDestaque(), obterOrigemAcessos(), obterGraficoVisitantes("hoje"),
   ]);
