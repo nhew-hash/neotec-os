@@ -10,6 +10,37 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+/**
+ * Fase 257 — inverso de `formatCurrency`: aceita o que a pessoa digitar
+ * pra editar um preço ("R$ 1.890,00", "1.890,00", "1890.90", "999,9")
+ * e devolve número ou `null` se não der pra interpretar com confiança.
+ * Nunca arredonda/adivinha separador decimal errado — se o formato for
+ * ambíguo demais, prefere `null` (rejeitar) a inventar um valor.
+ */
+export function parseCurrencyBRL(input: string): number | null {
+  const limpo = input.replace(/[^\d.,-]/g, "").trim();
+  if (!limpo) return null;
+
+  const temVirgula = limpo.includes(",");
+  const temPonto = limpo.includes(".");
+  let normalizado: string;
+
+  if (temVirgula && temPonto) {
+    // "1.890,00" — ponto é separador de milhar, vírgula é decimal.
+    normalizado = limpo.replace(/\./g, "").replace(",", ".");
+  } else if (temVirgula) {
+    // "999,90" — vírgula é decimal.
+    normalizado = limpo.replace(",", ".");
+  } else {
+    // "1890.90" ou "1890" — já em formato numérico (ponto decimal ou inteiro).
+    normalizado = limpo;
+  }
+
+  const numero = Number(normalizado);
+  if (!Number.isFinite(numero)) return null;
+  return numero;
+}
+
 export function formatDate(value: string | Date): string {
   const date = typeof value === "string" ? new Date(value) : value;
   return new Intl.DateTimeFormat("pt-BR", {

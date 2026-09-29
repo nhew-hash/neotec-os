@@ -52,6 +52,38 @@ export async function criarFuncionarioAction(nome: string, email: string, cargo:
   }
 }
 
+/**
+ * Fase 257 — concede/revoga a permissão granular "editar preço" (usada
+ * no Estoque) pra um vendedor. RLS de `estoque_permissoes_usuario` já
+ * restringe isso a admin (`estoque_permissoes_usuario_admin`) — se
+ * quem chamar não for admin, o próprio banco recusa a escrita.
+ */
+export async function concederPermissaoEditarPrecoAction(usuarioId: string, conceder: boolean): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+
+    if (!conceder) {
+      const { error } = await supabase
+        .from("estoque_permissoes_usuario")
+        .delete()
+        .eq("usuario_id", usuarioId)
+        .eq("permissao", "editar_preco");
+      if (error) throw new Error(error.message);
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("estoque_permissoes_usuario")
+        .upsert({ usuario_id: usuarioId, permissao: "editar_preco", concedido_por: user?.id ?? null }, { onConflict: "usuario_id,permissao" });
+      if (error) throw new Error(error.message);
+    }
+
+    revalidatePath("/configuracoes/equipe");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar permissão" };
+  }
+}
+
 export async function desativarFuncionarioAction(usuarioId: string): Promise<ActionResult> {
   try {
     const admin = createAdminClient();

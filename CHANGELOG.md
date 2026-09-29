@@ -4,6 +4,84 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 257] - Editar preço de venda direto pelo Estoque
+
+Recurso pra alterar o preço de venda de um produto ou aparelho sem abrir
+o cadastro completo, direto da listagem do Estoque, com confirmação em
+duas etapas, checagem de permissão via o sistema de cargos/permissões já
+existente e histórico de alteração — depois de verificar como preço e
+produto estão estruturados hoje no banco, conforme pedido antes de
+implementar.
+
+- **Verificação de arquitetura (antes de codificar)** — `produtos.preco_venda`
+  e `aparelhos.preco_venda` já são a única fonte de preço "de tabela",
+  reaproveitada em todo lugar (vitrine pública via `listar_produtos_loja`/
+  `buscar_produto_loja`, carrinho, checkout, PDV) — não existe uma
+  estrutura de preço diferente pro site, então não havia motivo pra
+  parar e perguntar qual fonte deveria ser a principal, como o pedido
+  previa como possibilidade. Achado importante que ficou visível na UI:
+  quando `preco_liquido_desejado` está preenchido no produto/aparelho,
+  é ele — não o `preco_venda` — que o motor de precificação usa pra
+  calcular o preço mostrado na loja (Pix/parcelamento); o diálogo de
+  edição avisa isso explicitamente quando o campo está setado, pra não
+  parecer que a alteração "não teve efeito".
+- **Sem tabela nova de produto, sem duplicar preço** — o `UPDATE` da
+  Server Action grava só na coluna `preco_venda` já existente
+  (`produtos` ou `aparelhos`, conforme o tipo) e nunca recebe um objeto
+  genérico do cliente — impossível, mesmo por engano, alterar custo,
+  estoque mínimo, movimentações ou histórico de vendas já feitas (item
+  "IMPORTANTE" do pedido).
+- **Permissão — sem sistema paralelo** — o pedido presumia que já
+  existia uma permissão granular "editar preço/produto" pro vendedor;
+  na prática não existia (RLS hoje só dá UPDATE em `produtos`/
+  `aparelhos` pra admin/gerente — vendedor não tem nenhum acesso de
+  escrita nessas tabelas). Em vez de inventar um mecanismo novo, a
+  Fase 257 replica exatamente o padrão já estabelecido em Crediário
+  (`crediario_permissoes_usuario`, Fase 206): nova tabela
+  `estoque_permissoes_usuario (usuario_id, permissao, concedido_por)`
+  com a mesma forma de RLS (admin gerencia tudo; cada usuário lê só a
+  própria linha). Admin e gerente sempre podem editar preço; técnico
+  nunca pode (bloqueado explicitamente, mesmo que alguém tente conceder
+  a permissão); vendedor só pode com a permissão concedida. Concessão
+  feita em Configurações → Equipe, com um checkbox "Permitido" por
+  vendedor (`concederPermissaoEditarPrecoAction`).
+- **Escrita seletiva sem abrir RLS** — como RLS do Postgres não
+  restringe por coluna, ampliar a policy de UPDATE pra vendedor daria
+  acesso a todas as colunas de `produtos`/`aparelhos`, não só preço.
+  Em vez disso, `atualizarPrecoVendaAction` reconfere a permissão no
+  servidor e só então usa o client de service role, com o `.update()`
+  hardcoded pra tocar unicamente `preco_venda` — a garantia fica na
+  estrutura do código, não só na convenção.
+- **UI no Estoque** — nova coluna/botão "✏️ Editar preço" ao lado do
+  preço, nas tabelas de produtos e aparelhos (só aparece pra quem tem
+  permissão). Abre `EditarPrecoDialog`: mostra produto, SKU/IMEI, preço
+  atual e campo pro novo preço; `parseCurrencyBRL` (novo, em
+  `src/utils/format.ts`) aceita "R$ 1.890,00", "1890,00", "1890.00" etc;
+  rejeita vazio, inválido, negativo ou zero. Segunda etapa mostra
+  "Preço atual → Novo preço" com botões Cancelar/Confirmar alteração,
+  exatamente como pedido. Depois de salvar, `router.refresh()` atualiza
+  a tela sem reload manual da página.
+- **Histórico** — nova tabela `preco_venda_historico` (produto/aparelho,
+  nome exibido, preço anterior, preço novo, usuário, data/hora),
+  gravada na mesma Server Action que atualiza o preço. Nova seção
+  "Histórico de preço" nas páginas de detalhe de produto e de aparelho
+  (`HistoricoPreco`, últimas 10 alterações), no formato "usuário — data
+  / preço anterior → preço novo" pedido.
+- **Mobile** — o diálogo reaproveita o `Dialog` já responsivo do design
+  system (`w-[calc(100%-2rem)] max-w-lg`), sem componente novo; o botão
+  de editar é um ícone de toque generoso (7×7) ao lado do preço, dentro
+  da célula da tabela (`stopPropagation` na tabela de aparelhos, que
+  navega ao clicar na linha).
+- **Testes** — 7 testes novos pra `parseCurrencyBRL` em
+  `src/utils/__tests__/format.test.ts` (formatos com R$, vírgula, ponto,
+  valores inválidos, negativos, vazio). Suíte completa: 253/253.
+- **Limitação assumida** — como no código ainda não está publicado, não
+  foi possível verificar visualmente no Chrome o fluxo completo
+  (localizar produto → editar → confirmar → ver atualizado → conferir
+  histórico); a verificação foi feita por leitura de código e pelos
+  testes automatizados, seguindo o mesmo critério das fases anteriores
+  ainda não implantadas.
+
 ## [Fase 256] - Recurso "🔥 Produto Quente"
 
 Implementa a página de alta conversão opcional por produto, depois de

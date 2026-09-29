@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus, PackagePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { listarProdutos, listarAparelhos, listarSaldosProdutos } from "@/services/estoque/estoque.service";
+import { usuarioPodeEditarPreco } from "@/services/estoque/estoque-permissoes.service";
 import { ProdutosTable } from "@/components/estoque/produtos-table";
 import { AparelhosTable } from "@/components/estoque/aparelhos-table";
 import { LojaVirtualUnificadaTable } from "@/components/estoque/loja-virtual-unificada-table";
@@ -20,8 +21,9 @@ export default async function EstoquePage() {
     .single<{ cargo: CargoUsuario }>();
 
   const cargo = perfil?.cargo ?? "vendedor";
-  const [produtos, aparelhos, saldos] = await Promise.all([
+  const [produtos, aparelhos, saldos, podeEditarPreco] = await Promise.all([
     listarProdutos(), listarAparelhos(), listarSaldosProdutos(),
+    user?.id ? usuarioPodeEditarPreco(user.id, cargo) : Promise.resolve(false),
   ]);
 
   return (
@@ -67,19 +69,19 @@ export default async function EstoquePage() {
               <TabsTrigger value="virtual">Publicados na Loja Virtual ({aparelhos.filter((a) => a.disponivel_loja_virtual).length})</TabsTrigger>
             </TabsList>
             <TabsContent value="fisica">
-              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual && a.localizacao_estoque === "loja_fisica")} cargo={cargo} /></CardContent></Card>
+              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual && a.localizacao_estoque === "loja_fisica")} cargo={cargo} podeEditarPreco={podeEditarPreco} /></CardContent></Card>
             </TabsContent>
             <TabsContent value="fornecedor">
               <p className="mb-3 text-xs text-muted-foreground">Aparelho com fornecedor fora da cidade — não dá pra entregar na hora, precisa de prazo de transferência.</p>
-              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual && a.localizacao_estoque === "fornecedor")} cargo={cargo} /></CardContent></Card>
+              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.status !== "vendido" && !a.disponivel_loja_virtual && a.localizacao_estoque === "fornecedor")} cargo={cargo} podeEditarPreco={podeEditarPreco} /></CardContent></Card>
             </TabsContent>
             <TabsContent value="virtual">
-              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.disponivel_loja_virtual)} cargo={cargo} /></CardContent></Card>
+              <Card><CardContent className="p-0"><AparelhosTable aparelhos={aparelhos.filter((a) => a.disponivel_loja_virtual)} cargo={cargo} podeEditarPreco={podeEditarPreco} /></CardContent></Card>
             </TabsContent>
           </Tabs>
         </TabsContent>
         <TabsContent value="produtos">
-          <Card><CardContent className="p-0"><ProdutosTable produtos={produtos} saldos={saldos} cargo={cargo} /></CardContent></Card>
+          <Card><CardContent className="p-0"><ProdutosTable produtos={produtos} saldos={saldos} cargo={cargo} podeEditarPreco={podeEditarPreco} /></CardContent></Card>
         </TabsContent>
       </Tabs>
     </div>

@@ -3,6 +3,7 @@ import { buscarProdutoPorId } from "@/services/estoque/estoque.service";
 import { UploadFotosProduto } from "@/components/estoque/upload-fotos-produto";
 import { ToggleTradeIn } from "@/components/estoque/toggle-trade-in";
 import { PainelProdutoQuente } from "@/components/estoque/painel-produto-quente";
+import { HistoricoPreco } from "@/components/estoque/historico-preco";
 import { RetirarDaLojaButton } from "@/components/estoque/retirar-da-loja-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,7 @@ export default async function ProdutoDetailPage({ params }: { params: Promise<{ 
               videoUrlInicial={produto.produto_quente_video_url}
               temConteudoInicial={produto.produto_quente_conteudo != null}
             />
+            <HistoricoPreco entidade="produto" entidadeId={produto.id} />
           </CardContent>
         </Card>
       </div>

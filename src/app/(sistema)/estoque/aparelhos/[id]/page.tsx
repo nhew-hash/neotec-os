@@ -7,6 +7,7 @@ import { PublicarAparelhoButton } from "@/components/estoque/publicar-aparelho-b
 import { ApagarAparelhoButton } from "@/components/estoque/apagar-aparelho-button";
 import { RetirarDaLojaButton } from "@/components/estoque/retirar-da-loja-button";
 import { SeletorLocalizacaoEstoque } from "@/components/estoque/seletor-localizacao-estoque";
+import { HistoricoPreco } from "@/components/estoque/historico-preco";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/utils";
 
@@ -52,6 +53,7 @@ export default async function AparelhoDetailPage({ params }: { params: Promise<{
               <Info label="Entrada" value={formatDate(aparelho.data_entrada)} />
               <Info label="Peças substituídas" value={aparelho.pecas_substituidas?.length ? aparelho.pecas_substituidas.join(", ") : null} />
             </div>
+            <HistoricoPreco entidade="aparelho" entidadeId={aparelho.id} />
             <div className="border-t border-border pt-3">
               <ApagarAparelhoButton aparelhoId={aparelho.id} />
             </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { PublicarLojaDialog } from "./publicar-loja-dialog";
+import { EditarPrecoDialog } from "./editar-preco-dialog";
 import { formatCurrency } from "@/utils";
 import { podeVerCusto } from "@/utils/permissions";
 import { cn } from "@/lib/utils";
@@ -21,9 +22,11 @@ interface ProdutosTableProps {
   produtos: Produto[];
   saldos: Map<string, number>;
   cargo: CargoUsuario;
+  /** Fase 257 — resolvido no server (admin/gerente sempre; vendedor só com permissão concedida; técnico nunca). */
+  podeEditarPreco: boolean;
 }
 
-export function ProdutosTable({ produtos, saldos, cargo }: ProdutosTableProps) {
+export function ProdutosTable({ produtos, saldos, cargo, podeEditarPreco }: ProdutosTableProps) {
   const podeVerCustoAtual = podeVerCusto(cargo);
 
   if (produtos.length === 0) {
@@ -70,7 +73,21 @@ export function ProdutosTable({ produtos, saldos, cargo }: ProdutosTableProps) {
                 )}
                 {abaixoDoMinimo && <Badge variant="danger" className="ml-2 text-[10px]">Baixo</Badge>}
               </TableCell>
-              <TableCell>{produto.preco_venda ? formatCurrency(produto.preco_venda) : "—"}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  <span>{produto.preco_venda ? formatCurrency(produto.preco_venda) : "—"}</span>
+                  {podeEditarPreco && (
+                    <EditarPrecoDialog
+                      tipo="produto"
+                      id={produto.id}
+                      nome={produto.nome}
+                      identificador={produto.slug}
+                      precoAtual={produto.preco_venda}
+                      precoLiquidoDesejado={produto.preco_liquido_desejado}
+                    />
+                  )}
+                </div>
+              </TableCell>
               {podeVerCustoAtual && (
                 <TableCell className="text-muted-foreground">
                   {produto.custo ? formatCurrency(produto.custo) : "—"}

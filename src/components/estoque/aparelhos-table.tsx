@@ -6,12 +6,13 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { StatusAparelhoBadge } from "./status-badge";
 import { PublicarAparelhoButton } from "./publicar-aparelho-button";
 import { ApagarAparelhoButtonCompacto } from "./apagar-aparelho-button-compacto";
+import { EditarPrecoDialog } from "./editar-preco-dialog";
 import { formatCurrency } from "@/utils";
 import { podeVerCusto } from "@/utils/permissions";
 import type { CargoUsuario } from "@/types";
 import type { AparelhoComProduto } from "@/services/estoque/estoque.service";
 
-export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComProduto[]; cargo: CargoUsuario }) {
+export function AparelhosTable({ aparelhos, cargo, podeEditarPreco }: { aparelhos: AparelhoComProduto[]; cargo: CargoUsuario; podeEditarPreco: boolean }) {
   const router = useRouter();
   const podeVerCustoAtual = podeVerCusto(cargo);
 
@@ -51,7 +52,21 @@ export function AparelhosTable({ aparelhos, cargo }: { aparelhos: AparelhoComPro
             </TableCell>
             <TableCell className="font-mono text-xs text-muted-foreground">{aparelho.imei ?? "—"}</TableCell>
             <TableCell><StatusAparelhoBadge status={aparelho.status} /></TableCell>
-            <TableCell>{aparelho.preco_venda ? formatCurrency(aparelho.preco_venda) : "—"}</TableCell>
+            <TableCell onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-1.5">
+                <span>{aparelho.preco_venda ? formatCurrency(aparelho.preco_venda) : "—"}</span>
+                {podeEditarPreco && (
+                  <EditarPrecoDialog
+                    tipo="aparelho"
+                    id={aparelho.id}
+                    nome={aparelho.produto?.nome ?? "Aparelho"}
+                    identificador={aparelho.imei}
+                    precoAtual={aparelho.preco_venda}
+                    precoLiquidoDesejado={aparelho.preco_liquido_desejado}
+                  />
+                )}
+              </div>
+            </TableCell>
             {podeVerCustoAtual && (
               <TableCell className="text-muted-foreground">
                 {aparelho.custo ? formatCurrency(aparelho.custo) : "—"}

@@ -1086,6 +1086,21 @@ export interface AvaliacaoLoja {
 
 export interface ConfigSeoLoja { id: string; loja_id: string; titulo_padrao: string | null; descricao_padrao: string | null; updated_at: string }
 
+// ---- Fase 257: editar preço de venda pelo Estoque ----
+
+export interface PrecoVendaHistorico {
+  id: string;
+  loja_id: string;
+  entidade: "produto" | "aparelho";
+  entidade_id: string;
+  nome_exibido: string;
+  preco_anterior: number | null;
+  preco_novo: number;
+  usuario_id: string | null;
+  usuario_nome: string | null;
+  criado_em: string;
+}
+
 // ---- Fase 88: Pricing Engine ----
 
 export interface ConfiguracaoPrecificacao {
