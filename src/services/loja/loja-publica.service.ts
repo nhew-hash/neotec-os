@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
+import type { ProdutoLoja, AparelhoDisponivelLoja, AvaliacaoLoja } from "@/types";
 
 /**
  * Catálogo público — roda no SERVIDOR (Server Component), não no
@@ -28,5 +28,18 @@ export async function listarAparelhosDisponiveisLoja(produtoId: string): Promise
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("listar_aparelhos_disponiveis_loja", { p_produto_id: produtoId });
   if (error) throw new Error(`Não foi possível carregar as unidades disponíveis: ${error.message}`);
+  return data ?? [];
+}
+
+/**
+ * Fase 256 — a função pública `listar_avaliacoes_publico` já existia
+ * desde a Fase 81 (avaliações aprovadas pelo admin), mas nenhuma
+ * página da loja nunca chamava ela: o backend/admin existia, a
+ * vitrine pública não. Usado só na página Produto Quente por ora.
+ */
+export async function listarAvaliacoesPublicoProduto(produtoId: string): Promise<AvaliacaoLoja[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("listar_avaliacoes_publico", { p_produto_id: produtoId });
+  if (error) throw new Error(`Não foi possível carregar as avaliações: ${error.message}`);
   return data ?? [];
 }

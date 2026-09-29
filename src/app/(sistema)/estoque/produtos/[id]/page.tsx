@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { buscarProdutoPorId } from "@/services/estoque/estoque.service";
 import { UploadFotosProduto } from "@/components/estoque/upload-fotos-produto";
 import { ToggleTradeIn } from "@/components/estoque/toggle-trade-in";
+import { PainelProdutoQuente } from "@/components/estoque/painel-produto-quente";
 import { RetirarDaLojaButton } from "@/components/estoque/retirar-da-loja-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,14 @@ export default async function ProdutoDetailPage({ params }: { params: Promise<{ 
             <Info label="Slug" value={produto.slug} />
             <Info label="Cadastrado em" value={formatDate(produto.created_at)} />
             <ToggleTradeIn produtoId={produto.id} valorInicial={produto.mostrar_trade_in} />
+            <PainelProdutoQuente
+              produtoId={produto.id}
+              slug={produto.slug}
+              ligadoInicial={produto.produto_quente}
+              linkMlInicial={produto.produto_quente_link_ml}
+              videoUrlInicial={produto.produto_quente_video_url}
+              temConteudoInicial={produto.produto_quente_conteudo != null}
+            />
           </CardContent>
         </Card>
       </div>

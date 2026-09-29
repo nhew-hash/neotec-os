@@ -96,6 +96,7 @@ export function AparelhoForm({ produtos: produtosIniciais, investidores }: { pro
       loja_id: "", marca: null, modelo: null, descricao: null, preco_venda: null, custo: null,
       estoque_minimo: 0, status: "ativo", visivel_loja: false, slug: null, descricao_loja: null,
       preco_antigo: null, preco_liquido_desejado: null, selos_manuais: [], fotos: [], mostrar_trade_in: false, retirar_em: null,
+      produto_quente: false, produto_quente_link_ml: null, produto_quente_conteudo: null, produto_quente_video_url: null,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     };
 

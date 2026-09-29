@@ -17,6 +17,18 @@ import { formatCurrency } from "@/utils";
 import type { CargoUsuario } from "@/types";
 
 /**
+ * Fase 255 — auditoria de "Atividade agora" encontrou números
+ * congelados mesmo depois de eventos novos confirmados no banco (teste
+ * ao vivo: 3 requisições de tracking com 200 OK, zero mudança nos
+ * cards mesmo com cache-busting de URL). A causa mais provável é o
+ * Data Cache do Next reaproveitando as respostas `fetch` das queries
+ * Supabase entre requisições — força-dinâmico + revalidate 0 garantem
+ * que cada carregamento desta página dispara leituras novas de verdade.
+ */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+/**
  * Analytics da Loja Virtual — V1. Foco em tráfego/comportamento do
  * visitante (visitantes, views, carrinho, conversão, origem) — não
  * confundir com `/analytics` (financeiro/lucro, já existente, mantido

@@ -9,6 +9,13 @@ export interface MetricaPeriodo {
   variacaoMes: number | null;
 }
 
+export interface FunilCheckout {
+  visualizacoes: number;
+  carrinhos: number;
+  checkoutIniciado: number;
+  pagamentoAprovado: number;
+}
+
 export interface ResumoLojaAnalytics {
   onlineAgora: number;
   visitantes: MetricaPeriodo;
@@ -16,6 +23,15 @@ export interface ResumoLojaAnalytics {
   carrinhos: MetricaPeriodo;
   vendas: MetricaPeriodo;
   faturamento: MetricaPeriodo;
+  /**
+   * Fase 255: os eventos de checkout (checkout_view/started/
+   * payment_selected/payment_success/payment_failed, Fase 197) eram
+   * gravados no banco e nunca lidos por nenhum service — o funil que
+   * a tela mostrava pulava direto de "carrinho" pra "venda". Isso
+   * expõe as duas etapas que já existiam e não apareciam em lugar
+   * nenhum.
+   */
+  funilCheckout: FunilCheckout;
 }
 
 export interface AtividadeRecente {
@@ -68,6 +84,16 @@ export async function obterOnlineAgora(): Promise<number> {
  * janela agora usam o fuso de Brasília (fixo UTC-3, sem horário de
  * verão desde 2019), não mais o horário local do servidor — corrige o
  * deslocamento de até 3h que existia quando o servidor roda em UTC.
+ *
+ * Fase 255: "Visitantes" contava `loja_sessoes` criadas na janela — como
+ * o UID de sessão fica salvo no localStorage sem expiração, um cliente
+ * recorrente nunca mais é contado depois da 1ª visita de todas, mesmo
+ * visitando todo dia (confirmado ao vivo: 722 visualizações em 30 dias
+ * com apenas 1 "visitante" no mesmo período). Agora conta sessões
+ * DISTINTAS com pelo menos um evento dentro da janela, usando
+ * `loja_eventos` (que guarda o timestamp de cada evento individualmente,
+ * não só o mais recente) — reflete quem esteve realmente ativo no
+ * período, não só quem chegou pela primeira vez.
  */
 export async function obterResumoLojaAnalytics(): Promise<ResumoLojaAnalytics> {
   const supabase = await createClient();
@@ -87,13 +113,11 @@ export async function obterResumoLojaAnalytics(): Promise<ResumoLojaAnalytics> {
 
   const [
     { count: onlineAgora },
-    { data: sessoes },
     { data: eventos },
     { data: pedidos },
   ] = await Promise.all([
     supabase.from("loja_sessoes").select("*", { count: "exact", head: true }).gte("ultima_atividade_em", doisMinAtras.toISOString()),
-    supabase.from("loja_sessoes").select("criado_em").gte("criado_em", janelaMaisLarga.toISOString()),
-    supabase.from("loja_eventos").select("tipo, criado_em").gte("criado_em", janelaMaisLarga.toISOString()),
+    supabase.from("loja_eventos").select("tipo, criado_em, sessao_uid").gte("criado_em", janelaMaisLarga.toISOString()),
     // Vendas/faturamento usa `pedidos_loja` (não `vendas`) — `vendas`
     // mistura PDV presencial com checkout online sem nenhuma forma de
     // diferenciar (checkout online cria a venda sem guardar referência
@@ -107,15 +131,23 @@ export async function obterResumoLojaAnalytics(): Promise<ResumoLojaAnalytics> {
 
   const eventosPorTipo = (tipo: string) => (eventos ?? []).filter((e) => e.tipo === tipo);
 
+  const sessoesDistintasNaJanela = (desde: Date, ate?: Date) => {
+    const uids = new Set<string>();
+    for (const e of eventos ?? []) {
+      if (e.criado_em >= desde.toISOString() && (!ate || e.criado_em < ate.toISOString())) uids.add(e.sessao_uid);
+    }
+    return uids.size;
+  };
+
   const pedidosNaJanela = (desde: Date, ate?: Date) =>
     (pedidos ?? []).filter((p) => p.updated_at >= desde.toISOString() && (!ate || p.updated_at < ate.toISOString()));
   const somar = (linhas: { valor_total: number }[]) => linhas.reduce((acc, v) => acc + Number(v.valor_total ?? 0), 0);
 
-  const visitantesHoje = contarNaJanela(sessoes, hojeInicio);
-  const visitantesOntem = contarNaJanela(sessoes, ontemInicio, hojeInicio);
-  const visitantesSemana = contarNaJanela(sessoes, semanaInicio);
-  const visitantesMes = contarNaJanela(sessoes, mesInicio);
-  const visitantesMesAnterior = contarNaJanela(sessoes, mesAnteriorInicio, mesInicio);
+  const visitantesHoje = sessoesDistintasNaJanela(hojeInicio);
+  const visitantesOntem = sessoesDistintasNaJanela(ontemInicio, hojeInicio);
+  const visitantesSemana = sessoesDistintasNaJanela(semanaInicio);
+  const visitantesMes = sessoesDistintasNaJanela(mesInicio);
+  const visitantesMesAnterior = sessoesDistintasNaJanela(mesAnteriorInicio, mesInicio);
 
   const pageviews = eventosPorTipo("pageview");
   const viewsHoje = contarNaJanela(pageviews, hojeInicio);
@@ -141,6 +173,16 @@ export async function obterResumoLojaAnalytics(): Promise<ResumoLojaAnalytics> {
   const faturamentoOntem = somar(vendasOntem);
   const faturamentoMes = somar(vendasMes);
   const faturamentoMesAnterior = somar(vendasMesAnterior);
+
+  // Fase 255 — funil de checkout (Fase 197) exposto pela 1ª vez: os
+  // eventos já eram gravados, nenhum service os lia. Janela de 30 dias,
+  // igual às outras métricas "mes".
+  const funilCheckout: FunilCheckout = {
+    visualizacoes: viewsMes,
+    carrinhos: carrinhosMes,
+    checkoutIniciado: contarNaJanela(eventosPorTipo("checkout_started"), mesInicio),
+    pagamentoAprovado: contarNaJanela(eventosPorTipo("payment_success"), mesInicio),
+  };
 
   return {
     onlineAgora: onlineAgora ?? 0,
@@ -169,32 +211,59 @@ export async function obterResumoLojaAnalytics(): Promise<ResumoLojaAnalytics> {
       variacaoHoje: variacaoPercentual(faturamentoHoje, faturamentoOntem),
       variacaoMes: variacaoPercentual(faturamentoMes, faturamentoMesAnterior),
     },
+    funilCheckout,
   };
 }
 
-/** Últimas atividades — pageview de produto, add_to_cart, venda. Sem identidade de visitante anônimo (pedido explícito). */
+/**
+ * Últimas atividades — pageview de produto, add_to_cart, venda. Sem
+ * identidade de visitante anônimo (pedido explícito).
+ *
+ * Fase 255, dois bugs corrigidos:
+ * - Não tinha corte de tempo nenhum: buscava só "os N mais recentes de
+ *   todos os tempos", então evento de meses atrás ficava exibido como
+ *   "atividade agora" indefinidamente enquanto não houvesse eventos
+ *   novos suficientes pra empurrá-lo pra fora da lista (confirmado ao
+ *   vivo: entradas de "há 927h"/"há 1104h"). Agora corta em 48h — se
+ *   não há nada nesse intervalo, mostra a lista vazia em vez de dado
+ *   velho.
+ * - `.not("produto_id","is",null)` excluía 100% dos pageviews (nunca
+ *   carregam produto_id, em nenhuma página), todo add-to-cart de
+ *   aparelho (iPhone/Apple Watch seminovo — a maior parte do catálogo,
+ *   só preenchem `aparelho_id`) e todo lacrado (não tinha FK nenhuma
+ *   pra se atribuir). Confirmado ao vivo: um add-to-cart real de um
+ *   Apple Watch seminovo não apareceu na lista. Agora usa o evento
+ *   `product_view` (visualização já atribuída, Fase 255) em vez de
+ *   `pageview` genérico, e aceita produto_id OU aparelho_id OU
+ *   lacrado_modelo_id preenchido.
+ */
 export async function obterAtividadeRecente(limite = 15): Promise<AtividadeRecente[]> {
   const supabase = await createClient();
+  const corteTempo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
   const [{ data: eventos }, { data: vendasRecentes }] = await Promise.all([
     supabase
       .from("loja_eventos")
-      .select("id, tipo, pagina, criado_em, produto:produtos(nome), aparelho:aparelhos(produto:produtos(nome))")
-      .in("tipo", ["pageview", "add_to_cart"])
-      .not("produto_id", "is", null)
+      .select(
+        "id, tipo, pagina, criado_em, produto:produtos(nome), aparelho:aparelhos(produto:produtos(nome)), lacradoModelo:catalogo_lacrados_modelos(nome)"
+      )
+      .in("tipo", ["product_view", "add_to_cart"])
+      .or("produto_id.not.is.null,aparelho_id.not.is.null,lacrado_modelo_id.not.is.null")
+      .gte("criado_em", corteTempo)
       .order("criado_em", { ascending: false })
       .limit(limite),
-    supabase.from("pedidos_loja").select("id, valor_total, updated_at").eq("status", "concluido").order("updated_at", { ascending: false }).limit(5),
+    supabase.from("pedidos_loja").select("id, valor_total, updated_at").eq("status", "concluido").gte("updated_at", corteTempo).order("updated_at", { ascending: false }).limit(5),
   ]);
 
   const itensEventos: AtividadeRecente[] = (eventos ?? []).map((e) => {
     const produto = e.produto as unknown as { nome: string } | null;
     const aparelho = e.aparelho as unknown as { produto: { nome: string } | null } | null;
-    const nome = produto?.nome ?? aparelho?.produto?.nome ?? "um produto";
+    const lacradoModelo = e.lacradoModelo as unknown as { nome: string } | null;
+    const nome = produto?.nome ?? aparelho?.produto?.nome ?? lacradoModelo?.nome ?? "um produto";
     return {
       id: e.id,
-      tipo: e.tipo as "pageview" | "add_to_cart",
-      descricao: e.tipo === "pageview" ? `👀 Visualizou ${nome}` : `🛒 Adicionou ${nome} ao carrinho`,
+      tipo: e.tipo === "add_to_cart" ? "add_to_cart" : "pageview",
+      descricao: e.tipo === "add_to_cart" ? `🛒 Adicionou ${nome} ao carrinho` : `👀 Visualizou ${nome}`,
       quando: e.criado_em,
     };
   });
@@ -206,7 +275,24 @@ export async function obterAtividadeRecente(limite = 15): Promise<AtividadeRecen
   return [...itensEventos, ...itensVendas].sort((a, b) => b.quando.localeCompare(a.quando)).slice(0, limite);
 }
 
-/** Produtos mais acessados — views, carrinhos e vendas por produto, ordenado por visualização. */
+/**
+ * Produtos mais acessados — views, carrinhos e vendas por produto,
+ * ordenado por visualização.
+ *
+ * Fase 255: mesmo problema de `obterAtividadeRecente` — o filtro só
+ * aceitava `produto_id`, que pageview nunca preenche e add-to-cart de
+ * aparelho (seminovo) nem lacrado também não. Resultado confirmado ao
+ * vivo: "Views" sempre em zero pra todo produto, por construção, mesmo
+ * com centenas de pageviews reais no período. Agora usa o evento
+ * `product_view` (Fase 255, atribuído de propósito) em vez de
+ * `pageview` genérico, busca também por `aparelho_id`/`lacrado_modelo_id`,
+ * e resolve aparelho pro `produto_id` do catálogo pai
+ * (`aparelhos.produto_id`) — um iPhone seminovo específico pertence a
+ * um produto do catálogo, sem isso não dá pra agrupar "views do iPhone
+ * 16 Plus" por modelo. Lacrado não tem produto pai (catálogo
+ * separado), então agrupa pelo próprio `lacrado_modelo_id`, com chave
+ * prefixada pra nunca colidir com um uuid de `produtos`.
+ */
 export async function obterProdutosDestaque(limite = 10): Promise<ProdutoDestaque[]> {
   const supabase = await createClient();
   const trintaDiasAtras = new Date();
@@ -214,8 +300,10 @@ export async function obterProdutosDestaque(limite = 10): Promise<ProdutoDestaqu
 
   const { data: eventos } = await supabase
     .from("loja_eventos")
-    .select("tipo, produto_id, produto:produtos(nome)")
-    .not("produto_id", "is", null)
+    .select(
+      "tipo, produto_id, lacrado_modelo_id, produto:produtos(nome), aparelho:aparelhos(produto_id, produto:produtos(nome)), lacradoModelo:catalogo_lacrados_modelos(nome)"
+    )
+    .or("produto_id.not.is.null,aparelho_id.not.is.null,lacrado_modelo_id.not.is.null")
     .gte("criado_em", trintaDiasAtras.toISOString());
 
   // "Vendas" aqui usa pedido_loja_itens (só site) filtrado pelo pedido
@@ -231,12 +319,21 @@ export async function obterProdutosDestaque(limite = 10): Promise<ProdutoDestaqu
   const mapa = new Map<string, ProdutoDestaque>();
 
   for (const e of eventos ?? []) {
-    const produto = e.produto as unknown as { nome: string } | null;
-    if (!e.produto_id || !produto) continue;
-    const atual = mapa.get(e.produto_id) ?? { nome: produto.nome, visualizacoes: 0, carrinhos: 0, vendas: 0 };
-    if (e.tipo === "pageview") atual.visualizacoes++;
+    const produtoDireto = e.produto as unknown as { nome: string } | null;
+    const aparelho = e.aparelho as unknown as { produto_id: string | null; produto: { nome: string } | null } | null;
+    const lacradoModelo = e.lacradoModelo as unknown as { nome: string } | null;
+
+    // Chave do mapa: produto_id direto, produto pai do aparelho, ou
+    // lacrado prefixado (namespace próprio — nunca é o mesmo id de um
+    // produto de verdade, então nunca soma visualização/carrinho do
+    // item errado por coincidência de uuid).
+    const chave = e.produto_id ?? aparelho?.produto_id ?? (e.lacrado_modelo_id ? `lacrado:${e.lacrado_modelo_id}` : null);
+    const nome = produtoDireto?.nome ?? aparelho?.produto?.nome ?? lacradoModelo?.nome ?? null;
+    if (!chave || !nome) continue;
+    const atual = mapa.get(chave) ?? { nome, visualizacoes: 0, carrinhos: 0, vendas: 0 };
+    if (e.tipo === "product_view") atual.visualizacoes++;
     else if (e.tipo === "add_to_cart") atual.carrinhos++;
-    mapa.set(e.produto_id, atual);
+    mapa.set(chave, atual);
   }
 
   for (const v of itensVendidos ?? []) {
@@ -277,43 +374,51 @@ export async function obterOrigemAcessos(): Promise<OrigemAcesso[]> {
     .sort((a, b) => b.quantidade - a.quantidade);
 }
 
-/** Gráfico de visitantes — hoje (por hora) ou 7/30 dias (por dia). */
+/**
+ * Gráfico de visitantes — hoje (por hora) ou 7/30 dias (por dia).
+ *
+ * Fase 255: contava linhas de `loja_sessoes` (criação de sessão), mesmo
+ * problema do card "Visitantes" (item B em obterResumoLojaAnalytics) —
+ * uma sessão recorrente nunca aparecia de novo no gráfico depois da 1ª
+ * vez. Agora conta sessões distintas com evento em cada hora/dia, via
+ * `loja_eventos`.
+ */
 export async function obterGraficoVisitantes(periodo: "hoje" | "7dias" | "30dias"): Promise<PontoGrafico[]> {
   const supabase = await createClient();
   const agora = new Date();
 
   if (periodo === "hoje") {
     const hojeInicio = inicioDoDiaBrasilia(agora);
-    const { data } = await supabase.from("loja_sessoes").select("criado_em").gte("criado_em", hojeInicio.toISOString());
+    const { data } = await supabase.from("loja_eventos").select("criado_em, sessao_uid").gte("criado_em", hojeInicio.toISOString());
 
-    const porHora = new Array(24).fill(0);
-    for (const s of data ?? []) porHora[horaBrasilia(new Date(s.criado_em))]++;
+    const porHora: Set<string>[] = Array.from({ length: 24 }, () => new Set());
+    for (const e of data ?? []) porHora[horaBrasilia(new Date(e.criado_em))].add(e.sessao_uid);
 
-    return porHora.map((valor, hora) => ({ rotulo: `${String(hora).padStart(2, "0")}h`, valor }));
+    return porHora.map((uids, hora) => ({ rotulo: `${String(hora).padStart(2, "0")}h`, valor: uids.size }));
   }
 
   const dias = periodo === "7dias" ? 7 : 30;
   const inicio = new Date(inicioDoDiaBrasilia(agora));
   inicio.setUTCDate(inicio.getUTCDate() - (dias - 1));
 
-  const { data } = await supabase.from("loja_sessoes").select("criado_em").gte("criado_em", inicio.toISOString());
+  const { data } = await supabase.from("loja_eventos").select("criado_em, sessao_uid").gte("criado_em", inicio.toISOString());
 
-  const porDia = new Map<string, number>();
+  const porDia = new Map<string, Set<string>>();
   for (let i = 0; i < dias; i++) {
     const d = new Date(inicio);
     d.setDate(d.getDate() + i);
-    porDia.set(d.toISOString().slice(0, 10), 0);
+    porDia.set(d.toISOString().slice(0, 10), new Set());
   }
-  for (const s of data ?? []) {
+  for (const e of data ?? []) {
     // Chave do dia sempre no fuso de Brasília — usar o prefixo cru do
     // timestamp (UTC) botava evento perto da meia-noite no dia errado.
-    const { ano, mes, dia } = obterDataHoraBrasilia(new Date(s.criado_em));
+    const { ano, mes, dia } = obterDataHoraBrasilia(new Date(e.criado_em));
     const chave = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
-    if (porDia.has(chave)) porDia.set(chave, (porDia.get(chave) ?? 0) + 1);
+    porDia.get(chave)?.add(e.sessao_uid);
   }
 
-  return Array.from(porDia.entries()).map(([data, valor]) => {
+  return Array.from(porDia.entries()).map(([data, uids]) => {
     const [, mes, dia] = data.split("-");
-    return { rotulo: `${dia}/${mes}`, valor };
+    return { rotulo: `${dia}/${mes}`, valor: uids.size };
   });
 }

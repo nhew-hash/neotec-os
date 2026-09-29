@@ -167,6 +167,14 @@ export interface Produto {
   fotos: string[];
   mostrar_trade_in: boolean;
   retirar_em: string | null;
+  /** Fase 256 — liga a página de alta conversão ("Produto Quente") nessa mesma URL. */
+  produto_quente: boolean;
+  /** Fase 256 — link de referência (ex: Mercado Livre), uso interno pra IA gerar o conteúdo da página quente. Nunca exposto na vitrine pública. */
+  produto_quente_link_ml: string | null;
+  /** Fase 256 — conteúdo comercial gerado por IA pra página quente (headline, benefícios, FAQ etc). Ver `ConteudoProdutoQuente` em src/services/ia/produto-quente-ia.service.ts. */
+  produto_quente_conteudo: Record<string, unknown> | null;
+  /** Fase 256 — vídeo opcional (YouTube ou .mp4 direto) exibido na página Produto Quente. */
+  produto_quente_video_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -814,6 +822,12 @@ export interface ProdutoLoja {
   slug: string;
   fotos: string[];
   mostrar_trade_in: boolean;
+  /** Fase 256 */
+  produto_quente: boolean;
+  /** Fase 256 — shape real em `ConteudoProdutoQuente` (src/services/ia/produto-quente-ia.service.ts); tipado solto aqui pra não criar dependência circular de módulo. */
+  produto_quente_conteudo: Record<string, unknown> | null;
+  /** Fase 256 */
+  produto_quente_video_url: string | null;
 }
 
 export interface AparelhoDisponivelLoja {

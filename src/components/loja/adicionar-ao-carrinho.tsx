@@ -23,9 +23,19 @@ interface AdicionarAoCarrinhoProps {
   aparelhosDisponiveis: AparelhoDisponivelLoja[];
   pixDescontoPercentual?: number;
   onAparelhoChange?: (aparelhoId: string | null) => void;
+  /**
+   * Fase 256 — Produto Quente: um único CTA ("não adicionar vários CTAs
+   * concorrentes", item 7 do brief). Em vez de "Adicionar ao carrinho" +
+   * link separado "Ver carrinho", o botão vira "Comprar agora" e já
+   * navega direto pro checkout existente depois de adicionar — mesmo
+   * fluxo de carrinho/checkout de sempre por baixo, só muda o rótulo e
+   * o destino do clique. Página normal não passa essa prop — comportamento
+   * 100% igual ao de antes.
+   */
+  modoComprarAgora?: boolean;
 }
 
-export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDescontoPercentual = 0, onAparelhoChange }: AdicionarAoCarrinhoProps) {
+export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDescontoPercentual = 0, onAparelhoChange, modoComprarAgora = false }: AdicionarAoCarrinhoProps) {
   const router = useRouter();
   const { adicionar } = useCarrinho();
   const [aparelhoSelecionadoId, setAparelhoSelecionadoId] = useState<string | null>(aparelhosDisponiveis[0]?.id ?? null);
@@ -54,6 +64,13 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
     } else {
       adicionar({ tipo: "produto", id: produto.id, nome: produto.nome, valor: produto.preco_venda ?? 0, foto: produto.fotos?.[0] ?? null });
     }
+
+    if (modoComprarAgora) {
+      void import("./loja-tracking-provider").then(({ rastrearComprarAgora }) => rastrearComprarAgora());
+      router.push("/loja/checkout");
+      return;
+    }
+
     setAdicionado(true);
     setTimeout(() => setAdicionado(false), 2000);
   }
@@ -113,12 +130,12 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
           onClick={handleAdicionar}
           className="shadow-lg shadow-primary/20 hover:opacity-90 hover:bg-primary"
         >
-          {adicionado ? <Check className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
-          {adicionado ? "Adicionado!" : "Adicionar ao carrinho"}
+          {modoComprarAgora ? <ShoppingBag className="h-4 w-4" /> : adicionado ? <Check className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
+          {modoComprarAgora ? "Comprar agora" : adicionado ? "Adicionado!" : "Adicionar ao carrinho"}
         </Button>
       )}
 
-      {adicionado && (
+      {!modoComprarAgora && adicionado && (
         <Button type="button" variant="link" size="sm" onClick={() => router.push("/loja/carrinho")} className="h-auto p-0 font-medium">
           Ver carrinho →
         </Button>

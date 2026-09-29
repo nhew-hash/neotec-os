@@ -4,6 +4,202 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 256] - Recurso "🔥 Produto Quente"
+
+Implementa a página de alta conversão opcional por produto, depois de
+uma auditoria completa da arquitetura atual (produtos, rotas, banco,
+painel admin, categorias, checkout, carrinho, preço/parcelamento,
+frete, avaliações, analytics, imagens, mobile, componentes, SEO) e da
+estratégia de implementação apresentada e aprovada antes de codificar,
+conforme pedido.
+
+- **Dado** — migração `fase256_produto_quente.sql` adiciona
+  `produto_quente` (boolean), `produto_quente_link_ml` (text),
+  `produto_quente_conteudo` (jsonb — primeira coluna jsonb de
+  `produtos`) e `produto_quente_video_url` (text) — este último é um
+  campo novo que não existia antes (só `aparelhos.video_url`, de outro
+  propósito — vídeo de vistoria, não de marketing). Novo valor
+  `comprar_agora_click` no enum `tipo_evento_loja`. Funções públicas
+  (`listar_produtos_loja`, `buscar_produto_loja`) e `vw_produtos_seguro`
+  atualizadas pra expor os campos novos (`produto_quente_link_ml` só na
+  view de staff — nunca exposto na vitrine pública).
+- **Nenhuma rota nova** — `/loja/produto/[slug]` passa a renderizar
+  `ProdutoQuentePage` em vez do PDP normal quando `produto_quente` está
+  ligado, reaproveitando `GaleriaFotos`, `AdicionarAoCarrinho`,
+  `TabelaParcelamento`, `BadgesProduto`/`AvisoEstoque`,
+  `FaixaSelosConfianca` — nenhum desses componentes foi duplicado.
+- **"Comprar agora" sem duplicar checkout** — `AdicionarAoCarrinho`
+  ganhou uma prop opcional `modoComprarAgora` (produto normal não passa
+  essa prop — comportamento idêntico a antes): quando ligada, o mesmo
+  fluxo de sempre (`adicionar()` no carrinho) navega direto pra
+  `/loja/checkout` em vez de mostrar "Ver carrinho →", e o rótulo vira
+  "Comprar agora" — um único CTA, sem concorrência, sem checkout
+  paralelo.
+- **Conteúdo gerado por IA** — novo `src/services/ia/produto-quente-ia.service.ts`,
+  sempre via `executarPromptIA` (nunca provider direto, mesmo padrão de
+  `lacrados-ia.service.ts`): gera headline, subtítulo, benefícios,
+  destaques, FAQ, objeções e descrição comercial usando só o que está
+  cadastrado no produto (nome, categoria, marca, modelo, preço,
+  descrição, selos) + o resumo do link de referência quando houver.
+  Prompt instrui explicitamente a nunca inventar característica não
+  fornecida — array vazio é resposta preferível a conteúdo inventado.
+  Disparada automaticamente ao ligar o toggle; "Regenerar" no admin
+  dispara de novo a qualquer momento.
+- **Link de referência (Mercado Livre)** — `src/services/loja/produto-quente-ml.service.ts`:
+  fetch simples do HTML (sem Playwright/scraping de JS — não existe no
+  projeto) + leitura de meta tags Open Graph e do bloco JSON-LD
+  `Product` que a página já publica. Se falhar, vier bloqueado, ou não
+  tiver dado nenhum, degrada com elegância (`null`) — o cadastro nunca
+  trava e a IA gera o conteúdo só com o dado real do produto.
+- **Avaliações — vitrine pública nova** — a função `listar_avaliacoes_publico`
+  já existia desde a Fase 81, mas nenhuma página da loja a chamava (só
+  o admin aprovava avaliações, sem nada exibir pro cliente). Nova seção
+  `ProvaSocial` (só na página quente por ora) mostra nota média,
+  contagem e comentários — tudo real, some inteira se não houver
+  avaliação aprovada.
+- **Frete** — nova seção `OfertaFrete` usa a regra nacional real já
+  cadastrada (`regras_frete.nacional`); só anuncia "FRETE GRÁTIS" se o
+  valor cadastrado for de fato zero, senão mostra o valor/prazo reais.
+- **Escassez** — reaproveita `AvisoEstoque`/`contarEstoqueRealDoProduto`,
+  os mesmos da PDP normal — nenhum contador falso, nenhuma "pessoas
+  vendo agora" inventada.
+- **Vídeo** — opcional; sem vídeo, a seção some. Aceita YouTube (embed)
+  ou link direto `.mp4`.
+- **Mobile** — `CtaFixoMobile`: barra fixa "COMPRAR AGORA" no rodapé
+  (`lg:hidden`) — não existia nenhum padrão de sticky CTA no projeto
+  antes, foi construído do zero. Decisão de design: em vez de duplicar
+  o estado de seleção de variante pra fazer esse botão adicionar ao
+  carrinho sozinho (arriscando dessincronia com o CTA principal), ele
+  rola a tela até o bloco de compra real (`#comprar-agora`) — evita um
+  workaround frágil, mantendo uma única fonte de verdade pro carrinho.
+- **SEO** — `generateMetadata` (title/description/OG) + JSON-LD
+  `Product` (nome, preço, imagem, disponibilidade — todos dados reais)
+  implementados **só na página Produto Quente** por decisão explícita
+  desta fase; a PDP normal continua sem metadata própria (lacuna real
+  que já existia, registrada na auditoria, mas fora do escopo aqui).
+- **Analytics** — novo evento `comprar_agora_click`, separado de
+  `add_to_cart` (que o mesmo clique já dispara), pra dar visibilidade
+  própria ao CTA no funil. Comparar "página normal vs. página quente"
+  fica possível cruzando `loja_eventos.produto_id` com
+  `produtos.produto_quente` — nenhum dashboard novo foi construído
+  nesta fase (fica pra quando fizer falta de verdade).
+- **Painel admin** — `PainelProdutoQuente` na página de detalhe do
+  produto (`/estoque/produtos/[id]`), mesmo padrão do `ToggleTradeIn`:
+  toggle ON/OFF, campo de link do Mercado Livre, campo de vídeo, botão
+  "Regenerar conteúdo com IA" e link "Ver página". Sem editor de
+  landing page — cadastro continua rápido, texto solto e editável.
+- **Decisão de escopo**: o popup/CTA de Trade-in (Fase 250/253) e a
+  lista "Vistos recentemente" não aparecem na página quente — de
+  propósito, pra manter um único CTA sem concorrência (item 7 do
+  brief), diferente da PDP normal onde continuam exatamente como
+  antes.
+- **Testado**: produto normal (não regrediu), Produto Quente ON/OFF,
+  produto sem vídeo, sem avaliação, com poucas fotos, com/sem link do
+  Mercado Livre — todos via leitura de código e lógica (branches
+  cobrem `null`/vazio em cada seção). **Não testado ao vivo** — as
+  correções só entram em vigor quando este código for aplicado e
+  publicado; verificação real em produção via Chrome fica pendente,
+  como já registrado nas fases anteriores para mudanças ainda não
+  publicadas.
+
+## [Fase 255] - Correções da investigação de "Atividade agora"
+
+Implementa as correções propostas na seção J do relatório de investigação
+("Atividade agora") entregue na fase anterior — aquela etapa foi só
+auditoria (nada de código mudou); esta é a implementação. Cada item
+abaixo corresponde ao achado do relatório.
+
+- **B1 (dado "congelado" — confirmado com teste real em produção)** —
+  `src/lib/supabase/server.ts` e `src/lib/supabase/admin.ts` passam a
+  usar um `fetch` próprio (`fetchSemCache`, `cache: "no-store"`) como
+  `global.fetch` dos dois clientes Supabase, e
+  `src/app/(sistema)/loja-admin/analytics/page.tsx` ganhou
+  `export const dynamic = "force-dynamic"` + `export const revalidate = 0`.
+  O teste ao vivo (adicionar produto ao carrinho e recarregar o painel
+  várias vezes, inclusive com cache-busting na URL) mostrou os números
+  travados apesar de 3 eventos de rastreamento confirmados — a causa era
+  o Next.js Data Cache guardando as respostas dos `fetch()` que o
+  `@supabase/ssr`/`supabase-js` fazem por baixo dos panos. Correção
+  aplicada de forma ampla (nos dois clientes), não só na página.
+- **B2 (filtro `produto_id` excluía quase tudo)** —
+  `obterAtividadeRecente` e `obterProdutosDestaque`, em
+  `loja-analytics.service.ts`, trocaram `.not("produto_id","is",null)`
+  por `.or("produto_id.not.is.null,aparelho_id.not.is.null,lacrado_modelo_id.not.is.null")`,
+  cobrindo os três tipos de item vendidos na loja (produto novo,
+  aparelho seminovo, lacrado). Antes, visualizações e adições ao
+  carrinho de seminovos e lacrados eram 100% excluídas dessas listas.
+- **C (sem corte de tempo + poço raso de eventos = "há 927h")** —
+  ambas as funções acima ganharam
+  `corteTempo = agora - 48h` (`.gte("criado_em", corteTempo)`), então
+  a lista de atividade recente nunca mais mostra evento de dias atrás
+  só porque não havia evento mais novo que passasse no filtro antigo.
+- **D/F/G (funil de checkout gravado desde a Fase 197 e nunca lido)** —
+  novo campo `funilCheckout` em `ResumoLojaAnalytics`
+  (visualizações → carrinhos → checkout iniciado → pagamento aprovado),
+  computado em `obterResumoLojaAnalytics()` a partir dos eventos
+  `checkout_started`/`payment_success` que já existiam na tabela.
+  `funil-conversao.tsx` foi reescrito para mostrar as 4 etapas (antes
+  mostrava só visitantes → carrinhos → vendas, pulando o meio do funil).
+- **"Visitantes" contava sessão nova, não visita ativa** —
+  `obterResumoLojaAnalytics` e `obterGraficoVisitantes` (gráfico e
+  cards) agora contam sessões distintas (`Set` de `sessao_uid`) dentro
+  da janela de tempo, usando os timestamps de `loja_eventos` (por
+  evento) em vez de `loja_sessoes.criado_em` (que só é gravado uma vez,
+  na primeira visita de cada navegador — um visitante recorrente nunca
+  era recontado).
+- **Gráfico de visitantes não atualizava em 7/30 dias** —
+  `grafico-visitantes.tsx`: o `useEffect` que resincroniza o gráfico só
+  dependia de `[periodo]`; o auto-refresh de 30s da página buscava dado
+  novo no servidor, mas o componente já tinha seu próprio estado
+  inicializado e nunca recebia a atualização fora do período "hoje".
+  Agora depende de `[periodo, dadosIniciais]` e resincroniza a cada
+  refresh do servidor, em qualquer período.
+- **utm_medium/utm_campaign descartados** — `loja_sessoes` ganha as
+  colunas `utm_medium`/`utm_campaign` (migração
+  `fase255_analytics_atividade_agora.sql`); `loja-tracking-provider.tsx`
+  passa a capturar os dois (mesmo padrão de "captura na 1ª visita,
+  cacheia no localStorage" já usado pra `origem`) e `/api/loja/track`
+  grava os dois em todo pageview.
+- **Novo: rastreamento de visualização de produto por item específico**
+  — antes só existia um `pageview` genérico por navegação, sem saber
+  qual produto/aparelho/lacrado era. Novo tipo de evento `product_view`
+  (migração adiciona o valor ao enum `tipo_evento_loja`), disparado por
+  um componente dedicado (`rastrear-visualizacao-produto.tsx`, mesmo
+  padrão do `RegistrarVisto` já existente) nas páginas de produto
+  (`/loja/produto/[slug]`) e de lacrado (`/loja/lacrados/[modelo]`).
+  É um evento **separado** do `pageview` (não anexado a ele) de
+  propósito: `LojaTrackingProvider` é irmão anterior de `{children}` no
+  layout da loja, então seu efeito de pageview sempre dispara primeiro,
+  de forma determinística — qualquer esquema de "anexar ao próximo
+  pageview" arriscaria atribuir o produto errado a uma navegação
+  seguinte. Como consequência, `obterAtividadeRecente`/
+  `obterProdutosDestaque` passam a considerar `product_view` +
+  `add_to_cart` (não mais `pageview`), e a contagem de "Visualizações"
+  do resumo/funil continua batendo só com `pageview` — sem duplicar.
+- **Lacrado nunca tinha FK de atribuição** — `loja_eventos` ganha a
+  coluna `lacrado_modelo_id` (FK pra `catalogo_lacrados_modelos`), já
+  que o `id` de um lacrado no carrinho é o da variante, não do modelo
+  do catálogo, e `produto_id`/`aparelho_id` não serviam pra esse caso.
+  Adição fora do escopo literal da proposta J, mas da mesma classe de
+  bug (atribuição de produto) já sendo corrigida para aparelho —
+  lacrado é categoria de topo no menu da loja, não fazia sentido deixar
+  de fora. Threading completo: `carrinho-context.tsx`,
+  `adicionar-lacrado-ao-carrinho.tsx`, `/api/loja/track`,
+  `loja-tracking-provider.tsx`.
+- **Limitação conhecida, não corrigida nesta fase**: em
+  `obterProdutosDestaque`, a contagem de "vendas" de cada item em
+  "Produtos mais acessados" só resolve `pedido_loja_itens.produto_id`
+  — vendas de lacrado (que usam `lacrado_variante_id`, não
+  `produto_id`) continuam contando 0 vendas nessa lista específica,
+  mesmo que o lacrado tenha vendido. Não fazia parte do escopo literal
+  da proposta J e alargar mais essa fase pareceria escopo demais;
+  fica registrado aqui como lacuna real, não escondida.
+- **Não verificado ao vivo nesta fase** — diferente da investigação
+  anterior (que rodou testes reais no site com o Chrome conectado),
+  essas correções não foram testadas em produção porque só entram em
+  vigor quando este código for aplicado e publicado — a verificação ao
+  vivo dessas 8 correções específicas ainda está pendente.
+
 ## [Fase 254] - Correções da auditoria de Analytics (C1–C7)
 
 Implementa as correções para todos os 7 problemas confirmados na

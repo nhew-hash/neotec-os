@@ -10,6 +10,8 @@ export interface ItemCarrinho {
   valor: number;
   quantidade: number;
   foto?: string | null;
+  /** Fase 255 — só pra tipo "lacrado": `id` acima é a variante (cor+armazenamento), este é o modelo do catálogo, usado pro Analytics conseguir atribuir o evento. */
+  lacradoModeloId?: string;
 }
 
 interface CarrinhoContextValue {
@@ -59,7 +61,7 @@ export function CarrinhoProvider({ children }: { children: ReactNode }) {
       void import("./loja-tracking-provider").then(({ rastrearAddToCart }) => {
         if (novoItem.tipo === "produto") rastrearAddToCart({ produtoId: novoItem.id });
         else if (novoItem.tipo === "aparelho") rastrearAddToCart({ aparelhoId: novoItem.id });
-        else rastrearAddToCart({}); // lacrado — sem FK direta pra produto/aparelho, conta o evento sem atribuição específica
+        else rastrearAddToCart({ lacradoModeloId: novoItem.lacradoModeloId }); // Fase 255 — antes não tinha atribuição nenhuma
       });
       return [...prev, { ...novoItem, quantidade: 1 }];
     });

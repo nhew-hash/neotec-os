@@ -10,13 +10,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tipo, sessaoUid, pagina, produtoId, aparelhoId, origem } = body as {
-      tipo: "pageview" | "add_to_cart" | "ping" | "checkout_view" | "checkout_started" | "payment_selected" | "payment_success" | "payment_failed";
+    const { tipo, sessaoUid, pagina, produtoId, aparelhoId, lacradoModeloId, origem, utmMedium, utmCampaign } = body as {
+      tipo: "pageview" | "product_view" | "add_to_cart" | "comprar_agora_click" | "ping" | "checkout_view" | "checkout_started" | "payment_selected" | "payment_success" | "payment_failed";
       sessaoUid: string;
       pagina?: string;
       produtoId?: string;
       aparelhoId?: string;
+      lacradoModeloId?: string;
       origem?: string;
+      utmMedium?: string | null;
+      utmCampaign?: string | null;
     };
 
     if (!sessaoUid) return NextResponse.json({ ok: false }, { status: 400 });
@@ -27,6 +30,13 @@ export async function POST(request: NextRequest) {
       {
         sessao_uid: sessaoUid,
         origem: origem || undefined,
+        // Fase 255 — utm_medium/utm_campaign chegavam na URL e eram
+        // descartados (só utm_source virava `origem`). `?? undefined`
+        // (não `||`) porque `null` é um valor válido aqui (campanha sem
+        // esses parâmetros) e não pode ser confundido com "não veio
+        // nesta requisição" (que é quando o client nem manda a chave).
+        utm_medium: utmMedium === undefined ? undefined : utmMedium,
+        utm_campaign: utmCampaign === undefined ? undefined : utmCampaign,
         primeira_pagina: pagina || undefined,
         ultima_atividade_em: new Date().toISOString(),
       },
@@ -40,6 +50,7 @@ export async function POST(request: NextRequest) {
         pagina: pagina || null,
         produto_id: produtoId || null,
         aparelho_id: aparelhoId || null,
+        lacrado_modelo_id: lacradoModeloId || null,
       });
     }
 
