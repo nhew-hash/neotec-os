@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { crmCardSchema, crmFollowupSchema } from "./crm-pipeline.schema";
-import { criarCard, moverCardEtapa, criarFollowup, concluirFollowup } from "./crm-pipeline.service";
+import { criarCard, moverCardEtapa, criarFollowup, concluirFollowup, excluirCard } from "./crm-pipeline.service";
 import type { ActionResult, CrmEtapa } from "@/types";
 
 export async function criarCardAction(formData: FormData): Promise<ActionResult> {
@@ -124,6 +124,17 @@ export async function reabrirCardAction(cardId: string): Promise<{ success: true
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao reabrir" };
+  }
+}
+
+/** Botão de excluir do CRM — exclusão definitiva (não é "Marcar como perdido"). */
+export async function excluirCardAction(cardId: string): Promise<ActionResult> {
+  try {
+    await excluirCard(cardId);
+    revalidatePath("/crm");
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao excluir" };
   }
 }
 

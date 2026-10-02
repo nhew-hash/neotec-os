@@ -101,6 +101,19 @@ export async function moverCardEtapa(cardId: string, etapaId: string): Promise<v
   if (error) throw new Error(`Não foi possível mover o card: ${error.message}`);
 }
 
+/**
+ * Exclui o card definitivamente. Diferente de "Marcar como perdido"
+ * (soft, mantém o card pra histórico) — aqui o registro some de verdade.
+ * Tags, follow-ups e eventos de score do card são removidos junto
+ * (cascade); conversa de WhatsApp vinculada é preservada, só perde o
+ * vínculo com o card (fica sem card_id).
+ */
+export async function excluirCard(cardId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("crm_cards").delete().eq("id", cardId);
+  if (error) throw new Error(`Não foi possível excluir o card: ${error.message}`);
+}
+
 // ---- Tags ----
 
 export async function listarTags(): Promise<CrmTag[]> {

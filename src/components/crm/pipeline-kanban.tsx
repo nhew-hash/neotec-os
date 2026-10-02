@@ -2,13 +2,13 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { MessageCircle, Clock, Flame, AlertTriangle, Sparkles, X, RotateCcw } from "lucide-react";
+import { MessageCircle, Clock, Flame, AlertTriangle, Sparkles, X, RotateCcw, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { moverCardEtapaAction, marcarCardPerdidoAction, reabrirCardAction } from "@/services/crm-pipeline/crm-pipeline.actions";
+import { moverCardEtapaAction, marcarCardPerdidoAction, reabrirCardAction, excluirCardAction } from "@/services/crm-pipeline/crm-pipeline.actions";
 import { formatCurrency, formatWhatsapp, formatDateTime, getInitials } from "@/utils";
 import { cn } from "@/lib/utils";
 import type { CrmEtapa, TemperaturaLead } from "@/types";
@@ -39,6 +39,14 @@ function CardItem({ card, etapas }: { card: CardComRelacoes; etapas: CrmEtapa[] 
 
   function handleReabrir() {
     startTransition(() => { void reabrirCardAction(card.id); });
+  }
+
+  function handleExcluir() {
+    const confirmado = window.confirm(
+      `Excluir o card de "${card.cliente.nome}"? Isso não pode ser desfeito — o histórico de tags, follow-ups e score desse card some junto. A conversa de WhatsApp continua existindo, só desvinculada.`
+    );
+    if (!confirmado) return;
+    startTransition(() => { void excluirCardAction(card.id); });
   }
 
   return (
@@ -86,6 +94,16 @@ function CardItem({ card, etapas }: { card: CardComRelacoes; etapas: CrmEtapa[] 
               )}
             </Link>
           )}
+
+          <button
+            type="button"
+            onClick={handleExcluir}
+            disabled={isPending}
+            title="Excluir card"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-danger/10 hover:text-danger disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 
