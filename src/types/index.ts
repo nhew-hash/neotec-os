@@ -1,4 +1,5 @@
 export * from "./database";
+export * from "./neo-performance";
 
 /** Formato padrão de retorno de uma Server Action neste projeto. */
 export type ActionResult<T = undefined> =

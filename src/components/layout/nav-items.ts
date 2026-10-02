@@ -25,6 +25,7 @@ import {
   Bot,
   Repeat,
   Smartphone,
+  TrendingUp,
 } from "lucide-react";
 import type { CargoUsuario } from "@/types";
 
@@ -105,6 +106,10 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
       { label: "Consignação", href: "/consignacao", icon: HandCoins, cargos: ["admin", "gerente"] },
       { label: "Indicações", href: "/indicacoes", icon: UserCheck, cargos: ["admin", "gerente"] },
       { label: "Analytics", href: "/analytics", icon: BarChart3, cargos: ["admin", "gerente"] },
+      { label: "NEO Performance", href: "/neo-performance", icon: TrendingUp, cargos: ["admin", "gerente"] },
+      { label: "NEO — Inteligência", href: "/neo-performance/inteligencia", icon: Sparkles, cargos: ["admin", "gerente"] },
+      { label: "NEO — Creative Factory", href: "/neo-performance/creative-factory", icon: Bot, cargos: ["admin", "gerente"] },
+      { label: "NEO — Automação", href: "/neo-performance/automacao", icon: Rocket, cargos: ["admin"] },
     ],
   },
   {
