@@ -60,6 +60,23 @@ export interface PontoGrafico {
   valor: number;
 }
 
+export interface CampanhaMarketing {
+  campanha: string;
+  origem: string;
+  pedidos: number;
+  receita: number;
+  leads: number;
+}
+
+export interface ResumoMarketing {
+  /** Sessões dos últimos 30 dias que chegaram com fbclid (clique real num anúncio Meta) — distinto de `origem=meta_ads` (que também conta UTM manual sem clique de anúncio). */
+  visitantesMeta: number;
+  leadsTotal: number;
+  vendasAtribuidas: number;
+  receitaAtribuida: number;
+  porCampanha: CampanhaMarketing[];
+}
+
 function variacaoPercentual(atual: number, anterior: number): number | null {
   if (anterior === 0) return null;
   return Math.round(((atual - anterior) / anterior) * 1000) / 10;
@@ -343,6 +360,60 @@ export async function obterProdutosDestaque(limite = 10): Promise<ProdutoDestaqu
   }
 
   return Array.from(mapa.values()).sort((a, b) => b.visualizacoes - a.visualizacoes).slice(0, limite);
+}
+
+/**
+ * Marketing — Fase 262/Fase 7 do briefing Meta Pixel/CAPI. Responde,
+ * com dado real (nunca estimado): quantos visitantes chegaram por um
+ * clique de anúncio Meta de verdade (fbclid, não só UTM manual),
+ * quantos viraram lead (fechamento por WhatsApp, Fase 262), quantas
+ * vendas e quanta receita cada campanha trouxe — usando a atribuição
+ * já congelada em `pedidos_loja` no momento da compra (ver
+ * `payment.controller.ts → criarPedidoParaCheckout`), não a sessão
+ * atual (que pode já ter mudado de atribuição).
+ *
+ * Fica vazio/zerado honestamente enquanto não houver nenhum pedido com
+ * UTM/fbclid gravado (loja sem tráfego pago configurado ainda) — nunca
+ * inventa campanha.
+ */
+export async function obterResumoMarketing(): Promise<ResumoMarketing> {
+  const supabase = await createClient();
+  const trintaDiasAtras = new Date();
+  trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+
+  const [{ data: sessoes }, { count: leadsCount }, { data: pedidos }] = await Promise.all([
+    supabase.from("loja_sessoes").select("fbclid").gte("criado_em", trintaDiasAtras.toISOString()),
+    supabase.from("loja_eventos").select("id", { count: "exact", head: true }).eq("tipo", "lead").gte("criado_em", trintaDiasAtras.toISOString()),
+    supabase
+      .from("pedidos_loja")
+      .select("valor_total, utm_campaign, utm_source, fbclid, status")
+      .eq("status", "concluido")
+      .gte("updated_at", trintaDiasAtras.toISOString()),
+  ]);
+
+  const visitantesMeta = (sessoes ?? []).filter((s) => !!s.fbclid).length;
+
+  const porCampanhaMapa = new Map<string, CampanhaMarketing>();
+  let vendasAtribuidas = 0;
+  let receitaAtribuida = 0;
+  for (const p of pedidos ?? []) {
+    if (!p.utm_campaign && !p.fbclid) continue; // sem nenhum dado de atribuição — não entra no "atribuído", mas segue contando no faturamento geral (outros cards)
+    vendasAtribuidas += 1;
+    receitaAtribuida += Number(p.valor_total ?? 0);
+    const chave = p.utm_campaign || (p.fbclid ? "(Meta Ads sem campanha nomeada)" : "outros");
+    const atual = porCampanhaMapa.get(chave) ?? { campanha: chave, origem: p.utm_source || (p.fbclid ? "meta_ads" : "outros"), pedidos: 0, receita: 0, leads: 0 };
+    atual.pedidos += 1;
+    atual.receita += Number(p.valor_total ?? 0);
+    porCampanhaMapa.set(chave, atual);
+  }
+
+  return {
+    visitantesMeta,
+    leadsTotal: leadsCount ?? 0,
+    vendasAtribuidas,
+    receitaAtribuida,
+    porCampanha: Array.from(porCampanhaMapa.values()).sort((a, b) => b.receita - a.receita),
+  };
 }
 
 const LABEL_ORIGEM: Record<string, string> = {

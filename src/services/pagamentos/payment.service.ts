@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MercadoPagoProvider } from "./providers/mercadopago.provider";
 import { paymentRepository, STATUS_PAGAMENTO_PARA_PEDIDO } from "./payment.repository";
+import { enviarEventoMetaCapi } from "@/services/integracoes/meta-capi.service";
 import type { StatusPagamento, Pagamento } from "@/types";
 
 const EMAIL_PADRAO = "cliente@neotecbrasil.com"; // Mercado Pago exige e-mail no payer; checkout hoje não coleta e-mail do cliente
@@ -278,6 +279,41 @@ export class PaymentService {
 
     await supabase.from("pedidos_loja").update({ status: "concluido" }).eq("id", pedido.id);
     await paymentRepository.registrarPagamentoAprovado("mercadopago");
+
+    // Meta CAPI — Purchase (Fase 262, Fase 3+4 do briefing). Este é o
+    // ÚNICO lugar do servidor que dispara Purchase: só roda depois do
+    // guard `pedido.status === "concluido"` acima (idempotente — nunca
+    // duplica em retry de webhook) e só quando a venda foi de fato
+    // criada (`venda` existe). `event_id = pagamento.id` é o MESMO id
+    // usado pelo Browser Pixel no checkout (ver checkout/page.tsx,
+    // handlePagarCartao/handlePixAprovado) — é assim que a Meta
+    // deduplica Browser + servidor pro mesmo evento.
+    if (venda) {
+      try {
+        await enviarEventoMetaCapi({
+          eventName: "Purchase",
+          eventId: pagamento.id,
+          eventSourceUrl: "https://neotecbrasil.com/loja/checkout",
+          userData: {
+            telefone: pedido.telefone_contato,
+            externalId: pedido.cliente_id ?? undefined,
+            fbc: pedido.fbc ?? null,
+            fbp: pedido.fbp ?? null,
+          },
+          customData: {
+            value: pedido.valor_total,
+            currency: "BRL",
+            content_ids: (itensPedido ?? []).map((i) => i.produto_id ?? i.aparelho_id ?? i.lacrado_variante_id).filter(Boolean),
+            content_type: "product",
+            num_items: (itensPedido ?? []).reduce((acc, i) => acc + i.quantidade, 0),
+            order_id: pedido.id,
+          },
+        });
+      } catch (erroCapi) {
+        // Evento de marketing nunca pode reverter ou travar uma venda já aprovada.
+        console.error("Falha ao enviar Purchase pro Meta CAPI (não bloqueia a venda):", erroCapi);
+      }
+    }
 
     // Confirmação por WhatsApp — melhor esforço, não derruba a aprovação do pagamento se falhar.
     // Usa o provider direto (não enviarMensagem/enviarMensagemIA) porque

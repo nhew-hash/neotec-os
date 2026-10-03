@@ -59,9 +59,10 @@ export function CarrinhoProvider({ children }: { children: ReactNode }) {
       // clicar "+1" de novo no mesmo item não é um novo "add to cart"
       // pro analytics, é só ajuste de quantidade.
       void import("./loja-tracking-provider").then(({ rastrearAddToCart }) => {
-        if (novoItem.tipo === "produto") rastrearAddToCart({ produtoId: novoItem.id });
-        else if (novoItem.tipo === "aparelho") rastrearAddToCart({ aparelhoId: novoItem.id });
-        else rastrearAddToCart({ lacradoModeloId: novoItem.lacradoModeloId }); // Fase 255 — antes não tinha atribuição nenhuma
+        const base = { nome: novoItem.nome, valor: novoItem.valor, quantidade: 1 };
+        if (novoItem.tipo === "produto") rastrearAddToCart({ ...base, produtoId: novoItem.id });
+        else if (novoItem.tipo === "aparelho") rastrearAddToCart({ ...base, aparelhoId: novoItem.id });
+        else rastrearAddToCart({ ...base, lacradoModeloId: novoItem.lacradoModeloId }); // Fase 255 — antes não tinha atribuição nenhuma
       });
       return [...prev, { ...novoItem, quantidade: 1 }];
     });

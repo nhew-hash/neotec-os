@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { metaPixelPageView, metaPixelViewContent, metaPixelAddToCart, metaPixelInitiateCheckout, metaPixelLead, metaPixelContact, obterAtribuicaoCompleta, obterFbcFbp } from "@/lib/meta-pixel";
 
 const CHAVE_SESSAO = "neotec_sessao_uid";
 const CHAVE_ORIGEM = "neotec_origem";
@@ -42,6 +43,12 @@ function obterOrigem(): string {
  * descartados — só `utm_source` (via `obterOrigem`) ia pro banco.
  * Mesma lógica de "captura na 1ª visita, guarda no localStorage": uma
  * campanha só é atribuída à sessão que de fato clicou nela.
+ *
+ * Fase 262: mantido (compatibilidade com o shape já salvo em
+ * localStorage por sessões antigas), mas a captura completa
+ * (utm_source/content/term + fbclid/gclid) agora vive em
+ * `obterAtribuicaoCompleta()` (lib/meta-pixel.ts) — reaproveitada
+ * aqui, não duplicada.
  */
 function obterUtm(): { utmMedium: string | null; utmCampaign: string | null } {
   const salvo = localStorage.getItem(CHAVE_UTM);
@@ -73,10 +80,13 @@ async function enviar(payload: Record<string, unknown>) {
 }
 
 /** Dispara evento de "produto adicionado ao carrinho" — chamado pelos componentes de carrinho existentes. */
-export function rastrearAddToCart(input: { produtoId?: string; aparelhoId?: string; lacradoModeloId?: string }) {
+export function rastrearAddToCart(input: { produtoId?: string; aparelhoId?: string; lacradoModeloId?: string; nome?: string; valor?: number; quantidade?: number }) {
   const sessaoUid = localStorage.getItem(CHAVE_SESSAO);
   if (!sessaoUid) return;
   void enviar({ tipo: "add_to_cart", sessaoUid, pagina: window.location.pathname, ...input });
+
+  const contentId = input.produtoId ?? input.aparelhoId ?? input.lacradoModeloId;
+  metaPixelAddToCart({ contentIds: contentId ? [contentId] : [], contentName: input.nome, value: input.valor, quantity: input.quantidade ?? 1 });
 }
 
 /** Fase 256 — clique específico em "Comprar Agora" na página Produto Quente, separado de `add_to_cart` (que o mesmo clique já dispara via `adicionar()`) pra dar visibilidade própria a esse CTA no funil, sem duplicar a contagem de "adicionar ao carrinho". */
@@ -86,11 +96,46 @@ export function rastrearComprarAgora() {
   void enviar({ tipo: "comprar_agora_click", sessaoUid, pagina: window.location.pathname });
 }
 
-/** Eventos do funil de checkout — pra conseguir medir de verdade onde o cliente desiste, não só supor. */
+/**
+ * Eventos do funil de checkout — pra conseguir medir de verdade onde o
+ * cliente desiste, não só supor. "checkout_started" (cliente confirmou
+ * dados e foi pra tela de pagamento) é o gatilho de InitiateCheckout
+ * do Meta Pixel — ainda não é o pedido (que só é criado quando o
+ * cliente escolhe Pix ou Cartão), mas é o sinal mais próximo que esta
+ * camada já tinha antes da Fase 262. O InitiateCheckout "oficial"
+ * (com valor/itens certos) é disparado à parte, pelo checkout/page.tsx,
+ * assim que o pedido é de fato criado no servidor — ver `criarPedidoParaCheckout`.
+ */
 export function rastrearEventoCheckout(tipo: "checkout_view" | "checkout_started" | "payment_selected" | "payment_success" | "payment_failed") {
   const sessaoUid = localStorage.getItem(CHAVE_SESSAO);
   if (!sessaoUid) return;
   void enviar({ tipo, sessaoUid, pagina: window.location.pathname });
+}
+
+/** Lead — fechamento de pedido via WhatsApp (sem pagamento online). Ver `carrinho/page.tsx`. */
+export function rastrearLead(input: { contentName: string; value?: number }) {
+  const sessaoUid = localStorage.getItem(CHAVE_SESSAO);
+  if (!sessaoUid) return;
+  void enviar({ tipo: "lead", sessaoUid, pagina: window.location.pathname });
+  metaPixelLead(input);
+}
+
+/** Contact — clique genérico em "falar no WhatsApp" fora do fluxo de fechamento de pedido (footer, página de erro, etc). */
+export function rastrearContact() {
+  const sessaoUid = localStorage.getItem(CHAVE_SESSAO);
+  if (!sessaoUid) return;
+  void enviar({ tipo: "contact", sessaoUid, pagina: window.location.pathname });
+  metaPixelContact();
+}
+
+/**
+ * InitiateCheckout "oficial" — disparado quando o pedido já foi criado
+ * de verdade no servidor (`criarPedidoParaCheckout`), com os dados
+ * reais (valor autoritativo, itens, event_id = pedidoId pro CAPI
+ * deduplicar com o mesmo evento enviado pelo servidor).
+ */
+export function rastrearInitiateCheckout(input: { contentIds: string[]; value: number; numItems: number }, pedidoId: string) {
+  metaPixelInitiateCheckout(input, { eventID: pedidoId });
 }
 
 /**
@@ -110,10 +155,14 @@ export function rastrearEventoCheckout(tipo: "checkout_view" | "checkout_started
  * atribuição por produto fica sempre certa, sem depender de ordem
  * entre componentes.
  */
-export function rastrearVisualizacaoProduto(input: { produtoId?: string; aparelhoId?: string; lacradoModeloId?: string }) {
+export function rastrearVisualizacaoProduto(input: { produtoId?: string; aparelhoId?: string; lacradoModeloId?: string; nome?: string; valor?: number }) {
   const sessaoUid = localStorage.getItem(CHAVE_SESSAO);
   if (!sessaoUid) return;
-  void enviar({ tipo: "product_view", sessaoUid, pagina: window.location.pathname, ...input });
+  const { nome, valor, ...paraEnviar } = input;
+  void enviar({ tipo: "product_view", sessaoUid, pagina: window.location.pathname, ...paraEnviar });
+
+  const contentId = input.produtoId ?? input.aparelhoId ?? input.lacradoModeloId;
+  metaPixelViewContent({ contentIds: contentId ? [contentId] : [], contentName: nome, value: valor });
 }
 
 export function LojaTrackingProvider() {
@@ -135,7 +184,18 @@ export function LojaTrackingProvider() {
     if (!sessaoUidRef.current) return;
     const origem = obterOrigem();
     const { utmMedium, utmCampaign } = obterUtm();
-    void enviar({ tipo: "pageview", sessaoUid: sessaoUidRef.current, pagina: pathname, origem, utmMedium, utmCampaign });
+    const atribuicao = obterAtribuicaoCompleta();
+    const { fbc, fbp } = obterFbcFbp(atribuicao.fbclid);
+    void enviar({
+      tipo: "pageview", sessaoUid: sessaoUidRef.current, pagina: pathname, origem, utmMedium, utmCampaign,
+      utmSource: atribuicao.utmSource, utmContent: atribuicao.utmContent, utmTerm: atribuicao.utmTerm,
+      fbclid: atribuicao.fbclid, gclid: atribuicao.gclid, fbc, fbp,
+    });
+    // O script base do Pixel (meta-pixel-script.tsx) já dispara o
+    // PageView da 1ª carga; aqui cobre as trocas de rota seguintes
+    // (SPA do Next não recarrega a página, então o Pixel nunca saberia
+    // da navegação sem isso).
+    metaPixelPageView();
   }, [pathname]);
 
   return null;

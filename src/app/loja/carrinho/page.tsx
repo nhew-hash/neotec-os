@@ -42,6 +42,7 @@ export default function CarrinhoPage() {
     const listaItens = itens.map((i) => `• ${i.quantidade}x ${i.nome}${i.detalhe ? ` (${i.detalhe})` : ""} — ${formatCurrency(i.valor * i.quantidade)}`).join("\n");
     const mensagem = `Olá! Quero fechar esse pedido (#${result.data.pedidoId.slice(0, 8)}):\n\n${listaItens}\n\nTotal: ${formatCurrency(total)}\n\nMeu nome: ${nome}`;
 
+    void import("@/components/loja/loja-tracking-provider").then(({ rastrearLead }) => rastrearLead({ contentName: "Fechamento via WhatsApp", value: total }));
     limpar();
     window.location.href = `https://wa.me/5534988178338?text=${encodeURIComponent(mensagem)}`;
   }

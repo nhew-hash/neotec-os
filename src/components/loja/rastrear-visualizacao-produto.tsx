@@ -10,11 +10,13 @@ import { rastrearVisualizacaoProduto } from "./loja-tracking-provider";
  * Sem isso, "Produtos mais acessados" nunca tem visualização nenhuma
  * pra nenhum item, por construção — confirmado ao vivo na auditoria.
  */
-export function RastrearVisualizacaoProduto({ produtoId, aparelhoId, lacradoModeloId }: { produtoId?: string; aparelhoId?: string; lacradoModeloId?: string }) {
+export function RastrearVisualizacaoProduto({
+  produtoId, aparelhoId, lacradoModeloId, nome, valor,
+}: { produtoId?: string; aparelhoId?: string; lacradoModeloId?: string; nome?: string; valor?: number }) {
   useEffect(() => {
-    rastrearVisualizacaoProduto({ produtoId, aparelhoId, lacradoModeloId });
+    rastrearVisualizacaoProduto({ produtoId, aparelhoId, lacradoModeloId, nome, valor });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [produtoId, aparelhoId, lacradoModeloId]);
+  }, [produtoId, aparelhoId, lacradoModeloId, nome, valor]);
 
   return null;
 }

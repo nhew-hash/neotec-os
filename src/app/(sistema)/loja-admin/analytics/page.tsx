@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { Users, Eye, ShoppingCart, DollarSign, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
-  obterResumoLojaAnalytics, obterAtividadeRecente, obterProdutosDestaque, obterOrigemAcessos, obterGraficoVisitantes,
+  obterResumoLojaAnalytics, obterAtividadeRecente, obterProdutosDestaque, obterOrigemAcessos, obterGraficoVisitantes, obterResumoMarketing,
 } from "@/services/analytics/loja-analytics.service";
+import { MarketingCampanhas } from "@/components/analytics-loja/marketing-campanhas";
 import { MetricaCard } from "@/components/analytics-loja/metrica-card";
 import { OnlineAgoraCard } from "@/components/analytics-loja/online-agora-card";
 import { GraficoVisitantes } from "@/components/analytics-loja/grafico-visitantes";
@@ -47,8 +48,8 @@ export default async function LojaAnalyticsPage() {
     .from("usuarios").select("cargo").eq("id", user?.id ?? "").single<{ cargo: CargoUsuario }>();
   if (!perfil || !podeVerCusto(perfil.cargo)) redirect("/dashboard");
 
-  const [resumo, atividade, produtos, origens, graficoHoje] = await Promise.all([
-    obterResumoLojaAnalytics(), obterAtividadeRecente(), obterProdutosDestaque(), obterOrigemAcessos(), obterGraficoVisitantes("hoje"),
+  const [resumo, atividade, produtos, origens, graficoHoje, marketing] = await Promise.all([
+    obterResumoLojaAnalytics(), obterAtividadeRecente(), obterProdutosDestaque(), obterOrigemAcessos(), obterGraficoVisitantes("hoje"), obterResumoMarketing(),
   ]);
 
   return (
@@ -81,8 +82,11 @@ export default async function LojaAnalyticsPage() {
         <FunilConversao resumo={resumo} />
       </div>
 
-      {/* 6. Origem do acesso */}
-      <OrigemAcessos origens={origens} />
+      {/* 6. Origem do acesso + 7. Marketing (Fase 262) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr]">
+        <OrigemAcessos origens={origens} />
+        <MarketingCampanhas resumo={marketing} />
+      </div>
     </div>
   );
 }

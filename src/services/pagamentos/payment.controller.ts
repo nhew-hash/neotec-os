@@ -1,10 +1,13 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { paymentService } from "./payment.service";
 import { paymentRepository } from "./payment.repository";
 import { extrairMensagemErro } from "./erro.utils";
 import { obterPricingEnginePublico } from "@/services/precificacao/precificacao-publico.service";
+import { enviarEventoMetaCapi } from "@/services/integracoes/meta-capi.service";
+import { registrarEvento as registrarEventoAtribuicao } from "@/services/neo-performance/attribution.service";
 import type { ActionResult } from "@/types";
 import type { ItemPedidoLojaInput } from "@/services/loja/loja-pedido.actions";
 
@@ -25,7 +28,12 @@ function validarEndereco(tipoEntrega: string | undefined, endereco: EnderecoEntr
   return null;
 }
 
-async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number; tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput; metodoPagamento?: "pix" | "cartao" }): Promise<{ pedidoId: string; valorTotal: number }> {
+async function criarPedidoParaCheckout(input: {
+  nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cupomCodigo?: string; usarCashback?: number;
+  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput; metodoPagamento?: "pix" | "cartao";
+  /** Fase 262 — UID da `loja_sessoes` que originou este checkout, pra conseguir recuperar a atribuição (UTM/fbclid/fbc/fbp) capturada durante a navegação e congelá-la no pedido. */
+  sessaoUid?: string;
+}): Promise<{ pedidoId: string; valorTotal: number }> {
   const valorBruto = input.itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
   if (valorBruto <= 0) throw new Error("O valor do pedido está zerado — atualiza a página e tenta de novo.");
 
@@ -135,6 +143,22 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
     valorTotal = engine.calcular(valorTotal).precoVitrine;
   }
 
+  // Fase 262 — recupera a atribuição (UTM/fbclid/fbc/fbp) já capturada
+  // pela camada de tracking durante a navegação (`loja_sessoes`, ver
+  // loja-tracking-provider.tsx) e CONGELA no pedido. Sem isso, o
+  // Purchase enviado pro CAPI perderia a campanha de origem se a
+  // sessão mudasse de atribuição depois (nova visita, outro clique)
+  // antes do pagamento ser confirmado.
+  let atribuicao: { utm_source: string | null; utm_medium: string | null; utm_campaign: string | null; utm_content: string | null; utm_term: string | null; fbclid: string | null; fbc: string | null; fbp: string | null } | null = null;
+  if (input.sessaoUid) {
+    const { data } = await supabase
+      .from("loja_sessoes")
+      .select("utm_source, utm_medium, utm_campaign, utm_content, utm_term, fbclid, fbc, fbp")
+      .eq("sessao_uid", input.sessaoUid)
+      .maybeSingle();
+    atribuicao = data ?? null;
+  }
+
   const { data: pedido, error } = await supabase
     .from("pedidos_loja")
     .insert({
@@ -143,10 +167,39 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
       cep_entrega: input.endereco?.cep.replace(/\D/g, "") ?? null, endereco_entrega: input.endereco?.rua.trim() || null,
       numero_entrega: input.endereco?.numero.trim() || null, complemento_entrega: input.endereco?.complemento.trim() || null,
       bairro_entrega: input.endereco?.bairro.trim() || null, cidade_entrega: input.endereco?.cidade.trim() || null, estado_entrega: input.endereco?.estado.trim() || null,
+      sessao_uid: input.sessaoUid ?? null,
+      utm_source: atribuicao?.utm_source ?? null, utm_medium: atribuicao?.utm_medium ?? null, utm_campaign: atribuicao?.utm_campaign ?? null,
+      utm_content: atribuicao?.utm_content ?? null, utm_term: atribuicao?.utm_term ?? null,
+      fbclid: atribuicao?.fbclid ?? null, fbc: atribuicao?.fbc ?? null, fbp: atribuicao?.fbp ?? null,
     })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+
+  // Alimenta a mesma tabela de atribuição do NEO Performance
+  // (`attribution_eventos`, Fase 259) — sem isso ela nunca era escrita
+  // pelo fluxo real da loja, e o Analytics não tinha como ligar
+  // campanha → venda. Só registra quando existe cliente (guest
+  // checkout sem telefone resolvido não tem "dono" pra atribuir) e
+  // quando há ALGUM dado de atribuição real — nunca grava linha vazia.
+  if (clienteId && atribuicao && (atribuicao.utm_source || atribuicao.utm_campaign || atribuicao.fbclid)) {
+    try {
+      await registrarEventoAtribuicao({
+        cliente_id: clienteId,
+        source: atribuicao.utm_source ?? undefined,
+        medium: atribuicao.utm_medium ?? undefined,
+        campaign: atribuicao.utm_campaign ?? undefined,
+        utm_source: atribuicao.utm_source ?? undefined,
+        utm_medium: atribuicao.utm_medium ?? undefined,
+        utm_campaign: atribuicao.utm_campaign ?? undefined,
+        utm_content: atribuicao.utm_content ?? undefined,
+        utm_term: atribuicao.utm_term ?? undefined,
+        fbclid: atribuicao.fbclid ?? undefined,
+      });
+    } catch (erroAtribuicao) {
+      console.error("Falha ao registrar atribuição do pedido (não bloqueia o checkout):", erroAtribuicao);
+    }
+  }
 
   if (cupomId) await supabase.from("cupom_usos").insert({ cupom_id: cupomId, pedido_id: pedido.id });
 
@@ -173,13 +226,43 @@ async function criarPedidoParaCheckout(input: { nomeContato: string; telefoneCon
   );
   if (erroItens) throw new Error(erroItens.message);
 
+  // CAPI — InitiateCheckout (Fase 262, Fase 4 do briefing). Fica aqui,
+  // não em cada action (`iniciarCheckoutPixAction`/`pagarComCartaoAction`),
+  // porque esse é o único ponto por onde os dois métodos de pagamento
+  // passam — nunca dois disparos pro mesmo pedido. `event_id = pedido.id`
+  // é o mesmo id usado pelo Pixel no navegador (`rastrearInitiateCheckout`,
+  // checkout/page.tsx) pra deduplicação automática no Events Manager.
+  try {
+    const cabecalhos = await headers();
+    await enviarEventoMetaCapi({
+      eventName: "InitiateCheckout",
+      eventId: pedido.id,
+      eventSourceUrl: "https://neotecbrasil.com/loja/checkout",
+      userData: {
+        telefone: telefoneLimpo,
+        clientIpAddress: cabecalhos.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+        clientUserAgent: cabecalhos.get("user-agent"),
+        fbc: atribuicao?.fbc ?? null,
+        fbp: atribuicao?.fbp ?? null,
+      },
+      customData: {
+        value: valorTotal,
+        currency: "BRL",
+        content_ids: input.itens.map((i) => i.id),
+        num_items: input.itens.reduce((acc, i) => acc + i.quantidade, 0),
+      },
+    });
+  } catch (erroCapi) {
+    console.error("Falha ao enviar InitiateCheckout pro CAPI (não bloqueia o checkout):", erroCapi);
+  }
+
   return { pedidoId: pedido.id, valorTotal };
 }
 
 export async function iniciarCheckoutPixAction(input: {
   nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[]; cpf?: string; cupomCodigo?: string; usarCashback?: number;
-  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput;
-}): Promise<ActionResult<{ pedidoId: string; pagamentoId: string; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null }>> {
+  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput; sessaoUid?: string;
+}): Promise<ActionResult<{ pedidoId: string; pagamentoId: string; valorTotal: number; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
   if (!input.cpf || input.cpf.replace(/\D/g, "").length !== 11) return { success: false, error: "CPF obrigatório e precisa ter 11 dígitos" };
   const erroEndereco = validarEndereco(input.tipoEntrega, input.endereco);
@@ -189,7 +272,7 @@ export async function iniciarCheckoutPixAction(input: {
   try {
     const { pedidoId, valorTotal } = await criarPedidoParaCheckout({ ...input, metodoPagamento: "pix" });
     const resultado = await paymentService.iniciarPagamentoPix({ pedidoId, valor: valorTotal, descricao: `Pedido Neotec #${pedidoId.slice(0, 8)}`, cpf: input.cpf });
-    return { success: true, data: { pedidoId, pagamentoId: resultado.pagamentoId, qrCodeBase64: resultado.qrCodeBase64, copiaCola: resultado.copiaCola, expiraEm: resultado.expiraEm } };
+    return { success: true, data: { pedidoId, pagamentoId: resultado.pagamentoId, valorTotal, qrCodeBase64: resultado.qrCodeBase64, copiaCola: resultado.copiaCola, expiraEm: resultado.expiraEm } };
   } catch (err) {
     return { success: false, error: extrairMensagemErro(err, "Erro ao gerar Pix") };
   }
@@ -198,8 +281,8 @@ export async function iniciarCheckoutPixAction(input: {
 export async function pagarComCartaoAction(input: {
   nomeContato: string; telefoneContato: string; itens: ItemPedidoLojaInput[];
   token: string; parcelas: number; metodoPagamentoId: string; cpf?: string; cupomCodigo?: string; usarCashback?: number;
-  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput;
-}): Promise<ActionResult<{ pedidoId: string; status: string; statusDetail: string | null }>> {
+  tipoEntrega?: "retirada" | "entrega"; regiaoEntrega?: string; endereco?: EnderecoEntregaInput; sessaoUid?: string;
+}): Promise<ActionResult<{ pedidoId: string; pagamentoId: string; status: string; statusDetail: string | null; valorTotal: number }>> {
   if (!input.nomeContato.trim() || !input.telefoneContato.trim()) return { success: false, error: "Informe nome e telefone" };
   if (!input.cpf || input.cpf.replace(/\D/g, "").length !== 11) return { success: false, error: "CPF obrigatório e precisa ter 11 dígitos" };
   const erroEndereco = validarEndereco(input.tipoEntrega, input.endereco);
@@ -215,7 +298,7 @@ export async function pagarComCartaoAction(input: {
       pedidoId, valor: valorTotal, descricao: `Pedido Neotec #${pedidoId.slice(0, 8)}`,
       token: input.token, parcelas: input.parcelas, metodoPagamentoId: input.metodoPagamentoId, cpf: input.cpf,
     });
-    return { success: true, data: { pedidoId, status: resultado.status, statusDetail: resultado.statusDetail } };
+    return { success: true, data: { pedidoId, pagamentoId: resultado.pagamentoId, status: resultado.status, statusDetail: resultado.statusDetail, valorTotal } };
   } catch (err) {
     return { success: false, error: extrairMensagemErro(err, "Erro ao processar cartão") };
   }

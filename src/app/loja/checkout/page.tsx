@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/card";
 import type { RegraFrete } from "@/types";
 
 import { CriarContaPosCompra } from "@/components/loja/criar-conta-pos-compra";
+import { metaPixelPurchase } from "@/lib/meta-pixel";
 
 type MetodoPagamento = "pix" | "cartao";
 type EtapaCheckout = "dados" | "pagamento" | "trocaEstorno" | "aprovado" | "recusado";
@@ -48,6 +49,10 @@ export default function CheckoutPage() {
   const [entregaSelecionada, setEntregaSelecionada] = useState<SelecaoEntrega>({ tipo: "retirada" });
 
   const [dadosPix, setDadosPix] = useState<{ pagamentoId: string; qrCodeBase64: string | null; copiaCola: string | null; expiraEm: string | null } | null>(null);
+  // Fase 262 — valor e id do pagamento confirmados pelo servidor,
+  // guardados só pra disparar o Purchase do Meta Pixel com o MESMO
+  // event_id e valor que o CAPI já enviou do backend (dedup correta).
+  const [pagamentoConfirmado, setPagamentoConfirmado] = useState<{ pagamentoId: string; valorTotal: number } | null>(null);
   const [cupomInput, setCupomInput] = useState("");
   const [cupomAplicado, setCupomAplicado] = useState<{ codigo: string; desconto: number } | null>(null);
   const [validandoCupom, setValidandoCupom] = useState(false);
@@ -185,6 +190,18 @@ export default function CheckoutPage() {
     setErroCupom(null);
   }
 
+  function obterSessaoUid(): string | undefined {
+    try {
+      return localStorage.getItem("neotec_sessao_uid") || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  function conteudoParaPixel() {
+    return { contentIds: itens.map((i) => i.id), numItems: itens.reduce((acc, i) => acc + i.quantidade, 0) };
+  }
+
   async function handlePagarPix() {
     setErro(null);
     setProcessando(true);
@@ -192,6 +209,7 @@ export default function CheckoutPage() {
       nomeContato: nome, telefoneContato: telefone, itens, cpf: cpf.trim() || undefined, cupomCodigo: cupomAplicado?.codigo, usarCashback: cashbackAplicavel,
       tipoEntrega: entregaSelecionada.tipo, regiaoEntrega: regraSelecionada?.regiao,
       endereco: entregaSelecionada.tipo === "entrega" ? entregaSelecionada.endereco : undefined,
+      sessaoUid: obterSessaoUid(),
     });
     setProcessando(false);
 
@@ -200,7 +218,11 @@ export default function CheckoutPage() {
       return setErro(result.error);
     }
     setPedidoIdProduto(result.data.pedidoId);
+    setPagamentoConfirmado({ pagamentoId: result.data.pagamentoId, valorTotal: result.data.valorTotal });
     setDadosPix({ pagamentoId: result.data.pagamentoId, qrCodeBase64: result.data.qrCodeBase64, copiaCola: result.data.copiaCola, expiraEm: result.data.expiraEm });
+    void import("@/components/loja/loja-tracking-provider").then(({ rastrearInitiateCheckout }) =>
+      rastrearInitiateCheckout({ ...conteudoParaPixel(), value: result.data.valorTotal }, result.data.pedidoId)
+    );
   }
 
   async function handlePagarCartao(dados: { token: string; installments: number; paymentMethodId: string }) {
@@ -211,13 +233,26 @@ export default function CheckoutPage() {
       token: dados.token, parcelas: dados.installments, metodoPagamentoId: dados.paymentMethodId, cpf: cpf.trim() || undefined, cupomCodigo: cupomAplicado?.codigo, usarCashback: cashbackAplicavel,
       tipoEntrega: entregaSelecionada.tipo, regiaoEntrega: regraSelecionada?.regiao,
       endereco: entregaSelecionada.tipo === "entrega" ? entregaSelecionada.endereco : undefined,
+      sessaoUid: obterSessaoUid(),
     });
     setProcessando(false);
 
     if (!result.success) return setErro(result.error);
+    void import("@/components/loja/loja-tracking-provider").then(({ rastrearInitiateCheckout }) =>
+      rastrearInitiateCheckout({ ...conteudoParaPixel(), value: result.data.valorTotal }, result.data.pedidoId)
+    );
     if (result.data.status === "aprovado") {
       setPedidoIdProduto(result.data.pedidoId);
       void import("@/components/loja/loja-tracking-provider").then(({ rastrearEventoCheckout }) => rastrearEventoCheckout("payment_success"));
+      // Purchase (Meta Pixel) — só dispara aqui porque este branch SÓ
+      // é alcançado depois que o Mercado Pago confirmou o pagamento de
+      // verdade pro servidor (status "aprovado" vindo da action, nunca
+      // um carregamento de página). event_id = pagamentoId, o MESMO
+      // que o CAPI já usou no servidor pra este pagamento.
+      metaPixelPurchase(
+        { ...conteudoParaPixel(), value: result.data.valorTotal, orderId: result.data.pedidoId },
+        { eventID: result.data.pagamentoId }
+      );
       if (tradeInAplicado > 0 && tradeInPendente) {
         setEtapa("trocaEstorno");
       } else {
@@ -234,6 +269,16 @@ export default function CheckoutPage() {
 
   function handlePixAprovado() {
     void import("@/components/loja/loja-tracking-provider").then(({ rastrearEventoCheckout }) => rastrearEventoCheckout("payment_success"));
+    // Purchase (Meta Pixel) — chamado pelo `<PixPagamento onAprovado>`,
+    // que só dispara quando `usePixStatus` confirma "aprovado" vindo do
+    // servidor (polling contra o Mercado Pago) — nunca por refresh ou
+    // retorno à página. Mesmo event_id (pagamentoId) do CAPI.
+    if (pagamentoConfirmado && pedidoIdProduto) {
+      metaPixelPurchase(
+        { ...conteudoParaPixel(), value: pagamentoConfirmado.valorTotal, orderId: pedidoIdProduto },
+        { eventID: pagamentoConfirmado.pagamentoId }
+      );
+    }
     if (tradeInAplicado > 0 && tradeInPendente) {
       setEtapa("trocaEstorno");
     } else {

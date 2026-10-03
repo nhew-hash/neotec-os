@@ -67,7 +67,7 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
     const precoExibido = aparelhosDisponiveis[0]?.preco_venda ?? produto.preco_venda;
     return (
       <>
-        <RastrearVisualizacaoProduto produtoId={produto.id} />
+        <RastrearVisualizacaoProduto produtoId={produto.id} nome={produto.nome} valor={precoExibido ?? undefined} />
         {/* JSON-LD Product — não existia em nenhuma PDP antes desta fase, só dado real (nome/preço/imagem/disponibilidade), nada inventado. */}
         <script
           type="application/ld+json"
@@ -106,7 +106,7 @@ export default async function LojaProdutoPage({ params }: { params: Promise<{ sl
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <RastrearVisualizacaoProduto produtoId={produto.id} />
+      <RastrearVisualizacaoProduto produtoId={produto.id} nome={produto.nome} valor={produto.preco_venda ?? undefined} />
       {/* Fase 253 — popup de Trade-in só em iPhone Seminovo (categoria "iphone",
           ver categorias.ts); aponta pro mesmo fluxo de /loja/trade-in, nunca um
           sistema paralelo. */}

@@ -8,6 +8,7 @@ import { LojaFooter } from "@/components/loja/loja-footer";
 import { BarraComparacao } from "@/components/loja/barra-comparacao";
 import { BarraTopoRotativa } from "@/components/loja/barra-topo-rotativa";
 import { LojaTrackingProvider } from "@/components/loja/loja-tracking-provider";
+import { MetaPixelScript } from "@/components/loja/meta-pixel-script";
 import { listarBarraTopoPublico } from "@/services/marketing/marketing-publico.service";
 
 import { buscarConfigSeo } from "@/services/loja-admin/central-loja.service";
@@ -36,6 +37,7 @@ export default async function LojaLayout({ children }: { children: ReactNode }) 
         <FavoritosProvider>
           <VistosRecentesProvider>
             <div className="flex min-h-screen flex-col bg-white">
+              <MetaPixelScript />
               <LojaTrackingProvider />
               <BarraTopoRotativa itens={barraTopoItens} />
               <LojaHeader />
