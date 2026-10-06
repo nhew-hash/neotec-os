@@ -64,6 +64,15 @@ const config: Config = {
         hot: "#E4572E",
         warm: "#D97706",
         cold: "#4CA9D9",
+
+        // ---- Achadinhos da Neotec (Fase 263) — só tokens NOVOS, aditivos ----
+        achados: {
+          navy: "#0B1B4D",
+          lime: "#C8F53C",
+          mist: "#F4F6FF",
+          line: "#E3E8F7",
+          muted: "#5A6485",
+        },
       },
       fontFamily: {
         display: ["var(--font-display)", "sans-serif"],

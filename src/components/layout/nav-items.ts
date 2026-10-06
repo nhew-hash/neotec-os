@@ -17,6 +17,7 @@ import {
   Tags,
   UserCheck,
   Rocket,
+  Flame,
   UserCog,
   Camera,
   Store,
@@ -82,6 +83,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
       { label: "Central da Loja", href: "/loja-admin", icon: Store, cargos: ["admin", "gerente"] },
       { label: "Analytics da Loja", href: "/loja-admin/analytics", icon: BarChart3, cargos: ["admin", "gerente"] },
       { label: "Pedidos da Loja", href: "/pedidos-loja", icon: ShoppingBag, cargos: ["admin", "gerente", "vendedor"] },
+      { label: "Achadinhos", href: "/achadinhos-admin", icon: Flame, cargos: ["admin", "gerente"] },
     ],
   },
   {
