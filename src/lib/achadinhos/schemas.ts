@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ORIGENS, urlMidiaValida, validarLinkAfiliado } from "./link";
 import { slugValido } from "./slug";
-import { STATUS_PRODUTO, type Ator } from "./tipos";
+import { CLASSES_MIDIA, STATUS_PRODUTO, type Ator } from "./tipos";
 
 /**
  * Validação de produto — usada IGUAL pelo painel e pela API do Claude, pra
@@ -12,6 +12,13 @@ import { STATUS_PRODUTO, type Ator } from "./tipos";
 
 const urlMidia = z.string().trim().max(2000).refine(urlMidiaValida, "precisa ser uma URL https válida");
 const preco = z.number().finite().min(0).max(9_999_999.99);
+
+/** Id do Mercado Livre (ex.: MLB123456). */
+export const idMl = z.string().trim().toUpperCase().regex(/^ML[A-Z]\d{1,15}$/, "id do Mercado Livre inválido (ex.: MLB123456)");
+/** Objeto JSON livre, com tamanho limitado (notas e motivos da peneira). */
+export const jsonPequeno = z
+  .record(z.unknown())
+  .refine((v) => JSON.stringify(v).length <= 5000, "máximo de 5000 caracteres em JSON");
 
 const informacao = z.object({
   rotulo: z.string().trim().min(1).max(60),
@@ -45,6 +52,11 @@ const base = z.object({
   seo_titulo: z.string().trim().max(70).nullish(),
   seo_descricao: z.string().trim().max(170).nullish(),
   imagem_og: urlMidia.nullish(),
+  // Fase 264 — dados da fábrica (internos, não aparecem no site).
+  ml_catalog_id: idMl.nullish(),
+  ml_item_id: idMl.nullish(),
+  midia_classe: z.enum(CLASSES_MIDIA).nullish(),
+  score_detalhe: jsonPequeno.nullish(),
 });
 
 export function validarCoerencia(p: {

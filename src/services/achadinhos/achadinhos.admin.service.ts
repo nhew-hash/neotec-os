@@ -60,7 +60,7 @@ export type FiltroLog = "alteracoes" | "todos" | "problemas";
 export async function listarLog(filtro: FiltroLog, limite = 100): Promise<LogAchadinho[]> {
   const supabase = await createClient();
   let q = supabase.from("achadinhos_log").select("*").order("criado_em", { ascending: false }).limit(limite);
-  if (filtro === "alteracoes") q = q.not("operacao", "in", "(get_product,list_products,get_catalog_summary)").eq("resultado", "sucesso");
+  if (filtro === "alteracoes") q = q.not("operacao", "in", "(get_product,list_products,get_catalog_summary,list_candidates,get_click_stats)").eq("resultado", "sucesso");
   if (filtro === "problemas") q = q.neq("resultado", "sucesso");
   const { data, error } = await q;
   if (error) throw new Error(`Achadinhos: falha ao ler atividade (${error.message})`);

@@ -25,6 +25,16 @@ describe("descreverLog", () => {
     expect(descreverLog({ ...base, ator_tipo: "usuario", ator_nome: "Nhew", produto_nome: null, operacao: "criar_chave_api", resultado: "sucesso", detalhe: { nome: "Claude Desktop" } }))
       .toBe('Nhew criou a chave de API "Claude Desktop"');
   });
+  it("operações da fábrica", () => {
+    expect(descreverLog({ ...base, produto_nome: null, operacao: "upsert_candidates", resultado: "sucesso", detalhe: { inseridos: 3, atualizados: 1 } }))
+      .toBe("Claude (Chave X) gravou candidatos da captação (3 novos, 1 atualizados)");
+    expect(descreverLog({ ...base, produto_nome: null, operacao: "set_candidate_status", resultado: "sucesso", detalhe: { ml_catalog_id: "MLB1", para: "LINK_OK" } }))
+      .toBe("Claude (Chave X) marcou o candidato MLB1 como LINK_OK");
+    expect(descreverLog({ ...base, operacao: "record_price", resultado: "sucesso", detalhe: { mudou: true, para: 75 } }))
+      .toBe('Claude (Chave X) conferiu o preço do produto "Fone JBL" (mudou para 75)');
+    expect(descreverLog({ ...base, operacao: "record_price", resultado: "erro", detalhe: { erro: "x" } }))
+      .toBe('Claude (Chave X) tentou conferir o preço do produto "Fone JBL", mas deu erro: x');
+  });
   it("nome do ator", () => {
     expect(nomeDoAtor({ ator_tipo: "sistema", ator_nome: "x" })).toBe("Sistema");
     expect(nomeDoAtor({ ator_tipo: "usuario", ator_nome: "Nhew" })).toBe("Nhew");

@@ -10,6 +10,14 @@
 export const STATUS_PRODUTO = ["rascunho", "ativo", "pausado", "arquivado"] as const;
 export type StatusProduto = (typeof STATUS_PRODUTO)[number];
 
+/** Fase 264 — A: tem vídeo; B: 3+ fotos boas; C: 1–2 fotos; D: sem mídia utilizável. */
+export const CLASSES_MIDIA = ["A", "B", "C", "D"] as const;
+export type ClasseMidia = (typeof CLASSES_MIDIA)[number];
+
+/** Fase 264 — classe do score da peneira: S ≥ 85, A 75–84, B 65–74, C < 65. */
+export const CLASSES_SCORE = ["S", "A", "B", "C"] as const;
+export type ClasseScore = (typeof CLASSES_SCORE)[number];
+
 /** Onde o produto é vendido. Hoje só Mercado Livre; ver `link.ts` pra adicionar outra. */
 export type OrigemAfiliado = "mercado_livre";
 
@@ -53,6 +61,11 @@ export interface ProdutoAchadinho {
   ctr: number | null;
   cpc: number | null;
   status_performance: string | null;
+  /** Fase 264 — ids do Mercado Livre, classe de mídia (A/B/C/D) e notas da peneira. */
+  ml_catalog_id?: string | null;
+  ml_item_id?: string | null;
+  midia_classe?: ClasseMidia | null;
+  score_detalhe?: Record<string, unknown> | null;
   excluido_em: string | null;
   created_at: string;
   updated_at: string;
@@ -124,4 +137,47 @@ export interface ResumoCatalogo {
   excluidos: number;
   cliques_total: number;
   mais_clicados: { id: string; nome: string; slug: string; cliques: number }[];
+}
+
+/**
+ * Fase 264 — candidato da captação: produto achado na API do Mercado Livre,
+ * ainda fora do catálogo. Espelha `achadinhos_candidatos`.
+ */
+export const STATUS_CANDIDATO = [
+  "ENCONTRADO", "ANALISANDO", "DESCARTADO", "SELECIONADO", "AGUARDANDO_LINK", "LINK_OK", "LINK_ERRO", "CADASTRADO",
+] as const;
+export type StatusCandidato = (typeof STATUS_CANDIDATO)[number];
+
+export interface CandidatoAchadinho {
+  id: string;
+  loja_id: string;
+  ml_catalog_id: string;
+  ml_item_id: string | null;
+  nome: string;
+  categoria: string | null;
+  preco: number | null;
+  /** Só quando o próprio anúncio informa (original_price) — nunca estimado. */
+  preco_anterior_oficial: number | null;
+  fotos: string[];
+  tem_video: boolean;
+  url_produto: string | null;
+  status: StatusCandidato;
+  product_score: number | null;
+  classe: ClasseScore | null;
+  notas: Record<string, unknown> | null;
+  motivos: Record<string, unknown> | null;
+  motivo_descarte: string | null;
+  link_afiliado: string | null;
+  produto_id: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Fase 264 — uma conferência de preço (linha de `achadinhos_precos`). */
+export interface EntradaPreco {
+  produto_id: string;
+  preco: number | null;
+  preco_anterior: number | null;
+  disponivel: boolean;
+  origem: string;
 }

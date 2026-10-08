@@ -361,16 +361,127 @@ describe("achadinhos.operacoes", () => {
   });
 
   describe("definição das ferramentas", () => {
-    it("expõe as 9 ferramentas do briefing, cada uma com escopo e schema", () => {
+    it("expõe as 9 ferramentas do briefing + as 6 da fábrica, cada uma com escopo e schema", () => {
       expect(FERRAMENTAS.map((f) => f.nome).sort()).toEqual([
         "activate_product", "archive_product", "create_product", "delete_product", "get_catalog_summary",
-        "get_product", "list_products", "pause_product", "update_product",
+        "get_click_stats", "get_product", "list_candidates", "list_products", "pause_product", "record_price", "record_sales",
+        "set_candidate_status",
+        "update_product", "upsert_candidates",
       ]);
       for (const f of FERRAMENTAS) {
         expect(f.entrada.type).toBe("object");
         expect(f.descricao.length).toBeGreaterThan(20);
       }
       expect(FERRAMENTAS.find((f) => f.nome === "delete_product")!.escopo).toBe("excluir");
+    });
+  });
+
+  describe("fábrica (fase 264)", () => {
+    const cand = (id: string, extra: Record<string, unknown> = {}) => ({
+      ml_catalog_id: id, nome: `Produto ${id}`, preco: 49.9, fotos: ["https://http2.mlstatic.com/a.jpg"], ...extra,
+    });
+
+    it("list_products devolve o score e a classe de mídia no resumo", async () => {
+      await exec("create_product", { nome: "Caneca", link_afiliado: LINK, score: 87, midia_classe: "B", ml_catalog_id: "mlb111" });
+      const p = dadosDe(await exec("list_products", {})).produtos[0];
+      expect(p.score).toBe(87);
+      expect(p.midia_classe).toBe("B");
+      expect(mem.produtos[0].ml_catalog_id).toBe("MLB111");
+    });
+
+    it("upsert_candidates: insere novos, atualiza existentes sem mexer no status e ignora o que já está no catálogo", async () => {
+      await exec("create_product", { nome: "Já no catálogo", link_afiliado: LINK, ml_catalog_id: "MLB1" });
+      const r1 = dadosDe(await exec("upsert_candidates", { candidatos: [cand("MLB1"), cand("MLB2"), cand("MLB3")] }));
+      expect(r1.inseridos).toBe(2);
+      expect(r1.ignorados).toEqual([expect.objectContaining({ ml_catalog_id: "MLB1", motivo: "já está no catálogo" })]);
+      expect(mem.candidatos.every((c) => c.status === "ENCONTRADO")).toBe(true);
+
+      const id2 = mem.candidatos.find((c) => c.ml_catalog_id === "MLB2")!.id;
+      await exec("set_candidate_status", { id: id2, status: "SELECIONADO", product_score: 82, classe: "B" });
+      const r2 = dadosDe(await exec("upsert_candidates", { candidatos: [cand("MLB2", { preco: 39.9 })] }));
+      expect(r2.atualizados).toBe(1);
+      const c2 = mem.candidatos.find((c) => c.id === id2)!;
+      expect(c2.preco).toBe(39.9);
+      expect(c2.status).toBe("SELECIONADO");
+      expect(c2.product_score).toBe(82);
+    });
+
+    it("upsert_candidates recusa desconto falso e id inválido, item a item", async () => {
+      const r = dadosDe(await exec("upsert_candidates", {
+        candidatos: [cand("MLB5", { preco_anterior_oficial: 40 }), cand("xyz"), cand("MLB6", { preco_anterior_oficial: 79.9 }), cand("MLB6")],
+      }));
+      expect(r.inseridos).toBe(1);
+      expect(r.ignorados.map((i: { motivo: string }) => i.motivo).join(" | ")).toMatch(/maior que o preço.*id do Mercado Livre inválido.*repetido/);
+      expect(mem.candidatos[0].preco_anterior_oficial).toBe(79.9);
+    });
+
+    it("set_candidate_status valida descarte, link de afiliado e cadastro", async () => {
+      await exec("upsert_candidates", { candidatos: [cand("MLB7")] });
+      const id = mem.candidatos[0].id;
+      expect(erroDe(await exec("set_candidate_status", { id, status: "DESCARTADO" })).erro).toMatch(/motivo_descarte/);
+      expect(erroDe(await exec("set_candidate_status", { id, status: "LINK_OK" })).erro).toMatch(/link_afiliado/);
+      expect(erroDe(await exec("set_candidate_status", { id, status: "LINK_OK", link_afiliado: "https://evil.com/x" })).codigo).toBe("invalido");
+      expect(dadosDe(await exec("set_candidate_status", { id, status: "LINK_OK", link_afiliado: LINK })).link_afiliado).toBe(LINK);
+
+      expect(erroDe(await exec("set_candidate_status", { id, status: "CADASTRADO" })).erro).toMatch(/produto_id/);
+      const produto = dadosDe(await exec("create_product", { nome: "Produto MLB7", link_afiliado: LINK, ml_catalog_id: "MLB7" }));
+      expect(dadosDe(await exec("set_candidate_status", { id, status: "CADASTRADO", produto_id: produto.id })).status).toBe("CADASTRADO");
+      expect(erroDe(await exec("set_candidate_status", { id, status: "SELECIONADO" })).codigo).toBe("conflito");
+    });
+
+    it("set_candidate_status exige escopo de escrita", async () => {
+      await exec("upsert_candidates", { candidatos: [cand("MLB8")] });
+      const r = erroDe(await exec("set_candidate_status", { id: mem.candidatos[0].id, status: "ANALISANDO" }, claude(["leitura"])));
+      expect(r.codigo).toBe("nao_autorizado");
+    });
+
+    it("list_candidates filtra por status e ordena por score", async () => {
+      await exec("upsert_candidates", { candidatos: [cand("MLB10"), cand("MLB11"), cand("MLB12")] });
+      const [a, b] = mem.candidatos;
+      await exec("set_candidate_status", { id: a.id, status: "SELECIONADO", product_score: 60 });
+      await exec("set_candidate_status", { id: b.id, status: "SELECIONADO", product_score: 90 });
+      const r = dadosDe(await exec("list_candidates", { status: "SELECIONADO" }));
+      expect(r.candidatos.map((c: { id: string }) => c.id)).toEqual([b.id, a.id]);
+    });
+
+    it("record_price: grava histórico, atualiza o preço e limpa desconto que não é oficial", async () => {
+      await exec("create_product", { nome: "Fone", link_afiliado: LINK, preco_atual: 80, preco_anterior: 100, desconto_percentual: 20 });
+      const igual = dadosDe(await exec("record_price", { slug: "fone", preco: 80, preco_anterior: 100 }));
+      expect(igual.mudou).toBe(false);
+
+      const r = dadosDe(await exec("record_price", { slug: "fone", preco: 75 }));
+      expect(r.mudou).toBe(true);
+      expect(mem.produtos[0]).toMatchObject({ preco_atual: 75, preco_anterior: null, desconto_percentual: null });
+      expect(mem.precos).toHaveLength(2);
+
+      const indisponivel = await exec("record_price", { slug: "fone", disponivel: false });
+      expect(dadosDe(indisponivel).disponivel).toBe(false);
+      expect(mem.produtos[0].status).toBe("rascunho");
+      expect(mem.produtos[0].preco_atual).toBe(75);
+      expect(erroDe(await exec("record_price", { slug: "fone" })).erro).toMatch(/preço/);
+    });
+
+    it("get_click_stats agrupa os cliques por conteúdo e produto", async () => {
+      const agora = new Date().toISOString();
+      mem.cliques.push(
+        { produto_slug: "fone", utm_content: "c12", utm_campaign: "achadinhos", criado_em: agora },
+        { produto_slug: "fone", utm_content: "c12", utm_campaign: "achadinhos", criado_em: agora },
+        { produto_slug: "cabo", utm_content: null, utm_campaign: null, criado_em: agora },
+        { produto_slug: "fone", utm_content: "c9", utm_campaign: "achadinhos", criado_em: "2020-01-01T00:00:00.000Z" },
+      );
+      const r = dadosDe(await exec("get_click_stats", { utm_campaign: "achadinhos" }));
+      expect(r.total).toBe(2);
+      expect(r.grupos).toEqual([expect.objectContaining({ utm_content: "c12", produto_slug: "fone", cliques: 2 })]);
+      expect(erroDe(await exec("get_click_stats", { desde: "ontem" })).codigo).toBe("invalido");
+    });
+
+    it("record_sales grava os totais do relatório e só aceita números válidos", async () => {
+      await exec("create_product", { nome: "Fone", link_afiliado: LINK });
+      const r = dadosDe(await exec("record_sales", { slug: "fone", vendas: 7, comissao: 12.5, periodo: "2026-10" }));
+      expect(r).toMatchObject({ vendas: 7, comissao: 12.5 });
+      expect(mem.logs.at(-1)!.detalhe).toMatchObject({ periodo: "2026-10", campos: ["vendas", "comissao"] });
+      expect(erroDe(await exec("record_sales", { slug: "fone", vendas: -1 })).codigo).toBe("invalido");
+      expect(erroDe(await exec("record_sales", { slug: "fone", vendas: 1 }, claude(["leitura"]))).codigo).toBe("nao_autorizado");
     });
   });
 });
