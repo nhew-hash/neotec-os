@@ -3,12 +3,12 @@ import { escopoPermite } from "@/lib/achadinhos/chaves";
 import { urlPublicaProduto } from "@/lib/achadinhos/apresentacao";
 import { validarLinkAfiliado } from "@/lib/achadinhos/link";
 import {
-  formatarErroZod, mapaErrosPt, schemaAtualizarProduto, schemaCriarProduto, validarCoerencia,
+  formatarErroZod, idMl, jsonPequeno, mapaErrosPt, schemaAtualizarProduto, schemaCriarProduto, validarCoerencia,
 } from "@/lib/achadinhos/schemas";
 import { gerarSlug, slugUnico } from "@/lib/achadinhos/slug";
 import {
-  STATUS_PRODUTO,
-  type Ator, type Escopo, type ProdutoAchadinho, type ResumoCatalogo, type StatusProduto,
+  CLASSES_MIDIA, STATUS_CANDIDATO, STATUS_PRODUTO,
+  type Ator, type CandidatoAchadinho, type Escopo, type ProdutoAchadinho, type ResumoCatalogo, type StatusProduto,
 } from "@/lib/achadinhos/tipos";
 import { ErroSlugDuplicado, type AchadinhosRepository } from "./achadinhos.repository";
 
@@ -22,7 +22,8 @@ import { ErroSlugDuplicado, type AchadinhosRepository } from "./achadinhos.repos
 export type NomeFerramenta =
   | "create_product" | "update_product" | "get_product" | "list_products"
   | "activate_product" | "pause_product" | "archive_product" | "delete_product"
-  | "get_catalog_summary";
+  | "get_catalog_summary"
+  | "upsert_candidates" | "list_candidates" | "set_candidate_status" | "record_price";
 
 export type CodigoErro =
   | "nao_autorizado" | "nao_encontrado" | "invalido" | "conflito"
@@ -76,6 +77,22 @@ const PROPRIEDADES_PRODUTO = {
   seo_titulo: { type: "string", description: "Título SEO (até 70 caracteres)." },
   seo_descricao: { type: "string", description: "Meta description (até 170 caracteres)." },
   imagem_og: { type: "string", description: "URL https da imagem de compartilhamento (padrão: imagem principal)." },
+  ml_catalog_id: { type: "string", description: "Id do produto de catálogo do Mercado Livre (ex.: MLB123456). Interno." },
+  ml_item_id: { type: "string", description: "Id do anúncio do Mercado Livre (ex.: MLB987654). Interno." },
+  midia_classe: { type: "string", enum: [...CLASSES_MIDIA], description: "Classe de mídia: A tem vídeo, B 3+ fotos boas, C 1–2 fotos, D sem mídia. Interno." },
+  score_detalhe: { type: "object", description: "Notas e motivos da peneira (JSON). Interno." },
+};
+
+const PROPRIEDADES_CANDIDATO = {
+  ml_catalog_id: { type: "string", description: "Id do produto de catálogo do ML (ex.: MLB123456). Chave de deduplicação." },
+  ml_item_id: { type: "string", description: "Id do anúncio escolhido (ex.: MLB987654)." },
+  nome: { type: "string", description: "Nome como veio da API do ML." },
+  categoria: { type: "string" },
+  preco: { type: "number", description: "Preço da API (\"outros meios\")." },
+  preco_anterior_oficial: { type: "number", description: "SÓ o original_price informado pelo anúncio; precisa ser MAIOR que o preço. Nunca estimar." },
+  fotos: { type: "array", items: { type: "string" }, description: "URLs https das fotos (até 12)." },
+  tem_video: { type: "boolean" },
+  url_produto: { type: "string", description: "URL https da página do produto no ML (NÃO é link de afiliado)." },
 };
 
 const SELETOR = {
@@ -158,6 +175,73 @@ export const FERRAMENTAS: DefinicaoFerramenta[] = [
     descricao: "Resumo do catálogo: total, rascunhos, ativos, pausados, arquivados, destaques, excluídos, cliques e produtos mais clicados.",
     entrada: { type: "object", properties: {}, additionalProperties: false },
   },
+  {
+    nome: "upsert_candidates",
+    escopo: "escrita",
+    descricao: `Fábrica: grava candidatos achados na captação (API do Mercado Livre), até 100 por chamada. Deduplica por ml_catalog_id: o que já está no catálogo é ignorado; o que já é candidato só tem os dados do ML atualizados (status, score e link não mudam). Novos entram como ENCONTRADO. ${REGRA_HONESTIDADE}`,
+    entrada: {
+      type: "object",
+      properties: {
+        candidatos: {
+          type: "array",
+          items: { type: "object", properties: PROPRIEDADES_CANDIDATO, required: ["ml_catalog_id", "nome"], additionalProperties: false },
+        },
+      },
+      required: ["candidatos"],
+      additionalProperties: false,
+    },
+  },
+  {
+    nome: "list_candidates",
+    escopo: "leitura",
+    descricao: "Fábrica: lista candidatos da captação (maior score primeiro). Filtro opcional por status.",
+    entrada: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: [...STATUS_CANDIDATO] },
+        limite: { type: "integer", minimum: 1, maximum: 500, description: "Padrão 50." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    nome: "set_candidate_status",
+    escopo: "escrita",
+    descricao:
+      "Fábrica: muda o status de um candidato e grava o resultado da peneira (product_score, classe, notas, motivos). DESCARTADO exige motivo_descarte. LINK_OK exige link_afiliado válido do Mercado Livre — o link vem do Gerador de Links da Central de Afiliados, NUNCA montado à mão. CADASTRADO exige produto_id de um produto do catálogo. Candidato CADASTRADO não muda mais.",
+    entrada: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "UUID do candidato." },
+        status: { type: "string", enum: [...STATUS_CANDIDATO] },
+        product_score: { type: "number", description: "0 a 100." },
+        classe: { type: "string", enum: [...CLASSES_MIDIA] },
+        notas: { type: "object" },
+        motivos: { type: "object" },
+        motivo_descarte: { type: "string" },
+        link_afiliado: { type: "string" },
+        produto_id: { type: "string", description: "UUID do produto criado (status CADASTRADO)." },
+      },
+      required: ["id", "status"],
+      additionalProperties: false,
+    },
+  },
+  {
+    nome: "record_price",
+    escopo: "escrita",
+    descricao:
+      "Fábrica: registra uma conferência de preço de um produto (histórico). Se o preço mudou, atualiza o preço do produto; preco_anterior só se o anúncio informar oficialmente (senão o preço anterior e o desconto são limpos, pra não exibir desconto falso). Não muda status: se disponivel=false, use pause_product.",
+    entrada: {
+      type: "object",
+      properties: {
+        ...SELETOR,
+        preco: { type: "number", description: "Preço atual conferido na API do ML." },
+        preco_anterior: { type: "number", description: "original_price do anúncio, só se existir." },
+        disponivel: { type: "boolean", description: "false se o anúncio não está mais disponível. Padrão true." },
+      },
+      additionalProperties: false,
+    },
+  },
 ];
 
 const FERRAMENTAS_POR_NOME = Object.fromEntries(FERRAMENTAS.map((f) => [f.nome, f])) as Record<string, DefinicaoFerramenta>;
@@ -184,7 +268,7 @@ function resumido(p: ProdutoAchadinho) {
   return {
     id: p.id, nome: p.nome, slug: p.slug, status: p.status, categoria: p.categoria,
     preco_atual: p.preco_atual, preco_anterior: p.preco_anterior,
-    destaque: p.destaque, ordem: p.ordem, cliques: p.cliques,
+    destaque: p.destaque, ordem: p.ordem, cliques: p.cliques, score: p.score, midia_classe: p.midia_classe ?? null,
     excluido: p.excluido_em !== null, url_publica: urlPublicaProduto(p.slug),
   };
 }
@@ -397,6 +481,171 @@ export async function calcularResumoCatalogo(repo: AchadinhosRepository): Promis
 
 const resumoCatalogo: Handler = async (_args, _ator, repo) => ok(await calcularResumoCatalogo(repo));
 
+// ---------------------------------------------------------------------------
+// Fase 264 — fábrica: candidatos da captação e conferência de preço
+// ---------------------------------------------------------------------------
+
+const urlHttps = z.string().trim().max(2000).url().refine((u) => u.startsWith("https://"), "precisa ser https");
+const precoMl = z.number().finite().min(0).max(9_999_999.99);
+
+const schemaCandidato = z
+  .object({
+    ml_catalog_id: idMl,
+    ml_item_id: idMl.nullish(),
+    nome: z.string().trim().min(2).max(200),
+    categoria: z.string().trim().max(60).nullish(),
+    preco: precoMl.nullish(),
+    preco_anterior_oficial: precoMl.nullish(),
+    fotos: z.array(urlHttps).max(12).optional(),
+    tem_video: z.boolean().optional(),
+    url_produto: urlHttps.nullish(),
+  })
+  .strict()
+  .refine(
+    (c) => c.preco_anterior_oficial == null || (c.preco != null && c.preco_anterior_oficial > c.preco),
+    { message: "preco_anterior_oficial precisa ser maior que o preço (senão não existe desconto real)", path: ["preco_anterior_oficial"] }
+  );
+
+const schemaUpsertCandidatos = z.object({ candidatos: z.array(z.unknown()).min(1).max(100) }).strict();
+
+const schemaListarCandidatos = z
+  .object({ status: z.enum(STATUS_CANDIDATO).optional(), limite: z.number().int().min(1).max(500).optional() })
+  .strict();
+
+const schemaStatusCandidato = z
+  .object({
+    id: z.string().uuid(),
+    status: z.enum(STATUS_CANDIDATO),
+    product_score: z.number().finite().min(0).max(100).nullish(),
+    classe: z.enum(CLASSES_MIDIA).nullish(),
+    notas: jsonPequeno.nullish(),
+    motivos: jsonPequeno.nullish(),
+    motivo_descarte: z.string().trim().min(3).max(300).nullish(),
+    link_afiliado: z.string().trim().max(2000).nullish(),
+    produto_id: z.string().uuid().nullish(),
+  })
+  .strict();
+
+const schemaPreco = z
+  .object({
+    id: z.string().uuid().optional(),
+    slug: z.string().trim().toLowerCase().optional(),
+    preco: precoMl.nullish(),
+    preco_anterior: precoMl.nullish(),
+    disponivel: z.boolean().optional(),
+  })
+  .strict()
+  .refine((s) => s.id || s.slug, "informe id ou slug")
+  .refine((s) => s.disponivel === false || s.preco != null, "informe o preço (ou disponivel=false)");
+
+const upsertCandidatos: Handler = async (args, _ator, repo) => {
+  const lote = schemaUpsertCandidatos.safeParse(args ?? {}, { errorMap: mapaErrosPt });
+  if (!lote.success) return falha("invalido", formatarErroZod(lote.error));
+
+  const validos: z.infer<typeof schemaCandidato>[] = [];
+  const ignorados: { indice: number; ml_catalog_id: string | null; motivo: string }[] = [];
+  lote.data.candidatos.forEach((bruto, indice) => {
+    const c = schemaCandidato.safeParse(bruto, { errorMap: mapaErrosPt });
+    const id = typeof (bruto as Record<string, unknown>)?.ml_catalog_id === "string" ? String((bruto as Record<string, unknown>).ml_catalog_id) : null;
+    if (!c.success) ignorados.push({ indice, ml_catalog_id: id, motivo: formatarErroZod(c.error) });
+    else if (validos.some((v) => v.ml_catalog_id === c.data.ml_catalog_id)) ignorados.push({ indice, ml_catalog_id: id, motivo: "repetido no mesmo lote" });
+    else validos.push(c.data);
+  });
+
+  const ids = validos.map((c) => c.ml_catalog_id);
+  const noCatalogo = new Set((await repo.produtosPorCatalogoMl(ids)).map((p) => p.ml_catalog_id));
+  const existentes = new Map((await repo.candidatosPorCatalogoMl(ids)).map((c) => [c.ml_catalog_id, c]));
+
+  let inseridos = 0;
+  let atualizados = 0;
+  for (const c of validos) {
+    if (noCatalogo.has(c.ml_catalog_id)) {
+      ignorados.push({ indice: -1, ml_catalog_id: c.ml_catalog_id, motivo: "já está no catálogo" });
+      continue;
+    }
+    const dados = semUndefined({ ...c }) as Partial<CandidatoAchadinho>;
+    const atual = existentes.get(c.ml_catalog_id);
+    if (atual) {
+      // Só os dados do ML mudam; status, score e link são da peneira/afiliado.
+      await repo.atualizarCandidato(atual.id, dados);
+      atualizados++;
+    } else {
+      await repo.inserirCandidato({ ...dados, status: "ENCONTRADO" });
+      inseridos++;
+    }
+  }
+  return ok(
+    { inseridos, atualizados, ignorados },
+    { mensagem: `${inseridos} candidato(s) novo(s), ${atualizados} atualizado(s), ${ignorados.length} ignorado(s).`, detalhe: { inseridos, atualizados, ignorados: ignorados.length } }
+  );
+};
+
+const listarCandidatos: Handler = async (args, _ator, repo) => {
+  const parsed = schemaListarCandidatos.safeParse(args ?? {}, { errorMap: mapaErrosPt });
+  if (!parsed.success) return falha("invalido", formatarErroZod(parsed.error));
+  const lista = await repo.listarCandidatos({ status: parsed.data.status, limite: parsed.data.limite ?? 50 });
+  return ok({ quantidade: lista.length, candidatos: lista }, { detalhe: { filtros: parsed.data } });
+};
+
+const statusCandidato: Handler = async (args, _ator, repo) => {
+  const parsed = schemaStatusCandidato.safeParse(args ?? {}, { errorMap: mapaErrosPt });
+  if (!parsed.success) return falha("invalido", formatarErroZod(parsed.error));
+  const { id, ...d } = parsed.data;
+  const atual = await repo.buscarCandidato(id);
+  if (!atual) return falha("nao_encontrado", "Candidato não encontrado");
+  if (atual.status === "CADASTRADO" && d.status !== "CADASTRADO") {
+    return falha("conflito", "Candidato já virou produto do catálogo; mude o produto, não o candidato");
+  }
+
+  const patch = semUndefined({ ...d }) as Partial<CandidatoAchadinho>;
+  if (d.status === "DESCARTADO" && !d.motivo_descarte) return falha("invalido", "DESCARTADO exige motivo_descarte");
+  const link = d.link_afiliado ?? atual.link_afiliado;
+  if (d.link_afiliado) {
+    const l = validarLinkAfiliado(d.link_afiliado);
+    if (!l.ok) return falha("invalido", l.erro);
+    patch.link_afiliado = l.url;
+  }
+  if (d.status === "LINK_OK" && !link) return falha("invalido", "LINK_OK exige link_afiliado (gerado no Gerador de Links do Mercado Livre)");
+  if (d.status === "CADASTRADO") {
+    const produtoId = d.produto_id ?? atual.produto_id;
+    if (!produtoId) return falha("invalido", "CADASTRADO exige produto_id");
+    const p = await repo.buscarPorId(produtoId);
+    if (!p || p.excluido_em) return falha("nao_encontrado", "Produto do catálogo não encontrado");
+  }
+
+  const novo = await repo.atualizarCandidato(atual.id, patch);
+  return ok(novo, { mensagem: `Candidato ${novo.status}.`, detalhe: { candidato_id: novo.id, ml_catalog_id: novo.ml_catalog_id, de: atual.status, para: novo.status } });
+};
+
+const registrarPreco: Handler = async (args, _ator, repo) => {
+  const parsed = schemaPreco.safeParse(args ?? {}, { errorMap: mapaErrosPt });
+  if (!parsed.success) return falha("invalido", formatarErroZod(parsed.error));
+  const { preco, preco_anterior, disponivel = true, ...sel } = parsed.data;
+  const p = await localizar(repo, sel);
+  if (!p || p.excluido_em) return falha("nao_encontrado", "Produto não encontrado");
+
+  const anteriorOficial = preco_anterior != null && preco != null && preco_anterior > preco ? preco_anterior : null;
+  await repo.registrarPreco({ produto_id: p.id, preco: preco ?? null, preco_anterior: anteriorOficial, disponivel, origem: "api_ml" });
+
+  const mudou = disponivel && preco != null && (Number(p.preco_atual) !== preco || (p.preco_anterior ?? null) !== anteriorOficial);
+  let atual = p;
+  if (mudou) {
+    // Desconto é sempre informado por quem cadastra, nunca calculado: com preço novo ele é limpo.
+    atual = await repo.atualizar(p.id, { preco_atual: preco, preco_anterior: anteriorOficial, desconto_percentual: null });
+  }
+  return ok(
+    { slug: atual.slug, disponivel, mudou, preco_antes: p.preco_atual, preco_agora: atual.preco_atual, preco_anterior: atual.preco_anterior },
+    {
+      mensagem: !disponivel
+        ? "Anúncio indisponível registrado. Nada foi pausado: use pause_product se for o caso."
+        : mudou ? `Preço atualizado de ${p.preco_atual ?? "—"} para ${preco}.` : "Preço conferido: sem mudança.",
+      produto: ref(atual),
+      detalhe: { disponivel, mudou, de: p.preco_atual, para: atual.preco_atual },
+      revalidar: mudou ? CAMINHOS_CATALOGO(atual.slug) : undefined,
+    }
+  );
+};
+
 const HANDLERS: Record<NomeFerramenta, Handler> = {
   create_product: criar,
   update_product: atualizar,
@@ -407,6 +656,10 @@ const HANDLERS: Record<NomeFerramenta, Handler> = {
   archive_product: transicao("arquivado", "arquivado"),
   delete_product: excluir,
   get_catalog_summary: resumoCatalogo,
+  upsert_candidates: upsertCandidatos,
+  list_candidates: listarCandidatos,
+  set_candidate_status: statusCandidato,
+  record_price: registrarPreco,
 };
 
 // ---------------------------------------------------------------------------

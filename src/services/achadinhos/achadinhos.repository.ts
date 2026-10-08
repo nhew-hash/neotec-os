@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { EntradaLog, ProdutoAchadinho, StatusProduto } from "@/lib/achadinhos/tipos";
+import type {
+  CandidatoAchadinho, EntradaLog, EntradaPreco, ProdutoAchadinho, StatusCandidato, StatusProduto,
+} from "@/lib/achadinhos/tipos";
 
 /**
  * Fase 263 — acesso a dados dos Achadinhos. A lógica de negócio
@@ -26,6 +28,16 @@ export interface AchadinhosRepository {
   inserir(dados: Partial<ProdutoAchadinho>): Promise<ProdutoAchadinho>;
   atualizar(id: string, dados: Partial<ProdutoAchadinho>): Promise<ProdutoAchadinho>;
   registrarLog(entrada: EntradaLog): Promise<void>;
+
+  // Fase 264 — fábrica (candidatos da captação e histórico de preço).
+  /** Produtos (inclusive excluídos) com esses ids de catálogo do ML — pra não captar de novo o que já está no catálogo. */
+  produtosPorCatalogoMl(ids: string[]): Promise<ProdutoAchadinho[]>;
+  listarCandidatos(filtro: { status?: StatusCandidato; limite?: number }): Promise<CandidatoAchadinho[]>;
+  buscarCandidato(id: string): Promise<CandidatoAchadinho | null>;
+  candidatosPorCatalogoMl(ids: string[]): Promise<CandidatoAchadinho[]>;
+  inserirCandidato(dados: Partial<CandidatoAchadinho>): Promise<CandidatoAchadinho>;
+  atualizarCandidato(id: string, dados: Partial<CandidatoAchadinho>): Promise<CandidatoAchadinho>;
+  registrarPreco(entrada: EntradaPreco): Promise<void>;
 }
 
 export class ErroSlugDuplicado extends Error {
@@ -36,6 +48,7 @@ export class ErroSlugDuplicado extends Error {
 }
 
 const TABELA = "achadinhos_produtos";
+const CANDIDATOS = "achadinhos_candidatos";
 
 /** Remove tudo que tem significado na sintaxe de filtro do PostgREST (vírgula, parênteses, aspas, curingas). */
 export function sanitizarBusca(busca: string): string {
@@ -110,6 +123,55 @@ export function criarRepositorioSupabase(client: SupabaseClient, lojaId: string)
         resultado: e.resultado,
         detalhe: e.detalhe ?? null,
       });
+      if (error) throw new Error(error.message);
+    },
+
+    async produtosPorCatalogoMl(ids) {
+      if (ids.length === 0) return [];
+      const { data, error } = await client.from(TABELA).select("*").eq("loja_id", lojaId).in("ml_catalog_id", ids);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as ProdutoAchadinho[];
+    },
+
+    async listarCandidatos(filtro) {
+      const limite = Math.min(Math.max(filtro.limite ?? 50, 1), 500);
+      let q = client.from(CANDIDATOS).select("*").eq("loja_id", lojaId);
+      if (filtro.status) q = q.eq("status", filtro.status);
+      const { data, error } = await q
+        .order("product_score", { ascending: false, nullsFirst: false })
+        .order("criado_em", { ascending: false })
+        .limit(limite);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as CandidatoAchadinho[];
+    },
+
+    async buscarCandidato(id) {
+      const { data, error } = await client.from(CANDIDATOS).select("*").eq("id", id).eq("loja_id", lojaId).maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as CandidatoAchadinho | null) ?? null;
+    },
+
+    async candidatosPorCatalogoMl(ids) {
+      if (ids.length === 0) return [];
+      const { data, error } = await client.from(CANDIDATOS).select("*").eq("loja_id", lojaId).in("ml_catalog_id", ids);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as CandidatoAchadinho[];
+    },
+
+    async inserirCandidato(dados) {
+      const { data, error } = await client.from(CANDIDATOS).insert({ ...dados, loja_id: lojaId }).select("*").single();
+      if (error) throw new Error(error.message);
+      return data as CandidatoAchadinho;
+    },
+
+    async atualizarCandidato(id, dados) {
+      const { data, error } = await client.from(CANDIDATOS).update(dados).eq("id", id).eq("loja_id", lojaId).select("*").single();
+      if (error) throw new Error(error.message);
+      return data as CandidatoAchadinho;
+    },
+
+    async registrarPreco(e) {
+      const { error } = await client.from("achadinhos_precos").insert({ ...e, loja_id: lojaId });
       if (error) throw new Error(error.message);
     },
   };
