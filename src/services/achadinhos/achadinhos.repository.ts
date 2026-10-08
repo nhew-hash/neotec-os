@@ -38,6 +38,14 @@ export interface AchadinhosRepository {
   inserirCandidato(dados: Partial<CandidatoAchadinho>): Promise<CandidatoAchadinho>;
   atualizarCandidato(id: string, dados: Partial<CandidatoAchadinho>): Promise<CandidatoAchadinho>;
   registrarPreco(entrada: EntradaPreco): Promise<void>;
+  /** Cliques desde uma data (só os campos que a fábrica usa). */
+  listarCliques(filtro: { desde: string; utmCampaign?: string }): Promise<CliqueResumo[]>;
+}
+
+export interface CliqueResumo {
+  produto_slug: string;
+  utm_content: string | null;
+  criado_em: string;
 }
 
 export class ErroSlugDuplicado extends Error {
@@ -173,6 +181,20 @@ export function criarRepositorioSupabase(client: SupabaseClient, lojaId: string)
     async registrarPreco(e) {
       const { error } = await client.from("achadinhos_precos").insert({ ...e, loja_id: lojaId });
       if (error) throw new Error(error.message);
+    },
+
+    async listarCliques(filtro) {
+      const tudo: CliqueResumo[] = [];
+      for (let pagina = 0; pagina < 20; pagina++) {
+        let q = client.from("achadinhos_cliques").select("produto_slug, utm_content, criado_em")
+          .eq("loja_id", lojaId).gte("criado_em", filtro.desde);
+        if (filtro.utmCampaign) q = q.eq("utm_campaign", filtro.utmCampaign);
+        const { data, error } = await q.order("criado_em", { ascending: true }).range(pagina * 1000, pagina * 1000 + 999);
+        if (error) throw new Error(error.message);
+        tudo.push(...((data ?? []) as CliqueResumo[]));
+        if (!data || data.length < 1000) break;
+      }
+      return tudo;
     },
   };
 }

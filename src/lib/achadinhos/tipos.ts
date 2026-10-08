@@ -14,6 +14,10 @@ export type StatusProduto = (typeof STATUS_PRODUTO)[number];
 export const CLASSES_MIDIA = ["A", "B", "C", "D"] as const;
 export type ClasseMidia = (typeof CLASSES_MIDIA)[number];
 
+/** Fase 264 — classe do score da peneira: S ≥ 85, A 75–84, B 65–74, C < 65. */
+export const CLASSES_SCORE = ["S", "A", "B", "C"] as const;
+export type ClasseScore = (typeof CLASSES_SCORE)[number];
+
 /** Onde o produto é vendido. Hoje só Mercado Livre; ver `link.ts` pra adicionar outra. */
 export type OrigemAfiliado = "mercado_livre";
 
@@ -159,7 +163,7 @@ export interface CandidatoAchadinho {
   url_produto: string | null;
   status: StatusCandidato;
   product_score: number | null;
-  classe: ClasseMidia | null;
+  classe: ClasseScore | null;
   notas: Record<string, unknown> | null;
   motivos: Record<string, unknown> | null;
   motivo_descarte: string | null;

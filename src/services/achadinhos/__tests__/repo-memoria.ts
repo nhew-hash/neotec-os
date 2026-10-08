@@ -8,6 +8,7 @@ export function criarRepoMemoria() {
   const logs: EntradaLog[] = [];
   const candidatos: CandidatoAchadinho[] = [];
   const precos: EntradaPreco[] = [];
+  const cliques: { produto_slug: string; utm_content: string | null; utm_campaign: string | null; criado_em: string }[] = [];
   const falhas = { log: false };
 
   const repo: AchadinhosRepository = {
@@ -101,7 +102,12 @@ export function criarRepoMemoria() {
     async registrarPreco(e) {
       precos.push(e);
     },
+    async listarCliques(f) {
+      return cliques
+        .filter((c) => c.criado_em >= f.desde && (!f.utmCampaign || c.utm_campaign === f.utmCampaign))
+        .map(({ produto_slug, utm_content, criado_em }) => ({ produto_slug, utm_content, criado_em }));
+    },
   };
 
-  return { repo, produtos, logs, falhas, candidatos, precos };
+  return { repo, produtos, logs, falhas, candidatos, precos, cliques };
 }

@@ -361,10 +361,11 @@ describe("achadinhos.operacoes", () => {
   });
 
   describe("definição das ferramentas", () => {
-    it("expõe as 9 ferramentas do briefing + as 4 da fábrica, cada uma com escopo e schema", () => {
+    it("expõe as 9 ferramentas do briefing + as 6 da fábrica, cada uma com escopo e schema", () => {
       expect(FERRAMENTAS.map((f) => f.nome).sort()).toEqual([
         "activate_product", "archive_product", "create_product", "delete_product", "get_catalog_summary",
-        "get_product", "list_candidates", "list_products", "pause_product", "record_price", "set_candidate_status",
+        "get_click_stats", "get_product", "list_candidates", "list_products", "pause_product", "record_price", "record_sales",
+        "set_candidate_status",
         "update_product", "upsert_candidates",
       ]);
       for (const f of FERRAMENTAS) {
@@ -458,6 +459,29 @@ describe("achadinhos.operacoes", () => {
       expect(mem.produtos[0].status).toBe("rascunho");
       expect(mem.produtos[0].preco_atual).toBe(75);
       expect(erroDe(await exec("record_price", { slug: "fone" })).erro).toMatch(/preço/);
+    });
+
+    it("get_click_stats agrupa os cliques por conteúdo e produto", async () => {
+      const agora = new Date().toISOString();
+      mem.cliques.push(
+        { produto_slug: "fone", utm_content: "c12", utm_campaign: "achadinhos", criado_em: agora },
+        { produto_slug: "fone", utm_content: "c12", utm_campaign: "achadinhos", criado_em: agora },
+        { produto_slug: "cabo", utm_content: null, utm_campaign: null, criado_em: agora },
+        { produto_slug: "fone", utm_content: "c9", utm_campaign: "achadinhos", criado_em: "2020-01-01T00:00:00.000Z" },
+      );
+      const r = dadosDe(await exec("get_click_stats", { utm_campaign: "achadinhos" }));
+      expect(r.total).toBe(2);
+      expect(r.grupos).toEqual([expect.objectContaining({ utm_content: "c12", produto_slug: "fone", cliques: 2 })]);
+      expect(erroDe(await exec("get_click_stats", { desde: "ontem" })).codigo).toBe("invalido");
+    });
+
+    it("record_sales grava os totais do relatório e só aceita números válidos", async () => {
+      await exec("create_product", { nome: "Fone", link_afiliado: LINK });
+      const r = dadosDe(await exec("record_sales", { slug: "fone", vendas: 7, comissao: 12.5, periodo: "2026-10" }));
+      expect(r).toMatchObject({ vendas: 7, comissao: 12.5 });
+      expect(mem.logs.at(-1)!.detalhe).toMatchObject({ periodo: "2026-10", campos: ["vendas", "comissao"] });
+      expect(erroDe(await exec("record_sales", { slug: "fone", vendas: -1 })).codigo).toBe("invalido");
+      expect(erroDe(await exec("record_sales", { slug: "fone", vendas: 1 }, claude(["leitura"]))).codigo).toBe("nao_autorizado");
     });
   });
 });

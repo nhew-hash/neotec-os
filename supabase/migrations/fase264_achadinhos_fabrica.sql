@@ -67,7 +67,8 @@ create table achadinhos_candidatos (
   constraint achadinhos_candidato_status_valido check (status in (
     'ENCONTRADO', 'ANALISANDO', 'DESCARTADO', 'SELECIONADO', 'AGUARDANDO_LINK', 'LINK_OK', 'LINK_ERRO', 'CADASTRADO'
   )),
-  constraint achadinhos_candidato_classe_valida check (classe is null or classe in ('A', 'B', 'C', 'D')),
+  -- Classe do score da peneira: S ≥ 85, A 75–84, B 65–74, C < 65.
+  constraint achadinhos_candidato_classe_valida check (classe is null or classe in ('S', 'A', 'B', 'C')),
   constraint achadinhos_candidato_link_https check (link_afiliado is null or link_afiliado ~* '^https://'),
   constraint achadinhos_candidato_preco_ok check (preco is null or preco >= 0),
   constraint achadinhos_candidato_preco_anterior_ok check (preco_anterior_oficial is null or preco_anterior_oficial >= 0),

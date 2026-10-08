@@ -1,7 +1,7 @@
 import type { LogAchadinho } from "./tipos";
 
 /** Operações que só consultam — escondidas por padrão na tela de atividade. */
-export const OPERACOES_DE_LEITURA = ["get_product", "list_products", "get_catalog_summary", "list_candidates"];
+export const OPERACOES_DE_LEITURA = ["get_product", "list_products", "get_catalog_summary", "list_candidates", "get_click_stats"];
 
 const FEITO: Record<string, string> = {
   create_product: "criou",
@@ -31,6 +31,8 @@ const INFINITIVO: Record<string, string> = {
   list_candidates: "listar os candidatos",
   set_candidate_status: "mudar o status de um candidato",
   record_price: "conferir o preço",
+  get_click_stats: "consultar os cliques",
+  record_sales: "registrar as vendas",
 };
 
 const CAMPOS: Record<string, string> = {
@@ -40,7 +42,7 @@ const CAMPOS: Record<string, string> = {
   ordem: "ordem", informacoes: "informações", observacoes: "observações", seo_titulo: "título SEO",
   seo_descricao: "descrição SEO", imagem_og: "imagem de compartilhamento",
   ml_catalog_id: "id de catálogo do ML", ml_item_id: "id do anúncio do ML", midia_classe: "classe de mídia",
-  score_detalhe: "detalhe do score",
+  score_detalhe: "detalhe do score", vendas: "vendas", comissao: "comissão", receita: "receita",
 };
 
 export function nomeDoAtor(l: Pick<LogAchadinho, "ator_tipo" | "ator_nome">): string {
@@ -55,13 +57,15 @@ export function descreverLog(l: Pick<LogAchadinho, "ator_tipo" | "ator_nome" | "
   const detalhe = (l.detalhe ?? {}) as Record<string, unknown>;
   const alvo = l.produto_nome ? ` o produto "${l.produto_nome}"` : "";
   const semProduto = ["list_products", "get_catalog_summary", "criar_chave_api", "revogar_chave_api",
-    "upsert_candidates", "list_candidates", "set_candidate_status"].includes(l.operacao);
+    "upsert_candidates", "list_candidates", "set_candidate_status", "get_click_stats"].includes(l.operacao);
 
   if (l.resultado === "sucesso") {
     const feito = FEITO[l.operacao] ?? l.operacao;
     if (l.operacao === "get_catalog_summary") return `${ator} consultou o resumo do catálogo`;
     if (l.operacao === "list_products") return `${ator} listou os produtos`;
     if (l.operacao === "list_candidates") return `${ator} listou os candidatos da captação`;
+    if (l.operacao === "get_click_stats") return `${ator} consultou os cliques por conteúdo`;
+    if (l.operacao === "record_sales") return `${ator} registrou as vendas d${alvo ? alvo.replace(" o produto", "o produto") : "e um produto"}`;
     if (l.operacao === "upsert_candidates") {
       return `${ator} gravou candidatos da captação (${Number(detalhe.inseridos ?? 0)} novos, ${Number(detalhe.atualizados ?? 0)} atualizados)`;
     }

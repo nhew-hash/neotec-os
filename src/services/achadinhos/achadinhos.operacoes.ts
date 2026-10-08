@@ -7,7 +7,7 @@ import {
 } from "@/lib/achadinhos/schemas";
 import { gerarSlug, slugUnico } from "@/lib/achadinhos/slug";
 import {
-  CLASSES_MIDIA, STATUS_CANDIDATO, STATUS_PRODUTO,
+  CLASSES_MIDIA, CLASSES_SCORE, STATUS_CANDIDATO, STATUS_PRODUTO,
   type Ator, type CandidatoAchadinho, type Escopo, type ProdutoAchadinho, type ResumoCatalogo, type StatusProduto,
 } from "@/lib/achadinhos/tipos";
 import { ErroSlugDuplicado, type AchadinhosRepository } from "./achadinhos.repository";
@@ -23,7 +23,8 @@ export type NomeFerramenta =
   | "create_product" | "update_product" | "get_product" | "list_products"
   | "activate_product" | "pause_product" | "archive_product" | "delete_product"
   | "get_catalog_summary"
-  | "upsert_candidates" | "list_candidates" | "set_candidate_status" | "record_price";
+  | "upsert_candidates" | "list_candidates" | "set_candidate_status" | "record_price"
+  | "get_click_stats" | "record_sales";
 
 export type CodigoErro =
   | "nao_autorizado" | "nao_encontrado" | "invalido" | "conflito"
@@ -215,7 +216,7 @@ export const FERRAMENTAS: DefinicaoFerramenta[] = [
         id: { type: "string", description: "UUID do candidato." },
         status: { type: "string", enum: [...STATUS_CANDIDATO] },
         product_score: { type: "number", description: "0 a 100." },
-        classe: { type: "string", enum: [...CLASSES_MIDIA] },
+        classe: { type: "string", enum: [...CLASSES_SCORE], description: "Classe do score: S ≥ 85, A 75–84, B 65–74, C < 65." },
         notas: { type: "object" },
         motivos: { type: "object" },
         motivo_descarte: { type: "string" },
@@ -239,6 +240,36 @@ export const FERRAMENTAS: DefinicaoFerramenta[] = [
         preco_anterior: { type: "number", description: "original_price do anúncio, só se existir." },
         disponivel: { type: "boolean", description: "false se o anúncio não está mais disponível. Padrão true." },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    nome: "get_click_stats",
+    escopo: "leitura",
+    descricao: "Fábrica: cliques no botão de compra agrupados por utm_content (o id do conteúdo que trouxe o clique) e produto, desde uma data. Só conta cliques reais registrados no site.",
+    entrada: {
+      type: "object",
+      properties: {
+        desde: { type: "string", description: "Data/hora ISO (padrão: últimos 30 dias)." },
+        utm_campaign: { type: "string", description: "Filtra a campanha (ex.: achadinhos)." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    nome: "record_sales",
+    escopo: "escrita",
+    descricao: "Registra os TOTAIS de vendas, comissão e receita de um produto, copiados do relatório da Central de Afiliados do Mercado Livre. Só números do relatório: NUNCA estime nem invente. Substitui os totais anteriores.",
+    entrada: {
+      type: "object",
+      properties: {
+        ...SELETOR,
+        vendas: { type: "integer", minimum: 0, description: "Total de vendas do relatório." },
+        comissao: { type: "number", description: "Comissão total em reais, do relatório." },
+        receita: { type: "number", description: "Receita total (valor vendido) em reais, do relatório." },
+        periodo: { type: "string", description: "Período do relatório (ex.: 2026-10-01 a 2026-10-31), vai pro log." },
+      },
+      required: ["vendas"],
       additionalProperties: false,
     },
   },
@@ -269,6 +300,7 @@ function resumido(p: ProdutoAchadinho) {
     id: p.id, nome: p.nome, slug: p.slug, status: p.status, categoria: p.categoria,
     preco_atual: p.preco_atual, preco_anterior: p.preco_anterior,
     destaque: p.destaque, ordem: p.ordem, cliques: p.cliques, score: p.score, midia_classe: p.midia_classe ?? null,
+    ml_catalog_id: p.ml_catalog_id ?? null, ml_item_id: p.ml_item_id ?? null,
     excluido: p.excluido_em !== null, url_publica: urlPublicaProduto(p.slug),
   };
 }
@@ -517,7 +549,7 @@ const schemaStatusCandidato = z
     id: z.string().uuid(),
     status: z.enum(STATUS_CANDIDATO),
     product_score: z.number().finite().min(0).max(100).nullish(),
-    classe: z.enum(CLASSES_MIDIA).nullish(),
+    classe: z.enum(CLASSES_SCORE).nullish(),
     notas: jsonPequeno.nullish(),
     motivos: jsonPequeno.nullish(),
     motivo_descarte: z.string().trim().min(3).max(300).nullish(),
@@ -646,6 +678,54 @@ const registrarPreco: Handler = async (args, _ator, repo) => {
   );
 };
 
+const schemaCliques = z
+  .object({ desde: z.string().datetime({ offset: true }).optional(), utm_campaign: z.string().trim().max(60).optional() })
+  .strict();
+
+const estatisticaCliques: Handler = async (args, _ator, repo) => {
+  const parsed = schemaCliques.safeParse(args ?? {}, { errorMap: mapaErrosPt });
+  if (!parsed.success) return falha("invalido", formatarErroZod(parsed.error));
+  const desde = parsed.data.desde ?? new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const cliques = await repo.listarCliques({ desde, utmCampaign: parsed.data.utm_campaign });
+  const grupos = new Map<string, { utm_content: string | null; produto_slug: string; cliques: number; ultimo_em: string }>();
+  for (const c of cliques) {
+    const chave = `${c.utm_content ?? ""}|${c.produto_slug}`;
+    const g = grupos.get(chave) ?? { utm_content: c.utm_content, produto_slug: c.produto_slug, cliques: 0, ultimo_em: c.criado_em };
+    g.cliques++;
+    if (c.criado_em > g.ultimo_em) g.ultimo_em = c.criado_em;
+    grupos.set(chave, g);
+  }
+  const lista = [...grupos.values()].sort((a, b) => b.cliques - a.cliques);
+  return ok({ desde, total: cliques.length, grupos: lista }, { detalhe: { desde, total: cliques.length } });
+};
+
+const schemaVendas = z
+  .object({
+    id: z.string().uuid().optional(),
+    slug: z.string().trim().toLowerCase().optional(),
+    vendas: z.number().int().min(0).max(10_000_000),
+    comissao: z.number().finite().min(0).max(99_999_999.99).nullish(),
+    receita: z.number().finite().min(0).max(99_999_999.99).nullish(),
+    periodo: z.string().trim().max(60).optional(),
+  })
+  .strict()
+  .refine((s) => s.id || s.slug, "informe id ou slug");
+
+const registrarVendas: Handler = async (args, _ator, repo) => {
+  const parsed = schemaVendas.safeParse(args ?? {}, { errorMap: mapaErrosPt });
+  if (!parsed.success) return falha("invalido", formatarErroZod(parsed.error));
+  const { id, slug, periodo, ...totais } = parsed.data;
+  const p = await localizar(repo, { id, slug });
+  if (!p || p.excluido_em) return falha("nao_encontrado", "Produto não encontrado");
+  const patch = semUndefined(totais) as Partial<ProdutoAchadinho>;
+  const mudancas = resumirMudancas(p, patch as Record<string, unknown>);
+  const novo = mudancas.campos.length ? await repo.atualizar(p.id, patch) : p;
+  return ok(
+    { slug: novo.slug, vendas: novo.vendas, comissao: novo.comissao, receita: novo.receita },
+    { produto: ref(novo), detalhe: { ...mudancas, periodo: periodo ?? null } }
+  );
+};
+
 const HANDLERS: Record<NomeFerramenta, Handler> = {
   create_product: criar,
   update_product: atualizar,
@@ -660,6 +740,8 @@ const HANDLERS: Record<NomeFerramenta, Handler> = {
   list_candidates: listarCandidatos,
   set_candidate_status: statusCandidato,
   record_price: registrarPreco,
+  get_click_stats: estatisticaCliques,
+  record_sales: registrarVendas,
 };
 
 // ---------------------------------------------------------------------------
