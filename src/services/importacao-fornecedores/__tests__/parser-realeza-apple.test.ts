@@ -109,3 +109,12 @@ describe("parser-realeza-apple — fixture 3 (reenvio no mesmo dia)", () => {
     expect(cpos).toHaveLength(2);
   });
 });
+
+describe("título de seção colado no primeiro produto", () => {
+  it("'*📱Apple lacrados📱*' sem linha em branco não vira produto", () => {
+    const texto = "*📱Apple lacrados📱*\niPad 11 128GB ⚪️3299\n\nMacbook 💻 neo 256/8\n⚫️4737";
+    const { itens } = parseRealezaAppleLacrados(texto);
+    expect(itens.some((i) => /lacrados/i.test(i.modeloCanonico))).toBe(false);
+    expect(itens.map((i) => i.modeloCanonico)).toEqual(expect.arrayContaining(["iPad 11", "MacBook Neo"]));
+  });
+});

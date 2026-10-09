@@ -6,6 +6,7 @@ import { processarMensagemFornecedor } from "@/services/importacao-fornecedores/
 import { aplicarListaFornecedor } from "@/services/importacao-fornecedores/aplicacao.service";
 import { montarResumoWhatsApp } from "@/services/importacao-fornecedores/resumo";
 import { WhatsAppWebProvider } from "@/services/whatsapp/providers/whatsapp-web.provider";
+import { paraFormatoInternacionalBR } from "@/utils/telefone";
 import type { Fornecedor } from "@/services/importacao-fornecedores/classificador";
 
 interface CorpoMensagemGrupo {
@@ -21,6 +22,9 @@ interface CorpoMensagemGrupo {
 }
 
 const FORNECEDORES_VALIDOS: Fornecedor[] = ["goat", "realeza"];
+
+/** WhatsApp do dono que recebe o resumo de cada lista (configurável por env). */
+const NUMERO_NOTIFICACAO = process.env.IMPORTACAO_NOTIFICAR_WHATSAPP || "34933001898";
 
 /**
  * O Bridge chama isso pra toda mensagem de GRUPO (comunidade), quando a
@@ -116,6 +120,9 @@ export async function POST(request: NextRequest) {
       : montarResumoWhatsApp(fornecedor, tipoLista, resultadoAplicacao.plano, descartados) +
         (resultadoAplicacao.itensRetidos.length > 0
           ? `\n⚠️ ${resultadoAplicacao.itensRetidos.length} item(ns) com variação de preço suspeita NÃO atualizados automaticamente (resto da lista aplicado normalmente):\n${resultadoAplicacao.motivosRetencao.map((m) => `• ${m}`).join("\n")}\nRevise manualmente na tela de Importação.`
+          : "") +
+        (resultadoAplicacao.itensSemCor.length > 0
+          ? `\n⚠️ ${resultadoAplicacao.itensSemCor.length} item(ns) sem cor identificada subiram com cor "Não informada" (corrija a cor depois):\n${resultadoAplicacao.motivosSemCor.slice(0, 15).map((m) => `• ${m}`).join("\n")}\nDefina a cor no estoque ou adicione o emoji na tabela de cores.`
           : "");
 
     await admin.from("import_execucoes").insert({
@@ -131,13 +138,14 @@ export async function POST(request: NextRequest) {
         sairam: resultadoAplicacao.plano.desativar,
         precosMudaram: resultadoAplicacao.plano.atualizarPreco,
         precosRetidosRevisao: resultadoAplicacao.itensRetidos,
+        semCorRevisao: resultadoAplicacao.itensSemCor,
       },
       aplicado: resultadoAplicacao.aplicado,
       travada_por_seguranca: resultadoAplicacao.bloqueado,
       motivo_trava: resultadoAplicacao.bloqueado
         ? resultadoAplicacao.motivosBloqueio.join(" | ")
-        : resultadoAplicacao.motivosRetencao.length > 0
-          ? resultadoAplicacao.motivosRetencao.join(" | ")
+        : [...resultadoAplicacao.motivosRetencao, ...resultadoAplicacao.motivosSemCor].length > 0
+          ? [...resultadoAplicacao.motivosRetencao, ...resultadoAplicacao.motivosSemCor].join(" | ")
           : null,
       snapshot_para_rollback: resultadoAplicacao.itensAtivosAnteriores,
       resumo_whatsapp: resumo,
@@ -147,10 +155,9 @@ export async function POST(request: NextRequest) {
     // controlada) com sucesso — nada explodiu no meio.
     await marcarMensagemProcessada();
 
-    // Responde no próprio grupo — é o jeito do dono ver, sem precisar
-    // abrir o sistema, que a lista chegou e o que mudou (ou por que não
-    // aplicou sozinho).
-    await new WhatsAppWebProvider().enviarTexto("", resumo, body.grupoId);
+    // Avisa o DONO no WhatsApp pessoal dele — NUNCA responde no grupo do
+    // fornecedor (o grupo não pode receber mensagem do sistema).
+    await new WhatsAppWebProvider().enviarTexto(paraFormatoInternacionalBR(NUMERO_NOTIFICACAO), resumo);
 
     return NextResponse.json({ ok: true, classificacao: "lista", aplicado: resultadoAplicacao.aplicado, bloqueado: resultadoAplicacao.bloqueado });
   } catch (err) {

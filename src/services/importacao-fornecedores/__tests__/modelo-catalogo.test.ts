@@ -65,3 +65,31 @@ describe("resolverModeloCanonico — iPhone número solto sem entrada fixa (Fase
     expect(r.categoriaSlug).toBe("smartphones_iphone");
   });
 });
+
+describe("resolverModeloCanonico — famílias Apple não-iPhone (iPad, Mac, Watch, AirPods)", () => {
+  it.each([
+    ["iPad Air 11 M3 256GB", "iPad Air 11", "tablets_ipad"],
+    ["iPad 10 64GB", "iPad 10", "tablets_ipad"],
+    ["Macbook 💻 neo 256/8", "MacBook Neo", "computadores_macbook"],
+    ["MacBook Air 13 M4", "MacBook Air 13", "computadores_macbook"],
+    ["iMac 24", "iMac", "computadores_macbook"],
+    ["Apple Watch S9 46mm", "Apple Watch Series 9", "smartwatches_apple_watch"],
+    ["Apple Watch Series 3 42mm", "Apple Watch Series 3", "smartwatches_apple_watch"],
+    ["Apple wacht s10", "Apple Watch Series 10", "smartwatches_apple_watch"],
+    ["Apple Watch Ultra 3", "Apple Watch Ultra 3", "smartwatches_apple_watch"],
+    ["AirPods Pro 2", "AirPods Pro 2", "acessorios_apple"],
+  ])("%s → %s", (linha, canonico, categoria) => {
+    const r = resolverModeloCanonico(linha);
+    expect(r).toMatchObject({ canonico, marca: "Apple", categoriaSlug: categoria, reconhecido: true });
+  });
+
+  it("não confunde relógio de outra marca com Apple Watch", () => {
+    expect(resolverModeloCanonico("Galaxy Watch 7 44mm").marca).not.toBe("Apple");
+  });
+
+  it("modelos que já tinham entrada fixa não mudam de nome (identidade dos itens ativos preservada)", () => {
+    expect(resolverModeloCanonico("iPad 11 128GB").canonico).toBe("iPad 11");
+    expect(resolverModeloCanonico("Apple Watch Series 11").canonico).toBe("Apple Watch Series 11");
+    expect(resolverModeloCanonico("Apple Watch SE").canonico).toBe("Apple Watch SE");
+  });
+});

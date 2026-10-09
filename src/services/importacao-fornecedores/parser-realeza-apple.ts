@@ -130,8 +130,19 @@ function capitalizar(texto: string): string {
     .join(" ");
 }
 
-function processarBloco(linhas: string[], itens: ItemExtraido[], descartados: ItemDescartado[]) {
-  if (linhas.length === 1 && /apple lacrados/i.test(linhas[0])) return;
+/** Título de seção da lista ("*📱Apple lacrados📱*"): sem preço, nunca é produto. */
+function ehTituloDeSecao(linha: string): boolean {
+  return /\blacrados?\b/i.test(linha) && encontrarPrecos(linha).length === 0;
+}
+
+function processarBloco(linhasBrutas: string[], itens: ItemExtraido[], descartados: ItemDescartado[]) {
+  // Quando o título vem colado no 1º produto (sem linha em branco), ele virava
+  // "modelo" com o preço da linha seguinte — ex.: "📱Apple lacrados📱" a R$ 4.737
+  // no site. Descarta os títulos do início do bloco antes de processar.
+  let inicio = 0;
+  while (inicio < linhasBrutas.length && ehTituloDeSecao(linhasBrutas[inicio])) inicio++;
+  const linhas = linhasBrutas.slice(inicio);
+  if (linhas.length === 0) return;
 
   const textoBlocoCompleto = linhas.join(" ");
   const ehCpo = /\bcpo\b/i.test(textoBlocoCompleto);

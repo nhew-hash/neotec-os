@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseRealezaAppleLacrados } from "../parser-realeza-apple";
-import { calcularPlanoAplicacao, chaveIdentidade, avaliarTravasDeSeguranca, type ItemArmazenado, type PlanoAplicacao } from "../aplicacao-diff";
+import { calcularPlanoAplicacao, chaveIdentidade, avaliarTravasDeSeguranca, separarItensSemCor, type ItemArmazenado, type PlanoAplicacao } from "../aplicacao-diff";
 import type { ItemExtraido } from "../tipos";
 import {
   FIXTURE_2_REALEZA_APPLE_LACRADOS_V1,
@@ -55,40 +55,41 @@ describe("aplicacao-diff — reenvio Realeza Apple lacrados (fixture 2 → fixtu
   });
 });
 
+function itemBase(overrides: Partial<ItemExtraido> = {}): ItemExtraido {
+  return {
+    categoriaSlug: "smartphones_iphone",
+    marca: "Apple",
+    modeloCanonico: "iPhone 15",
+    modeloReconhecido: true,
+    condicao: "Lacrado",
+    armazenamentoGb: 128,
+    ramGb: null,
+    ramPossivelTypo: false,
+    conectividade: null,
+    nfc: false,
+    tamanhoMm: null,
+    gpsCellular: null,
+    cor: "Preto",
+    corBase: "Preto",
+    corEmojiOrigem: null,
+    bateriaPct: null,
+    cidade: null,
+    garantia: null,
+    quantidade: 1,
+    tags: [],
+    fornecedor: "realeza",
+    tipoLista: "apple_lacrados",
+    precoFornecedor: 2000,
+    linhaOrigem: "",
+    ...overrides,
+  };
+}
+
 describe("avaliarTravasDeSeguranca — variação de preço retém só o item, não trava a lista inteira", () => {
   // Bug relatado pelo dono (22/09/2026): quando 1 item tinha variação de
   // preço >30%, a lista inteira travava — e como o baseline nunca
   // avançava enquanto travada, TODAS as listas seguintes do mesmo
   // fornecedor/tipo travavam também ("mandou várias e não sobe").
-  function itemBase(overrides: Partial<ItemExtraido> = {}): ItemExtraido {
-    return {
-      categoriaSlug: "smartphones_iphone",
-      marca: "Apple",
-      modeloCanonico: "iPhone 15",
-      modeloReconhecido: true,
-      condicao: "Lacrado",
-      armazenamentoGb: 128,
-      ramGb: null,
-      ramPossivelTypo: false,
-      conectividade: null,
-      nfc: false,
-      tamanhoMm: null,
-      gpsCellular: null,
-      cor: "Preto",
-      corBase: "Preto",
-      corEmojiOrigem: null,
-      bateriaPct: null,
-      cidade: null,
-      garantia: null,
-      quantidade: 1,
-      tags: [],
-      fornecedor: "realeza",
-      tipoLista: "apple_lacrados",
-      precoFornecedor: 2000,
-      linhaOrigem: "",
-      ...overrides,
-    };
-  }
 
   it("bloqueia a lista inteira quando o volume cai muito (queda >50%)", () => {
     const anteriores: ItemArmazenado[] = Array.from({ length: 10 }, (_, i) =>
@@ -126,10 +127,39 @@ describe("avaliarTravasDeSeguranca — variação de preço retém só o item, n
     expect(travas.bloqueado).toBe(false);
   });
 
-  it("continua bloqueando por 'cor não identificada' em listas de celular (iphone/android)", () => {
-    const semCor = { ...itemBase({ tipoLista: "apple_lacrados", modeloCanonico: "iPhone 15", cor: "Não informada" }), flags: ["cor_nao_informada"] };
-    const plano: PlanoAplicacao = { inserir: [semCor], atualizarPreco: [], desativar: [], semMudanca: [] };
+  it("'cor não identificada' em celular NÃO trava a lista: o item sobe mesmo assim e só gera aviso", () => {
+    const semCor = { ...itemBase({ tipoLista: "apple_lacrados", modeloCanonico: "iPhone 15", cor: "Não informada", corEmojiOrigem: "🫧" }), flags: ["cor_nao_informada"] };
+    const plano: PlanoAplicacao = { inserir: [], atualizarPreco: [], desativar: [], semMudanca: [] };
     const travas = avaliarTravasDeSeguranca(plano, [], { itensNovosValidos: [semCor], descartados: 0 });
-    expect(travas.bloqueado).toBe(true);
+    expect(travas.bloqueado).toBe(false);
+    expect(travas.itensSemCor).toHaveLength(1);
+    expect(travas.motivosSemCor[0]).toMatch(/iPhone 15.*🫧/);
   });
+
+  it("audio_extras sem cor não vira aviso (cor ausente é normal nesse tipo)", () => {
+    const semCor = { ...itemBase({ tipoLista: "audio_extras", cor: "Não informada" }), flags: ["cor_nao_informada"] };
+    const travas = avaliarTravasDeSeguranca({ inserir: [], atualizarPreco: [], desativar: [], semMudanca: [] }, [], { itensNovosValidos: [semCor], descartados: 0 });
+    expect(travas.itensSemCor).toHaveLength(0);
+  });
+
+  it("lista com 34 de 46 itens sem cor não cai na trava de volume (eles contam como itens da lista)", () => {
+    const ok = itemBase({ tipoLista: "apple_seminovos", cor: "Preto" });
+    const sem = Array.from({ length: 34 }, (_, n) => ({ ...itemBase({ tipoLista: "apple_seminovos", modeloCanonico: `iPhone ${n}`, cor: "Não informada" }), flags: ["cor_nao_informada"] }));
+    const anteriores = Array.from({ length: 46 }, (_, n) => ({ ...itemBase({ modeloCanonico: `iPhone ${n}` }), id: `id${n}` }));
+    const travas = avaliarTravasDeSeguranca({ inserir: [], atualizarPreco: [], desativar: [], semMudanca: [] }, anteriores, { itensNovosValidos: [ok, ...sem, ...Array(11).fill(ok)], descartados: 0 });
+    expect(travas.bloqueado).toBe(false);
+  });
+});
+
+describe("separarItensSemCor", () => {
+  it("separa só os sem cor (exceto audio_extras)", () => {
+    const a = itemBase({ cor: "Preto" });
+    const b = itemBase({ cor: "Não informada" });
+    const c = itemBase({ cor: "Não informada", tipoLista: "audio_extras" });
+    const r = separarItensSemCor([a, b, c]);
+    expect(r.aplicaveis).toEqual([a, c]);
+    expect(r.semCor).toEqual([b]);
+  });
+
+
 });

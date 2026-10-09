@@ -456,6 +456,9 @@ export interface ResultadoAplicacaoLista {
   /** Itens com variação de preço absurda — NÃO aplicados, ficam pendentes de revisão manual, mas não travam o resto da lista. */
   itensRetidos: PlanoAplicacao["atualizarPreco"];
   motivosRetencao: string[];
+  /** Itens sem cor identificada — entram mesmo assim com cor "Não informada"; só avisam o dono pra corrigir depois. */
+  itensSemCor: ItemExtraido[];
+  motivosSemCor: string[];
   plano: PlanoAplicacao;
   itensAtivosAnteriores: ItemArmazenado[];
 }
@@ -468,13 +471,15 @@ export async function aplicarListaFornecedor(
   totalDescartados: number
 ): Promise<ResultadoAplicacaoLista> {
   const itensAtivosAnteriores = await carregarItensAtivos(admin, fornecedor, tipoLista);
+  // Item sem cor identificada ENTRA do mesmo jeito (cor "Não informada") — o dono
+  // corrige a cor depois; só avisamos (ver `itensSemCor`). Não trava e não some.
   const plano = calcularPlanoAplicacao(itensValidos, itensAtivosAnteriores);
   const travas = avaliarTravasDeSeguranca(plano, itensAtivosAnteriores, {
     itensNovosValidos: itensValidos as (ItemExtraido | ItemFlagado)[],
     descartados: totalDescartados,
   });
 
-  // Queda de volume, muitos descartes ou cor desconhecida = a lista
+  // Queda de volume ou muitos descartes = a lista
   // INTEIRA veio malformada — não aplica nada, espera revisão manual.
   if (travas.bloqueado) {
     return {
@@ -483,6 +488,8 @@ export async function aplicarListaFornecedor(
       motivosBloqueio: travas.motivos,
       itensRetidos: travas.itensRetidos,
       motivosRetencao: travas.motivosRetencao,
+      itensSemCor: travas.itensSemCor,
+      motivosSemCor: travas.motivosSemCor,
       plano,
       itensAtivosAnteriores,
     };
@@ -513,6 +520,8 @@ export async function aplicarListaFornecedor(
     motivosBloqueio: [],
     itensRetidos: travas.itensRetidos,
     motivosRetencao: travas.motivosRetencao,
+    itensSemCor: travas.itensSemCor,
+    motivosSemCor: travas.motivosSemCor,
     plano: { ...plano, atualizarPreco: atualizarPrecoAplicaveis },
     itensAtivosAnteriores,
   };

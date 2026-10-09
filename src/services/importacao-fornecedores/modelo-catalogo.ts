@@ -65,6 +65,23 @@ export const MODELOS_CATALOGO: ModeloCatalogoEntry[] = [
   { canonico: "JBL Flip 6", aliases: ["jbl flip 6", "flip 6"], marca: "JBL", categoriaSlug: "audio_caixas_de_som" },
 ];
 
+/**
+ * O alias precisa terminar numa fronteira de palavra. Antes era `includes`
+ * puro, então "apple watch series 3" casava com o alias "apple watch se"
+ * ("se" + "ries") e virava Apple Watch SE — Series 3/9 saíam com nome e
+ * identidade errados.
+ */
+function contemAliasInteiro(texto: string, alias: string): boolean {
+  let desde = 0;
+  for (;;) {
+    const i = texto.indexOf(alias, desde);
+    if (i === -1) return false;
+    const proximo = texto[i + alias.length];
+    if (proximo === undefined || !/[a-z0-9]/.test(proximo)) return true;
+    desde = i + 1;
+  }
+}
+
 export interface ResultadoResolucaoModelo {
   canonico: string;
   marca: string;
@@ -93,7 +110,7 @@ export function resolverModeloCanonico(textoLinha: string): ResultadoResolucaoMo
 
   for (const entrada of candidatos) {
     for (const alias of entrada.aliases) {
-      if (normalizado.includes(alias)) {
+      if (contemAliasInteiro(normalizado, alias)) {
         return {
           canonico: entrada.canonico,
           marca: entrada.marca,
@@ -127,6 +144,41 @@ function capitalizarPalavra(p: string): string {
  * Pro 5G"; "Poco x8 promax" → "Poco X8 Pro Max".
  */
 function resolverPorFamilia(normalizado: string, textoOriginal: string): ResultadoResolucaoModelo | null {
+  // ---- Famílias Apple não-iPhone (iPad, Mac, Apple Watch, AirPods) ----
+  // O catálogo fixo só tinha "iPad 11", "MacBook Neo" e 4 Apple Watch. Qualquer
+  // outro (iPad Air, MacBook Air, Watch S9/S3...) caía em "não classificado"
+  // com marca "Desconhecida": ia pra categoria errada e, por não ser marca
+  // Apple, aparecia na aba Android da loja. Aqui reconhecemos pela família
+  // (a emoji/símbolo entre as palavras, ex.: "Macbook 💻 neo", não atrapalha).
+  const titulo = (p: string) => p[0].toUpperCase() + p.slice(1);
+
+  let mp = normalizado.match(/\bipad\b\s*(pro|air|mini)?\s*(\d{1,2}(?:\.\d)?)?/);
+  if (mp) {
+    const partes = ["iPad", ...(mp[1] ? [titulo(mp[1])] : []), ...(mp[2] ? [mp[2]] : [])];
+    return { canonico: partes.join(" "), marca: "Apple", categoriaSlug: "tablets_ipad", reconhecido: true };
+  }
+
+  mp = normalizado.match(/\b(macbook|imac|mac\s*mini|mac\s*studio)\b/);
+  if (mp) {
+    const base = mp[1] === "macbook" ? "MacBook" : mp[1] === "imac" ? "iMac" : mp[1].replace(/\s+/g, "") === "macmini" ? "Mac Mini" : "Mac Studio";
+    const variante = base === "MacBook" ? normalizado.match(/\b(air|pro|neo)\b/)?.[1] : undefined;
+    const tela = base === "MacBook" ? normalizado.match(/(?<![\d/])(13|14|15|16)(?![\d/])/)?.[1] : undefined;
+    const partes = [base, ...(variante ? [titulo(variante)] : []), ...(tela ? [tela] : [])];
+    return { canonico: partes.join(" "), marca: "Apple", categoriaSlug: "computadores_macbook", reconhecido: true };
+  }
+
+  mp = normalizado.match(/(?:\bapple\s*|^\s*)wa(?:t)?ch(?:t)?\b\s*(?:(?:series|serie|s)[-\s]*(\d{1,2})\b|(se)\b\s*(\d)?|ultra\s*(\d)?)/);
+  if (mp) {
+    const canonico = mp[1] ? `Apple Watch Series ${mp[1]}` : mp[2] ? `Apple Watch SE${mp[3] ? ` ${mp[3]}` : ""}` : `Apple Watch Ultra${mp[4] ? ` ${mp[4]}` : ""}`;
+    return { canonico, marca: "Apple", categoriaSlug: "smartwatches_apple_watch", reconhecido: true };
+  }
+
+  mp = normalizado.match(/\bair\s*pods?\b\s*(pro|max)?\s*(\d)?/);
+  if (mp) {
+    const partes = ["AirPods", ...(mp[1] ? [titulo(mp[1])] : []), ...(mp[2] ? [mp[2]] : [])];
+    return { canonico: partes.join(" "), marca: "Apple", categoriaSlug: "acessorios_apple", reconhecido: true };
+  }
+
   // iPhone <número> solto — cobre modelos que não têm entrada fixa no
   // catálogo (ex: iPhone 12, iPhone 11 "normal", iPhone 8, iPhone 13
   // mini). Sem isso caíam em "não classificado" -> categoria errada na

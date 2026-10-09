@@ -94,8 +94,21 @@ export function calcularPlanoAplicacao(itensNovos: ItemExtraido[], itensAtivosAn
   return { inserir, atualizarPreco, desativar, semMudanca };
 }
 
+/** Item que precisa de cor pra ter identidade (tudo menos audio_extras) mas veio com cor "Não informada". */
+function semCorIdentificada(i: ItemExtraido | ItemFlagado): boolean {
+  return i.cor === "Não informada" && i.tipoLista !== "audio_extras";
+}
+
+/** Separa os itens que ficaram sem cor identificada (só pra avisar — todos continuam sendo aplicados). */
+export function separarItensSemCor<T extends ItemExtraido>(itens: T[]): { aplicaveis: T[]; semCor: T[] } {
+  const aplicaveis: T[] = [];
+  const semCor: T[] = [];
+  for (const i of itens) (semCorIdentificada(i) ? semCor : aplicaveis).push(i);
+  return { aplicaveis, semCor };
+}
+
 export interface ResultadoTravas {
-  /** Bloqueia a lista INTEIRA — só quando o problema é da lista como um todo (queda de volume, descartes, cor desconhecida), nunca por causa de 1 item isolado. */
+  /** Bloqueia a lista INTEIRA — só quando o problema é da lista como um todo (queda de volume, muitos descartes), nunca por causa de 1 item isolado. */
   bloqueado: boolean;
   motivos: string[];
   /**
@@ -105,6 +118,14 @@ export interface ResultadoTravas {
    */
   itensRetidos: PlanoAplicacao["atualizarPreco"];
   motivosRetencao: string[];
+  /**
+   * Itens de celular/tablet/relógio cuja cor não foi identificada (emoji
+   * desconhecido ou sem cor escrita). NÃO bloqueiam a lista e NÃO ficam de
+   * fora: sobem com cor "Não informada" e o dono é avisado pra corrigir
+   * a cor depois (ou o emoji na tabela de cores).
+   */
+  itensSemCor: ItemExtraido[];
+  motivosSemCor: string[];
 }
 
 export interface OpcoesTravas {
@@ -164,17 +185,16 @@ export function avaliarTravasDeSeguranca(plano: PlanoAplicacao, itensAtivosAnter
     motivos.push(`Muitos descartes (${opcoes.descartados}) em relação aos itens aceitos (${opcoes.itensNovosValidos.length}).`);
   }
 
-  // "audio_extras" (caixa de som, cabo, fone etc.) frequentemente não
-  // tem cor nenhuma — isso é o normal do produto, não falha de parsing.
-  // Contar como sinal de lista malformada aqui travava TODA lista de
-  // áudio pra sempre (bug relatado pelo dono, 23/09/2026): nenhuma
-  // lista de audio_extras jamais foi aplicada por causa disso.
-  const comCorDesconhecida = opcoes.itensNovosValidos.filter(
-    (i): i is ItemFlagado => "flags" in i && i.flags.includes("cor_nao_informada") && i.tipoLista !== "audio_extras"
+  // Cor não identificada NÃO trava mais a lista inteira: um único emoji novo
+  // (ou uma linha sem cor) deixava Apple seminovos e Android "Travadas" por
+  // semanas (34 itens sem cor desde 29/09/2026) e nada novo entrava no site.
+  // Agora o item sobe com cor "Não informada" e o dono é avisado qual emoji/linha.
+  // "audio_extras" (caixa de som, cabo, fone) normalmente não tem cor — isso é
+  // o normal do produto, então esses itens entram com cor "Não informada".
+  const itensSemCor = separarItensSemCor(opcoes.itensNovosValidos).semCor;
+  const motivosSemCor = itensSemCor.map(
+    (i) => `Cor não identificada em ${i.modeloCanonico}${i.corEmojiOrigem ? ` (emoji ${i.corEmojiOrigem})` : ""} — subiu como "Não informada"; corrija a cor depois.`
   );
-  if (comCorDesconhecida.length > 0) {
-    motivos.push(`${comCorDesconhecida.length} item(ns) com cor não identificada (emoji desconhecido ou sem cor escrita).`);
-  }
 
-  return { bloqueado: motivos.length > 0, motivos, itensRetidos, motivosRetencao };
+  return { bloqueado: motivos.length > 0, motivos, itensRetidos, motivosRetencao, itensSemCor, motivosSemCor };
 }
