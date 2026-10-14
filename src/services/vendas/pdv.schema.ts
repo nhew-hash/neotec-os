@@ -29,6 +29,8 @@ export const pdvVendaSchema = z.object({
   // o servidor busca o valor aprovado da avaliação e ignora qualquer
   // número mandado pelo client (mesmo padrão do cashback_utilizado).
   trade_in_avaliacao_id: z.string().uuid().optional(),
+  // Aprovação de desconto (gerente) já concedida para ESTA venda — só tem efeito com a regra de desconto ativa.
+  aprovacao_desconto_id: z.string().uuid().optional(),
   itens: z.array(pdvItemSchema).min(1, "Adicione pelo menos um item à venda"),
 }).refine(
   (dados) => dados.forma_pagamento !== "misto" || (dados.pagamentos && dados.pagamentos.length >= 2),

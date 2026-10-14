@@ -101,3 +101,39 @@ export function avaliarEnvioAutomatico(entrada: EntradaTravaEnvio): { permitido:
   }
   return { permitido: true };
 }
+
+/** Próximo instante (a partir de `agora`) que cai dentro da janela de envio, na hora cheia de abertura. */
+export function proximoHorarioPermitido(agora: Date, janela: JanelaEnvio = JANELA_PADRAO): Date {
+  if (dentroDaJanelaDeEnvio(agora, janela)) return agora;
+  // Anda em passos de 30 min até achar (no máx. 8 dias); resultado alinhado à abertura se entrou por antes-do-horário.
+  const passo = 30 * 60_000;
+  let t = agora.getTime();
+  for (let i = 0; i < 8 * 48; i++) {
+    t += passo;
+    if (dentroDaJanelaDeEnvio(new Date(t), janela)) {
+      const d = new Date(t);
+      const { hora } = obterDataHoraBrasilia(d);
+      // minutos para voltar à hora cheia de abertura, caso o passo tenha caído às :30
+      return hora === janela.horaInicio && d.getUTCMinutes() === 30 ? new Date(t - passo) : d;
+    }
+  }
+  return new Date(agora.getTime() + 24 * 3_600_000);
+}
+
+export interface ConfigBotLinha { modo?: string | null; hora_inicio?: number | null; hora_fim?: number | null; permite_domingo?: boolean | null }
+
+/** Janela configurada para a loja (tabela configuracoes_bot); sem linha, cai no padrão/env. */
+export function janelaDaConfig(linha: ConfigBotLinha | null | undefined, env: Record<string, string | undefined> = process.env): JanelaEnvio {
+  const base = janelaDoAmbiente(env);
+  if (!linha) return base;
+  return {
+    horaInicio: typeof linha.hora_inicio === "number" ? linha.hora_inicio : base.horaInicio,
+    horaFim: typeof linha.hora_fim === "number" ? linha.hora_fim : base.horaFim,
+    permiteDomingo: typeof linha.permite_domingo === "boolean" ? linha.permite_domingo : base.permiteDomingo,
+  };
+}
+
+/** Modo do bot. QUALQUER dúvida (sem linha, tabela ausente, valor estranho) = assistente: nunca envia sozinho. */
+export function modoDoBot(linha: ConfigBotLinha | null | undefined): "assistente" | "automatico" {
+  return linha?.modo === "automatico" ? "automatico" : "assistente";
+}

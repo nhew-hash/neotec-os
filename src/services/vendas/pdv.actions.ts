@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { pdvVendaSchema, type PdvVendaValues } from "./pdv.schema";
 import { criarVendaPDV } from "./pdv.service";
+import { ErroVendaPDV } from "./desconto";
 import type { ActionResult } from "@/types";
 
 /**
@@ -28,6 +29,10 @@ export async function finalizarVendaPDVAction(input: PdvVendaValues): Promise<Ac
     revalidatePath("/estoque");
     return { success: true, data: { vendaId: venda.id } };
   } catch (err) {
+    if (err instanceof ErroVendaPDV && err.codigo) {
+      // O prefixo permite à tela oferecer "Pedir aprovação" sem depender do texto.
+      return { success: false, error: `[${err.codigo}] ${err.message}` };
+    }
     return { success: false, error: err instanceof Error ? err.message : "Erro ao finalizar venda" };
   }
 }

@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { executarPromptIA } from "@/services/ia/ia.service";
 import { enviarMensagemIA } from "@/services/whatsapp/whatsapp.service";
 import { ESTAGIOS_FOLLOWUP, preencherTemplate } from "./followup-vendas-templates";
-import { avaliarEnvioAutomatico, janelaDoAmbiente } from "@/services/whatsapp/trava-envio";
+import { avaliarEnvioAutomatico, janelaDaConfig, modoDoBot } from "@/services/whatsapp/trava-envio";
 
 interface CardElegivel {
   id: string;
@@ -39,10 +39,19 @@ export async function processarFollowupsDeVenda(): Promise<{ processados: number
   const supabase = createAdminClient();
   const bloqueados: Record<string, number> = {};
   const agora = new Date();
-  const janela = janelaDoAmbiente();
+  // Modo do bot por loja (Fase C). Sem configuração = ASSISTENTE: o sistema não envia follow-up
+  // sozinho; as sugestões comerciais (sugestoes-comerciais.service) assumem esse papel.
+  const { data: configBot } = await supabase.from("configuracoes_bot").select("*").maybeSingle();
+  const janela = janelaDaConfig(configBot);
+  const modo = modoDoBot(configBot);
 
   const { data: configuracao } = await supabase.from("configuracoes_ia").select("*").maybeSingle();
   if (!configuracao?.ativo || !configuracao?.atendimento_automatico_ativo) {
+    return { processados: 0, enviados: 0, bloqueados };
+  }
+
+  if (modo !== "automatico") {
+    bloqueados.modo_assistente = 1;
     return { processados: 0, enviados: 0, bloqueados };
   }
 

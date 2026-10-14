@@ -3,6 +3,7 @@ import { obterCustoItem } from "@/services/estoque/estoque.service";
 import { obterSaldoCashback, registrarCashback } from "@/services/cashback/cashback.service";
 import { obterAvaliacao } from "@/services/trade-in/aplicacao.service";
 import type { PdvVendaValues } from "./pdv.schema";
+import { ErroVendaPDV, interpretarErroVenda } from "./desconto";
 import type { Venda } from "@/types";
 
 /**
@@ -13,8 +14,31 @@ import type { Venda } from "@/types";
  * financeiro, gera garantia se aplicável) — só que pra N itens de uma
  * vez, não 1.
  */
-export async function criarVendaPDV(input: PdvVendaValues, usuarioId: string): Promise<Venda> {
+/**
+ * Caminho ATÔMICO (Fase B): tudo acontece dentro da função SQL `registrar_venda_pdv`
+ * (migration fase265), numa única transação — se qualquer parte falhar, nada é gravado.
+ * Só é usado com PDV_VENDA_ATOMICA=1, depois da migration aplicada e validada em teste.
+ */
+export async function criarVendaPDVAtomica(input: PdvVendaValues): Promise<Venda> {
   const supabase = await createClient();
+  const { data: vendaId, error } = await supabase.rpc("registrar_venda_pdv", { p: input });
+  if (error) {
+    const { codigo, texto } = interpretarErroVenda(error.message);
+    throw new ErroVendaPDV(codigo, texto);
+  }
+  const { data: venda, error: erroBusca } = await supabase.from("vendas").select("*").eq("id", vendaId as string).single();
+  if (erroBusca || !venda) throw new Error("Venda registrada, mas não foi possível carregá-la. Confira em Vendas.");
+  return venda as Venda;
+}
+
+export async function criarVendaPDV(input: PdvVendaValues, usuarioId: string): Promise<Venda> {
+  if (process.env.PDV_VENDA_ATOMICA === "1") return criarVendaPDVAtomica(input);
+
+  const supabase = await createClient();
+
+  // Validação válida nos dois caminhos: desconto maior que os itens escondia-se atrás do Math.max(0, ...).
+  const brutoDosItens = input.itens.reduce((acc, i) => acc + i.valor * i.quantidade, 0);
+  if ((input.desconto ?? 0) > brutoDosItens) throw new Error("O desconto não pode ser maior que o valor dos itens");
 
   // Valida o cashback usado contra o saldo real do cliente — nunca
   // confia só no que veio do formulário (alguém poderia mandar um

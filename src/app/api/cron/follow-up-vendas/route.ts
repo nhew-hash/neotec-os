@@ -1,5 +1,6 @@
 import { cronAutorizado } from "@/lib/cron-auth";
 import { NextResponse, type NextRequest } from "next/server";
+import { gerarSugestoesComerciais } from "@/services/ia/sugestoes-comerciais.service";
 import { processarFollowupsDeVenda } from "@/services/ia/followup-vendas.service";
 import { processarRetiradasAgendadas } from "@/services/estoque/estoque.actions";
 import { expirarPerguntasAntigas } from "@/services/ia/ia-pergunta-equipe.service";
@@ -26,22 +27,34 @@ export async function GET(request: NextRequest) {
     return new NextResponse("Não autorizado", { status: 401 });
   }
 
-  try {
-    const resultado = await processarFollowupsDeVenda();
-    const retiradas = await processarRetiradasAgendadas();
-    const perguntasExpiradas = await expirarPerguntasAntigas();
-    const followupsAutomaticos = await gerarFollowupsAutomaticos();
-    const followupsProstec = await gerarFollowupsAutomaticosProstec();
-    const circuitBreakerOptOut = await verificarTaxaOptOutProstec();
-    const nextBestAction = await recalcularNextBestActionTodosLeads();
-    const reguaCobranca = await executarReguaCobranca();
-    const neolocBloqueios = await avaliarBloqueiosAutomaticosNeoLoc();
-    return NextResponse.json({ ok: true, ...resultado, retiradas, perguntasExpiradas, followupsAutomaticos, followupsProstec, circuitBreakerOptOut, nextBestAction, reguaCobranca, neolocBloqueios });
-  } catch (err) {
-    console.error("Falha ao processar follow-ups de venda:", err);
-    return NextResponse.json(
-      { ok: false, erro: err instanceof Error ? err.message : "Erro desconhecido" },
-      { status: 500 }
-    );
+  // Cada job é isolado: um erro não impede os seguintes (antes, uma falha em
+  // qualquer ponto cancelava a régua de cobrança e os bloqueios do NeoLoc no dia).
+  const erros: Record<string, string> = {};
+  async function rodar<T>(nome: string, fn: () => Promise<T>): Promise<T | null> {
+    try {
+      return await fn();
+    } catch (err) {
+      console.error(`Falha no job "${nome}" do cron diário:`, err);
+      erros[nome] = err instanceof Error ? err.message : "Erro desconhecido";
+      return null;
+    }
   }
+
+  const resultado = await rodar("followupVendas", processarFollowupsDeVenda);
+  const retiradas = await rodar("retiradasAgendadas", processarRetiradasAgendadas);
+  const perguntasExpiradas = await rodar("perguntasExpiradas", expirarPerguntasAntigas);
+  const followupsAutomaticos = await rodar("followupsAutomaticos", gerarFollowupsAutomaticos);
+  const sugestoesComerciais = await rodar("sugestoesComerciais", () => gerarSugestoesComerciais());
+  const followupsProstec = await rodar("followupsProstec", gerarFollowupsAutomaticosProstec);
+  const circuitBreakerOptOut = await rodar("circuitBreakerOptOut", verificarTaxaOptOutProstec);
+  const nextBestAction = await rodar("nextBestAction", recalcularNextBestActionTodosLeads);
+  const reguaCobranca = await rodar("reguaCobranca", executarReguaCobranca);
+  const neolocBloqueios = await rodar("neolocBloqueios", avaliarBloqueiosAutomaticosNeoLoc);
+
+  const ok = Object.keys(erros).length === 0;
+  return NextResponse.json(
+    { ok, ...(resultado ?? {}), retiradas, perguntasExpiradas, followupsAutomaticos, sugestoesComerciais, followupsProstec, circuitBreakerOptOut, nextBestAction, reguaCobranca, neolocBloqueios, erros },
+    { status: ok ? 200 : 500 },
+  );
 }
+

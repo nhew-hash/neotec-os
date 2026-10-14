@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { solicitarAprovacaoDescontoAction, listarMinhasAprovacoesConcedidasAction } from "@/services/vendas/aprovacoes-desconto.actions";
 import { finalizarVendaPDVAction, buscarSaldoCashbackAction, listarTradeInsAprovadosClienteAction } from "@/services/vendas/pdv.actions";
 import { criarClienteAction } from "@/services/clientes/clientes.actions";
 import { criarAparelhoRapidoVendaAction } from "@/services/estoque/estoque.actions";
@@ -36,6 +37,11 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
+  // Aprovação de desconto (só aparece quando a loja ativa a regra de desconto por cargo)
+  const [aprovacoesConcedidas, setAprovacoesConcedidas] = useState<{ id: string; valorDesconto: number; percentual: number }[]>([]);
+  const [aprovacaoDescontoId, setAprovacaoDescontoId] = useState("");
+  const [motivoAprovacao, setMotivoAprovacao] = useState("");
+  const [infoAprovacao, setInfoAprovacao] = useState<string | null>(null);
 
   const [clientes, setClientes] = useState(clientesIniciais);
   const [itens, setItens] = useState<PdvItemValues[]>([]);
@@ -238,17 +244,36 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
         cashback_utilizado: cashbackUtilizado,
         cashback_concedido: cashbackConcedido,
         trade_in_avaliacao_id: tradeInSelecionadoId || undefined,
+        aprovacao_desconto_id: aprovacaoDescontoId || undefined,
         itens,
       };
       const result = await finalizarVendaPDVAction(payload);
 
-      if (!result.success) return setErro(result.error);
+      if (!result.success) {
+        if (/^\[(DESCONTO_REQUER_APROVACAO|APROVACAO_INVALIDA)\]/.test(result.error)) {
+          const lista = await listarMinhasAprovacoesConcedidasAction();
+          if (lista.success) setAprovacoesConcedidas(lista.data);
+        }
+        return setErro(result.error);
+      }
       router.push(`/vendas/${result.data.vendaId}`);
       router.refresh();
     });
   }
 
   const clienteSelecionado = clientes.find((c) => c.id === clienteId);
+  const precisaAprovacao = !!erro && /^\[(DESCONTO_REQUER_APROVACAO|APROVACAO_INVALIDA)\]/.test(erro);
+
+  function pedirAprovacao() {
+    setInfoAprovacao(null);
+    startTransition(async () => {
+      const r = await solicitarAprovacaoDescontoAction(
+        { cliente_id: clienteId || undefined, forma_pagamento: formaPagamento as PdvVendaValues["forma_pagamento"], desconto, cashback_utilizado: cashbackUtilizado, cashback_concedido: cashbackConcedido, itens },
+        motivoAprovacao,
+      );
+      setInfoAprovacao(r.success ? "Pedido enviado ao gerente. Quando for aprovado, selecione-o aqui e finalize a venda." : r.error);
+    });
+  }
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
@@ -649,6 +674,22 @@ export function PdvCart({ clientes: clientesIniciais, produtos, aparelhos, indic
           </div>
 
           {erro && <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{erro}</p>}
+          {precisaAprovacao && (
+            <div className="flex flex-col gap-2 rounded-md border border-border p-3 text-sm">
+              <p className="font-medium">Este desconto precisa da aprovação do gerente</p>
+              {aprovacoesConcedidas.length > 0 && (
+                <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={aprovacaoDescontoId} onChange={(e) => { setAprovacaoDescontoId(e.target.value); setErro(null); }}>
+                  <option value="">Usar uma aprovação já concedida…</option>
+                  {aprovacoesConcedidas.map((a) => (
+                    <option key={a.id} value={a.id}>{`Desconto até ${formatCurrency(a.valorDesconto)} (${a.percentual}%)`}</option>
+                  ))}
+                </select>
+              )}
+              <Input placeholder="Motivo do desconto (o gerente vai ver)" value={motivoAprovacao} onChange={(e) => setMotivoAprovacao(e.target.value)} />
+              <Button type="button" variant="outline" disabled={isPending || desconto <= 0} onClick={pedirAprovacao}>Pedir aprovação ao gerente</Button>
+              {infoAprovacao && <p className="text-xs text-muted-foreground">{infoAprovacao}</p>}
+            </div>
+          )}
 
           <Button onClick={handleFinalizar} disabled={isPending || itens.length === 0} size="lg">
             {isPending ? "Finalizando..." : "Finalizar venda"}

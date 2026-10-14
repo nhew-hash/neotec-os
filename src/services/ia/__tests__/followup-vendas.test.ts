@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const enviar = vi.fn();
 let estado: {
-  config: unknown; cards: unknown[]; conversa: unknown; ultimoAuto: unknown; casLinhas: unknown[]; updates: { tabela: string; valores: Record<string, unknown> }[];
+  config: unknown; modoBot: unknown; cards: unknown[]; conversa: unknown; ultimoAuto: unknown; casLinhas: unknown[]; updates: { tabela: string; valores: Record<string, unknown> }[];
 };
 
 function builder(tabela: string) {
@@ -17,6 +17,7 @@ function builder(tabela: string) {
   const resolver = () => {
     if (op === "update") return { data: comSelectAposUpdate ? estado.casLinhas : null, error: null };
     if (tabela === "configuracoes_ia") return { data: estado.config, error: null };
+    if (tabela === "configuracoes_bot") return { data: estado.modoBot, error: null };
     if (tabela === "crm_cards") return { data: estado.cards, error: null };
     if (tabela === "whatsapp_conversas") return { data: estado.conversa, error: null };
     if (tabela === "whatsapp_mensagens") return { data: estado.ultimoAuto, error: null };
@@ -49,6 +50,7 @@ beforeEach(() => {
   enviar.mockResolvedValue({});
   estado = {
     config: { ativo: true, atendimento_automatico_ativo: true },
+    modoBot: { modo: "automatico" },
     cards: [card()],
     conversa: { id: "v1", telefone: "5534999999999", jid_envio: null, ia_pausada: false, card_id: "c1", nao_contatar: false },
     ultimoAuto: null,
@@ -111,6 +113,23 @@ describe("processarFollowupsDeVenda — trava e idempotência", () => {
     expect(r.bloqueados.falha_envio).toBe(1);
     const reversao = estado.updates.filter((u) => u.tabela === "crm_cards" && u.valores.sequencia_followup === 0);
     expect(reversao.length).toBe(1);
+  });
+
+  it("modo assistente (padrão, sem configuração): nunca envia sozinho", async () => {
+    estado.modoBot = null;
+    const r = await processarFollowupsDeVenda();
+    expect(enviar).not.toHaveBeenCalled();
+    expect(r.bloqueados.modo_assistente).toBe(1);
+    estado.modoBot = { modo: "assistente" };
+    await processarFollowupsDeVenda();
+    expect(enviar).not.toHaveBeenCalled();
+  });
+
+  it("janela configurada pela loja vale mais que o padrão", async () => {
+    estado.modoBot = { modo: "automatico", hora_inicio: 15, hora_fim: 18, permite_domingo: false };
+    const r = await processarFollowupsDeVenda(); // 10h: fora da janela 15-18
+    expect(enviar).not.toHaveBeenCalled();
+    expect(r.bloqueados.fora_do_horario).toBe(1);
   });
 
   it("IA desligada: não processa nada", async () => {

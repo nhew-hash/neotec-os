@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { obterCustoItem } from "@/services/estoque/estoque.service";
+import { criarVendaPDVAtomica } from "./pdv.service";
 import type { Orcamento, Cliente, Venda } from "@/types";
 
 export interface OrcamentoComCliente extends Orcamento {
@@ -81,6 +82,39 @@ export async function aprovarOrcamentoEConverterEmVenda(
 
   const item = orcamento.itens?.[0];
   if (!item) throw new Error("Orçamento sem item associado");
+  if (orcamento.status === "aprovado") throw new Error("Este orçamento já foi aprovado e virou venda.");
+
+  // Caminho ATÔMICO (Fase B): mesma função SQL do PDV — transação única, aparelho/saldo travados,
+  // regra de desconto. Reserva o orçamento antes (compare-and-set) para duplo clique não vender duas vezes.
+  if (process.env.PDV_VENDA_ATOMICA === "1") {
+    const { data: reservado } = await supabase.from("orcamentos").update({ status: "aprovado" }).eq("id", orcamentoId).neq("status", "aprovado").select("id");
+    if (!reservado || reservado.length === 0) throw new Error("Este orçamento já foi aprovado por outra pessoa.");
+    try {
+      const formas = ["pix", "dinheiro", "cartao_credito", "cartao_debito", "boleto"] as const;
+      const forma = formas.find((f) => f === orcamento.forma_pagamento) ?? "pix";
+      const venda = await criarVendaPDVAtomica({
+        cliente_id: orcamento.cliente_id,
+        forma_pagamento: forma,
+        desconto: 0,
+        cashback_utilizado: 0,
+        cashback_concedido: 0,
+        garantia_dias: orcamento.garantia_dias ?? undefined,
+        itens: [{
+          tipo: item.aparelho_id ? "aparelho" : "produto",
+          id: (item.aparelho_id ?? item.produto_id) as string,
+          nome: "",
+          quantidade: item.quantidade ?? 1,
+          valor: Number(item.valor),
+          ehBrinde: false,
+        }],
+      });
+      await supabase.from("vendas").update({ orcamento_id: orcamentoId }).eq("id", venda.id);
+      return venda;
+    } catch (err) {
+      await supabase.from("orcamentos").update({ status: orcamento.status }).eq("id", orcamentoId);
+      throw err;
+    }
+  }
 
   const custo = await obterCustoItem({
     produtoId: item.produto_id ?? undefined,

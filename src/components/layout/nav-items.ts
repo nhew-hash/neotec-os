@@ -27,6 +27,7 @@ import {
   Repeat,
   Smartphone,
   TrendingUp,
+  ClipboardCheck,
 } from "lucide-react";
 import type { CargoUsuario } from "@/types";
 
@@ -58,6 +59,7 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
     label: "Relacionamento",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, cargos: TODOS_OS_CARGOS },
+      { label: "Central comercial", href: "/central-comercial", icon: ClipboardCheck, cargos: ["admin", "gerente", "vendedor"] },
       { label: "CRM", href: "/crm", icon: MessagesSquare, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Comunicação", href: "/comunicacao", icon: MessageCircle, cargos: ["admin", "gerente", "vendedor"] },
       { label: "Clientes", href: "/clientes", icon: Users, cargos: TODOS_OS_CARGOS },
