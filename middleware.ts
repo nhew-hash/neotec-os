@@ -102,11 +102,17 @@ export async function middleware(request: NextRequest) {
   );
 
 
-  const {
-    data: {
-      session
-    },
-  } = await supabase.auth.getSession();
+  // Rotas privadas: getUser() valida o JWT no servidor do Supabase (getSession só
+  // lê o cookie, sem validar — auditoria S-04). Rotas públicas mantêm getSession
+  // (só renova o cookie), evitando uma ida ao Auth em cada página da loja.
+  let session: { user: { id: string } } | null = null;
+  if (isPublicRoute) {
+    const { data } = await supabase.auth.getSession();
+    session = data.session;
+  } else {
+    const { data } = await supabase.auth.getUser();
+    session = data.user ? { user: { id: data.user.id } } : null;
+  }
 
 
 

@@ -17,7 +17,8 @@ import type { WhatsappConversa } from "@/types";
 export async function processarRespostaIA(conversa: WhatsappConversa, mensagemCliente: string): Promise<void> {
   const supabase = createAdminClient();
 
-  if (conversa.ia_pausada) return; // pausada manualmente ou por escalonamento anterior — não mexe
+  if (conversa.ia_pausada) return;
+  if ((conversa as { nao_contatar?: boolean }).nao_contatar === true) return; // pediu para não ser contatado // pausada manualmente ou por escalonamento anterior — não mexe
 
   const { data: configuracao } = await supabase.from("configuracoes_ia").select("*").maybeSingle();
   if (!configuracao?.ativo || !configuracao?.atendimento_automatico_ativo) return;

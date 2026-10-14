@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { executarPromptIA } from "@/services/ia/ia.service";
 import { enviarMensagemIA } from "@/services/whatsapp/whatsapp.service";
 import { ESTAGIOS_FOLLOWUP, preencherTemplate } from "./followup-vendas-templates";
+import { avaliarEnvioAutomatico, janelaDoAmbiente } from "@/services/whatsapp/trava-envio";
 
 interface CardElegivel {
   id: string;
@@ -34,12 +35,15 @@ async function gerarMensagemPersonalizada(template: string, nomeCliente: string,
  * disparar o próximo estágio (D+0 → D+1 → D+3 → D+5). Depois do D+5 sem
  * resposta, marca como "sem_retorno" e para de insistir, como definido.
  */
-export async function processarFollowupsDeVenda(): Promise<{ processados: number; enviados: number }> {
+export async function processarFollowupsDeVenda(): Promise<{ processados: number; enviados: number; bloqueados: Record<string, number> }> {
   const supabase = createAdminClient();
+  const bloqueados: Record<string, number> = {};
+  const agora = new Date();
+  const janela = janelaDoAmbiente();
 
   const { data: configuracao } = await supabase.from("configuracoes_ia").select("*").maybeSingle();
   if (!configuracao?.ativo || !configuracao?.atendimento_automatico_ativo) {
-    return { processados: 0, enviados: 0 };
+    return { processados: 0, enviados: 0, bloqueados };
   }
 
   const { data: cards } = await supabase
@@ -64,12 +68,52 @@ export async function processarFollowupsDeVenda(): Promise<{ processados: number
     // a conversa, o follow-up automático não deve disparar por cima.
     const { data: conversa } = await supabase
       .from("whatsapp_conversas")
-      .select("id, telefone, jid_envio, ia_pausada, card_id")
+      .select("*")
       .eq("card_id", card.id)
       .eq("ia_pausada", false)
       .maybeSingle();
 
     if (!conversa) continue;
+
+    // Trava central (auditoria B-02/B-03): não contatar, horário e intervalo mínimo.
+    const { data: ultimoAuto } = await supabase
+      .from("whatsapp_mensagens")
+      .select("criado_em")
+      .eq("conversa_id", conversa.id)
+      .eq("direcao", "saida")
+      .eq("enviado_por_ia", true)
+      .order("criado_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const veredito = avaliarEnvioAutomatico({
+      agora,
+      naoContatar: (conversa as { nao_contatar?: boolean }).nao_contatar === true,
+      ultimoEnvioAutomaticoEm: ultimoAuto?.criado_em ?? null,
+      janela,
+    });
+    if (!veredito.permitido) {
+      bloqueados[veredito.motivo] = (bloqueados[veredito.motivo] ?? 0) + 1;
+      if (veredito.motivo === "nao_contatar") {
+        // Encerra a sequência de vez: quem pediu para parar não volta pra fila.
+        await supabase.from("crm_cards").update({ status_recuperacao: "sem_retorno", proxima_acao: "Cliente pediu para não ser contatado" }).eq("id", card.id);
+      }
+      continue;
+    }
+
+    // Idempotência (auditoria B-05): reserva a etapa ANTES de enviar. Só quem
+    // conseguir mover sequencia_followup de N para N+1 envia; uma segunda
+    // execução concorrente (retry do cron, chamada manual) não acha a linha.
+    const { data: reservado } = await supabase
+      .from("crm_cards")
+      .update({ sequencia_followup: proximoEstagio.numero })
+      .eq("id", card.id)
+      .eq("sequencia_followup", card.sequencia_followup)
+      .select("id");
+    if (!reservado || reservado.length === 0) {
+      bloqueados.ja_processado = (bloqueados.ja_processado ?? 0) + 1;
+      continue;
+    }
 
     const { data: cardComResumo } = await supabase.from("crm_cards").select("resumo_ia").eq("id", card.id).maybeSingle();
 
@@ -80,7 +124,15 @@ export async function processarFollowupsDeVenda(): Promise<{ processados: number
       cardComResumo?.resumo_ia ?? null
     );
 
-    await enviarMensagemIA({ conversaId: conversa.id, telefone: conversa.telefone, texto: mensagem, jidEnvio: conversa.jid_envio });
+    try {
+      await enviarMensagemIA({ conversaId: conversa.id, telefone: conversa.telefone, texto: mensagem, jidEnvio: conversa.jid_envio });
+    } catch (err) {
+      // Falhou o envio: devolve a etapa pra tentar de novo na próxima execução.
+      await supabase.from("crm_cards").update({ sequencia_followup: card.sequencia_followup }).eq("id", card.id).eq("sequencia_followup", proximoEstagio.numero);
+      console.error("Falha ao enviar follow-up de venda:", err);
+      bloqueados.falha_envio = (bloqueados.falha_envio ?? 0) + 1;
+      continue;
+    }
 
     await supabase
       .from("crm_cards")
@@ -96,5 +148,5 @@ export async function processarFollowupsDeVenda(): Promise<{ processados: number
     enviados += 1;
   }
 
-  return { processados: cardsElegiveis.length, enviados };
+  return { processados: cardsElegiveis.length, enviados, bloqueados };
 }

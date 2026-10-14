@@ -1,3 +1,4 @@
+import { cronAutorizado } from "@/lib/cron-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { processarFollowupsDeVenda } from "@/services/ia/followup-vendas.service";
 import { processarRetiradasAgendadas } from "@/services/estoque/estoque.actions";
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const auth = request.headers.get("authorization");
 
-  if (secret && auth !== `Bearer ${secret}`) {
+  if (!cronAutorizado(secret, auth)) {
     return new NextResponse("Não autorizado", { status: 401 });
   }
 

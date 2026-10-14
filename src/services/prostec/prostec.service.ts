@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PRODUTOS_PROSTEC_PADRAO, type ProdutoProstecDados } from "./lib/produtos-padrao";
 
 export interface ProstecLead {
@@ -177,7 +178,11 @@ export interface PropostaPublica {
 
 /** Busca proposta pelo token público — sem exigir login, é o link que o cliente recebe. Já registra a visualização na mesma consulta. */
 export async function buscarPropostaPublicaPorToken(token: string): Promise<PropostaPublica | null> {
-  const supabase = await createClient();
+  // Página pública, sem sessão: lê por service role filtrando pelo token (16 bytes
+  // aleatórios em hex). Antes dependia de policy anônima `using (true)`, que deixava
+  // qualquer um listar todas as propostas pela API REST (auditoria S-07).
+  if (!/^[a-f0-9]{32}$/i.test(token)) return null;
+  const supabase = createAdminClient();
   const { data: proposta } = await supabase.from("prostec_propostas").select("id, produto, valor, valor_manutencao_mensal, forma_pagamento, status, visualizacoes, primeira_visualizacao_em, lead:prostec_leads(company:prostec_companies(name))").eq("token_publico", token).maybeSingle();
   if (!proposta) return null;
 

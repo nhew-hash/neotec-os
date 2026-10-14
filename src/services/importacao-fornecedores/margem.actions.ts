@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { listarRegrasLucro, type RegraLucroComFaixas } from "@/services/seminovos/regras-lucro.service";
+import { exigirCargo } from "@/lib/auth/exigir-cargo";
 import type { ActionResult } from "@/types";
 
 export interface CategoriaFolha {
@@ -66,6 +67,8 @@ export async function salvarMargemCategoriaAction(input: {
   valorFixo?: number;
   percentual?: number;
 }): Promise<ActionResult> {
+  const auth = await exigirCargo(["admin", "gerente"]);
+  if (!auth.permitido) return { success: false, error: auth.erro };
   try {
     const supabase = await createClient();
     const linha = {
@@ -86,6 +89,8 @@ export async function salvarMargemCategoriaAction(input: {
 }
 
 export async function removerMargemCategoriaAction(id: string): Promise<ActionResult> {
+  const auth = await exigirCargo(["admin", "gerente"]);
+  if (!auth.permitido) return { success: false, error: auth.erro };
   try {
     const supabase = await createClient();
     const { error } = await supabase.from("import_margem_categoria").delete().eq("id", id);

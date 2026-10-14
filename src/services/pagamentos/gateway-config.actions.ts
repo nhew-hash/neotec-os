@@ -4,12 +4,15 @@ import { revalidatePath } from "next/cache";
 import { paymentRepository } from "./payment.repository";
 import { MercadoPagoProvider } from "./providers/mercadopago.provider";
 import { extrairMensagemErro } from "./erro.utils";
+import { exigirCargo } from "@/lib/auth/exigir-cargo";
 import type { ActionResult, ConfiguracaoGatewayPagamento } from "@/types";
 
 export async function atualizarConfiguracaoGatewayAction(
   gateway: string,
   input: Partial<Pick<ConfiguracaoGatewayPagamento, "public_key" | "access_token" | "webhook_secret" | "modo" | "ativo">>
 ): Promise<ActionResult> {
+  const auth = await exigirCargo(["admin"]);
+  if (!auth.permitido) return { success: false, error: auth.erro };
   try {
     await paymentRepository.atualizarConfiguracao(gateway, input);
     revalidatePath("/configuracoes/pagamentos");
@@ -20,6 +23,8 @@ export async function atualizarConfiguracaoGatewayAction(
 }
 
 export async function testarConexaoGatewayAction(gateway: string): Promise<ActionResult<{ conectado: boolean }>> {
+  const auth = await exigirCargo(["admin"]);
+  if (!auth.permitido) return { success: false, error: auth.erro };
   try {
     const config = await paymentRepository.buscarConfiguracao(gateway, true);
     if (!config?.access_token) return { success: false, error: "Preencha o Access Token antes de testar" };

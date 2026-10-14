@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import * as service from "./prostec.service";
 import type { ActionResult } from "@/types";
 
@@ -247,9 +248,15 @@ export async function criarPropostaProstecAction(leadId: string, produto: string
 /** Chamado pela página pública da proposta — sem login, o cliente clica aceitar/recusar. */
 export async function responderPropostaPublicaAction(token: string, resposta: "aceita" | "recusada"): Promise<ActionResult> {
   try {
-    const supabase = await createClient();
-    const { data: proposta } = await supabase.from("prostec_propostas").select("id, lead_id, produto").eq("token_publico", token).maybeSingle();
+    // Ação pública (sem login): service role + validação estrita, já que as policies
+    // anônimas de prostec_propostas foram removidas (migration fase264).
+    if (!/^[a-f0-9]{32}$/i.test(token) || (resposta !== "aceita" && resposta !== "recusada")) {
+      return { success: false, error: "Proposta não encontrada" };
+    }
+    const supabase = createAdminClient();
+    const { data: proposta } = await supabase.from("prostec_propostas").select("id, lead_id, produto, status").eq("token_publico", token).maybeSingle();
     if (!proposta) return { success: false, error: "Proposta não encontrada" };
+    if (proposta.status === "aceita" || proposta.status === "recusada") return { success: false, error: "Esta proposta já foi respondida" };
 
     await supabase.from("prostec_propostas").update({ status: resposta, respondida_em: new Date().toISOString() }).eq("id", proposta.id);
 

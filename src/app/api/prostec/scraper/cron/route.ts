@@ -1,3 +1,4 @@
+import { cronAutorizado } from "@/lib/cron-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { criarJob, statusJob } from "@/services/prostec/scraper/scraper.client";
@@ -23,7 +24,7 @@ export const maxDuration = 60;
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const auth = request.headers.get("authorization");
-  if (secret && auth !== `Bearer ${secret}`) {
+  if (!cronAutorizado(secret, auth)) {
     return new NextResponse("Não autorizado", { status: 401 });
   }
 

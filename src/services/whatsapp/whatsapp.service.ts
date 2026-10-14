@@ -6,6 +6,7 @@ import { processarRespostaIA } from "@/services/ia/ia-atendimento-orquestrador.s
 import { uploadMidiaWhatsapp, extensaoPorMimeType } from "./whatsapp-midia.service";
 import { getActiveProvider } from "./providers/provider-resolver";
 import { paraFormatoInternacionalBR, paraFormatoLocalBR } from "@/utils/telefone";
+import { detectarPedidoNaoContato } from "./trava-envio";
 import type { DisparoWhatsapp, MensagemRecebidaNormalizada } from "./whatsapp.types";
 import type { WhatsappConversa, WhatsappMensagem, Cliente } from "@/types";
 
@@ -424,9 +425,20 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
     .maybeSingle();
 
   if (!conversa) {
+    // Quem já pediu para não ser contatado continua assim em conversa nova.
+    const { data: anteriorOptOut } = await supabase
+      .from("whatsapp_conversas")
+      .select("id")
+      .eq("telefone", msg.telefone)
+      .eq("nao_contatar", true)
+      .limit(1)
+      .maybeSingle();
     const { data: novaConversa, error } = await supabase
       .from("whatsapp_conversas")
-      .insert({ telefone: msg.telefone, status: "aberta", jid_envio: msg.jidOriginal ?? null })
+      .insert({
+        telefone: msg.telefone, status: "aberta", jid_envio: msg.jidOriginal ?? null,
+        ...(anteriorOptOut ? { nao_contatar: true, ia_pausada: true } : {}),
+      })
       .select("*")
       .single();
     if (error || !novaConversa) throw new Error(`Não foi possível criar a conversa: ${error?.message}`);
@@ -467,6 +479,30 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
       primeira_resposta_em: conversa.primeira_resposta_em ?? null,
     })
     .eq("id", conversa.id);
+
+  // Pedido de não contato ("pare", "não me mande mais"): marca a conversa,
+  // pausa a IA e encerra a sequência de follow-up. Não responde automaticamente.
+  if (msg.tipo === "texto" && detectarPedidoNaoContato(msg.conteudo)) {
+    const { error: erroOptOut } = await supabase
+      .from("whatsapp_conversas")
+      .update({ nao_contatar: true, nao_contatar_em: new Date().toISOString(), ia_pausada: true })
+      .eq("id", conversa.id);
+    if (erroOptOut) {
+      // Coluna pode não existir se a migration fase264 ainda não foi aplicada: pausa a IA mesmo assim.
+      console.error("Não foi possível registrar nao_contatar (aplicar fase264?):", erroOptOut.message);
+      await supabase.from("whatsapp_conversas").update({ ia_pausada: true }).eq("id", conversa.id);
+    }
+    if (conversa.card_id) {
+      await supabase.from("crm_cards").update({ status_recuperacao: "sem_retorno", proxima_acao: "Cliente pediu para não ser contatado" }).eq("id", conversa.card_id);
+    }
+    await registrarLog({ direcao: "entrada", evento: "pedido_nao_contato", payload: { conversaId: conversa.id }, sucesso: true });
+    try {
+      await processarAutomacaoNovaMensagem({ telefone: msg.telefone, nomeContato: msg.nomeContato, conversaId: conversa.id });
+    } catch (err) {
+      console.error("Falha na automação de nova mensagem:", err);
+    }
+    return; // sem resposta automática da IA
+  }
 
   // Automação de CRM (lead/card) — sem IA nenhuma, regra determinística (ver whatsapp.automacao.ts)
   try {
