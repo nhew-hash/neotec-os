@@ -77,7 +77,7 @@ export async function criarFonteAction(input: { fornecedor: string; grupoId: str
   }
 }
 
-export async function listarExecucoesRecentesAction(limite = 20): Promise<ActionResult<{ execucoes: ExecucaoImportacao[] }>> {
+export async function listarExecucoesRecentesAction(limite = 100): Promise<ActionResult<{ execucoes: ExecucaoImportacao[] }>> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -89,5 +89,28 @@ export async function listarExecucoesRecentesAction(limite = 20): Promise<Action
     return { success: true, data: { execucoes: (data ?? []) as ExecucaoImportacao[] } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao listar execuções" };
+  }
+}
+
+export interface DetalheExecucao {
+  mensagem_bruta: string | null;
+  itens_descartados: unknown;
+  diff: unknown;
+}
+
+/** Texto ORIGINAL da lista + descartes + diff — carregado sob demanda (é grande, não vai na listagem). */
+export async function obterDetalheExecucaoAction(id: string): Promise<ActionResult<DetalheExecucao>> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("import_execucoes")
+      .select("mensagem_bruta, itens_descartados, diff")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return { success: false, error: "Execução não encontrada" };
+    return { success: true, data: data as DetalheExecucao };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao carregar detalhe" };
   }
 }

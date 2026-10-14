@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { atualizarFonteAction, type ExecucaoImportacao, type FonteImportacao } from "@/services/importacao-fornecedores/fontes.actions";
+import { atualizarFonteAction, obterDetalheExecucaoAction, type DetalheExecucao, type ExecucaoImportacao, type FonteImportacao } from "@/services/importacao-fornecedores/fontes.actions";
 
 const NOMES_TIPO_LISTA: Record<string, string> = {
   goat_completa: "Lista completa",
@@ -67,24 +67,74 @@ function LinhaFonte({ fonte }: { fonte: FonteImportacao }) {
 }
 
 function LinhaExecucao({ execucao }: { execucao: ExecucaoImportacao }) {
+  const [aberto, setAberto] = useState(false);
+  const [detalhe, setDetalhe] = useState<DetalheExecucao | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function alternar() {
+    if (aberto) return setAberto(false);
+    setAberto(true);
+    if (detalhe) return;
+    startTransition(async () => {
+      const r = await obterDetalheExecucaoAction(execucao.id);
+      if (r.success) setDetalhe(r.data);
+      else setErro(r.error);
+    });
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(detalhe?.mensagem_bruta ?? "");
+    } catch {
+      setErro("Não deu pra copiar automaticamente — selecione o texto e copie.");
+    }
+  }
+
   return (
-    <TableRow>
-      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-        {new Date(execucao.created_at).toLocaleString("pt-BR")}
-      </TableCell>
-      <TableCell className="font-medium capitalize">{execucao.fornecedor}</TableCell>
-      <TableCell>{NOMES_TIPO_LISTA[execucao.tipo_lista] ?? execucao.tipo_lista}</TableCell>
-      <TableCell>
-        {execucao.travada_por_seguranca ? (
-          <Badge variant="danger">Travada</Badge>
-        ) : execucao.aplicado ? (
-          <Badge>Aplicada</Badge>
-        ) : (
-          <Badge variant="outline">Ignorada</Badge>
-        )}
-      </TableCell>
-      <TableCell className="max-w-md whitespace-pre-wrap text-sm">{execucao.motivo_trava ?? execucao.resumo_whatsapp}</TableCell>
-    </TableRow>
+    <>
+      <TableRow>
+        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+          {new Date(execucao.created_at).toLocaleString("pt-BR")}
+        </TableCell>
+        <TableCell className="font-medium capitalize">{execucao.fornecedor}</TableCell>
+        <TableCell>{NOMES_TIPO_LISTA[execucao.tipo_lista] ?? execucao.tipo_lista}</TableCell>
+        <TableCell>
+          {execucao.travada_por_seguranca ? (
+            <Badge variant="danger">Travada</Badge>
+          ) : execucao.aplicado ? (
+            <Badge>Aplicada</Badge>
+          ) : (
+            <Badge variant="outline">Ignorada</Badge>
+          )}
+        </TableCell>
+        <TableCell className="max-w-md whitespace-pre-wrap text-sm">
+          {execucao.motivo_trava ?? execucao.resumo_whatsapp}
+          <div className="mt-2">
+            <Button size="sm" variant="outline" onClick={alternar}>{aberto ? "Esconder lista original" : "Ver lista original"}</Button>
+          </div>
+        </TableCell>
+      </TableRow>
+      {aberto && (
+        <TableRow>
+          <TableCell colSpan={5} className="bg-muted/30">
+            {pending && <p className="text-sm text-muted-foreground">Carregando...</p>}
+            {erro && <p className="text-sm text-danger">{erro}</p>}
+            {detalhe && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <p className="text-sm font-medium">Mensagem original</p>
+                  <Button size="sm" variant="outline" onClick={copiar}>Copiar</Button>
+                </div>
+                <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md border bg-background p-3 text-xs">{detalhe.mensagem_bruta ?? "(não gravada)"}</pre>
+                <p className="text-sm font-medium">Itens descartados</p>
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border bg-background p-3 text-xs">{JSON.stringify(detalhe.itens_descartados ?? [], null, 2)}</pre>
+              </div>
+            )}
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }
 

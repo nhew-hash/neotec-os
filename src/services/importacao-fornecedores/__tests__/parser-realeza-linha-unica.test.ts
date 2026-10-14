@@ -126,3 +126,19 @@ describe("parser-realeza-linha-unica — condicao por tipoLista (Fase 246)", () 
     expect(r.itens.every((i) => i.condicao === null)).toBe(true);
   });
 });
+
+describe("linha única — observação e specs", () => {
+  it("'JBL Flip 7 Piucas Pecas' é observação do fornecedor, não produto", () => {
+    const { itens, descartados } = parseRealezaLinhaUnica("Jbl\nJBL Flip 7 Piucas Pecas ⚫️ 450\nJBL Charge 6 ⚫️ 900", "audio_extras");
+    expect(itens.map((i) => i.modeloCanonico)).toEqual(["JBL Charge 6"]);
+    expect(descartados[0].motivo).toBe("comentario");
+  });
+  it("'36/512G' não vira armazenamento 36: RAM errada, armazenamento 512 e sinalizado", () => {
+    const { itens } = parseRealezaLinhaUnica("Oukitel WP 300 36/512G ⚫️ 2000", "android");
+    expect(itens[0]).toMatchObject({ armazenamentoGb: 512, ramGb: 36, ramPossivelTypo: true });
+  });
+  it("'*📲iPhone-16E 256G⚪️ 3250*' é iPhone 16e (Apple), não item solto", () => {
+    const { itens } = parseRealezaLinhaUnica("*📲iPhone-16E 256G⚪️ 3250*", "android");
+    expect(itens[0]).toMatchObject({ modeloCanonico: "iPhone 16e", marca: "Apple", categoriaSlug: "smartphones_iphone", armazenamentoGb: 256, precoFornecedor: 3250 });
+  });
+});

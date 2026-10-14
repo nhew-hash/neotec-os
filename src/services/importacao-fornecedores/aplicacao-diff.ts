@@ -126,6 +126,12 @@ export interface ResultadoTravas {
    */
   itensSemCor: ItemExtraido[];
   motivosSemCor: string[];
+  /**
+   * Verdadeiro quando o ÚNICO motivo do bloqueio é a queda de volume (lista bem
+   * menor que a anterior). Isso costuma ser atualização parcial/avulsa do
+   * fornecedor (ex.: 1 preço), não lista quebrada — ver modo parcial no service.
+   */
+  bloqueioSoPorVolume: boolean;
 }
 
 export interface OpcoesTravas {
@@ -161,9 +167,11 @@ export function avaliarTravasDeSeguranca(plano: PlanoAplicacao, itensAtivosAnter
   const limiteQueda = opcoes.limiteQuedaVolume ?? 0.5;
   const limiteVariacao = opcoes.limiteVariacaoPreco ?? 0.3;
 
+  let bloqueouPorVolume = false;
   if (itensAtivosAnteriores.length > 0) {
     const proporcao = opcoes.itensNovosValidos.length / itensAtivosAnteriores.length;
     if (proporcao < limiteQueda) {
+      bloqueouPorVolume = true;
       motivos.push(
         `Lista nova tem só ${opcoes.itensNovosValidos.length} itens vs ${itensAtivosAnteriores.length} anteriores (${Math.round(proporcao * 100)}%, mínimo ${Math.round(limiteQueda * 100)}%).`
       );
@@ -196,5 +204,13 @@ export function avaliarTravasDeSeguranca(plano: PlanoAplicacao, itensAtivosAnter
     (i) => `Cor não identificada em ${i.modeloCanonico}${i.corEmojiOrigem ? ` (emoji ${i.corEmojiOrigem})` : ""} — subiu como "Não informada"; corrija a cor depois.`
   );
 
-  return { bloqueado: motivos.length > 0, motivos, itensRetidos, motivosRetencao, itensSemCor, motivosSemCor };
+  return {
+    bloqueado: motivos.length > 0,
+    motivos,
+    itensRetidos,
+    motivosRetencao,
+    itensSemCor,
+    motivosSemCor,
+    bloqueioSoPorVolume: bloqueouPorVolume && motivos.length === 1,
+  };
 }

@@ -1,4 +1,4 @@
-import { resolverCorEmoji, extrairEmojisDeCor } from "./emoji-cores";
+import { resolverCorEmoji, extrairEmojisDeCor, EMOJIS_NAO_COR } from "./emoji-cores";
 import { parsePreco } from "./normalizacao";
 import type { ItemDescartado, ItemExtraido, ResultadoParser } from "./tipos";
 
@@ -106,7 +106,7 @@ function processarLinha(linhaOriginal: string, garantia: string | null, itens: I
   // armazenamento: pode vir antes ou depois da bateria, então procura em
   // qualquer posição do resto (não só logo após o modelo).
   let armazenamentoGb: number | null = null;
-  const storageMatch = resto.match(/(\d{2,4})\s*g\b/i);
+  const storageMatch = resto.match(/(\d{2,4})\s*g(?:b)?\b/i);
   if (storageMatch && storageMatch.index !== undefined) {
     armazenamentoGb = Number(storageMatch[1]);
     resto = resto.slice(0, storageMatch.index) + " " + resto.slice(storageMatch.index + storageMatch[0].length);
@@ -167,6 +167,10 @@ function processarLinha(linhaOriginal: string, garantia: string | null, itens: I
   textoResidual = textoResidual.replace(/[%\s]+/g, " ").trim();
   const observacao = textoResidual.length >= 3 ? textoResidual : null;
 
+  // Emoji que não está na tabela de cores: guarda como "origem" pra o aviso ao
+  // dono dizer QUAL emoji falhou (antes aparecia só "cor não identificada").
+  const emojiDesconhecido = (textoResidual.match(/\p{Extended_Pictographic}/gu) ?? []).find((e) => !EMOJIS_NAO_COR.has(e)) ?? null;
+
   const tagsBase: string[] = [];
   if (temAtencao) tagsBase.push("atencao");
   if (observacao) tagsBase.push(observacao);
@@ -199,7 +203,7 @@ function processarLinha(linhaOriginal: string, garantia: string | null, itens: I
       gpsCellular: null,
       cor,
       corBase: cor,
-      corEmojiOrigem: unidade.emoji,
+      corEmojiOrigem: unidade.emoji ?? emojiDesconhecido,
       bateriaPct: unidade.bateria,
       cidade: null,
       garantia,

@@ -21,7 +21,7 @@ export default async function ImportacaoFornecedoresPage() {
 
   const [fontesResultado, execucoesResultado, categoriasResultado, margensResultado, regrasResultado] = await Promise.all([
     listarFontesAction(),
-    listarExecucoesRecentesAction(20),
+    listarExecucoesRecentesAction(100),
     listarCategoriasFolhaAction(),
     listarMargensCategoriaAction(),
     listarRegrasLucroParaSelecaoAction(),

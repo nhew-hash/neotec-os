@@ -93,3 +93,12 @@ describe("resolverModeloCanonico — famílias Apple não-iPhone (iPad, Mac, Wat
     expect(resolverModeloCanonico("Apple Watch SE").canonico).toBe("Apple Watch SE");
   });
 });
+
+describe("resolverModeloCanonico — iPhone 16e e Starlink", () => {
+  it.each([["iPhone-16E 256G", "iPhone 16e"], ["iphone 16e", "iPhone 16e"], ["iPhone 16 Pro", "iPhone 16 Pro"]])("%s → %s", (linha, canonico) => {
+    expect(resolverModeloCanonico(linha).canonico).toBe(canonico);
+  });
+  it("Starlink Mini vai pra eletrônicos diversos (loja: Eletrônicos e Mobilidade)", () => {
+    expect(resolverModeloCanonico("Starlink mini").categoriaSlug).toBe("eletronicos_diversos");
+  });
+});

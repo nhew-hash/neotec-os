@@ -71,3 +71,9 @@ describe("hrefCategoria", () => {
     ]);
   });
 });
+
+describe("eletronicos_diversos", () => {
+  it("cai em Eletrônicos e Mobilidade", () => {
+    expect(categoriaSlugParaCategoriaLoja("eletronicos_diversos")).toBe("eletronicos_mobilidade");
+  });
+});

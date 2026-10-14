@@ -71,6 +71,7 @@ export function categoriaSlugParaCategoriaLoja(slug: string): CategoriaLoja {
     case "audio_microfones": return "audio";
     case "perfumaria_perfumes_arabes":
     case "perfumaria_kits": return "perfume";
+    case "eletronicos_diversos":
     case "casa_inteligente_robos_aspiradores":
     case "mobilidade_triciclos_patinetes":
     case "computadores_notebook": return "eletronicos_mobilidade";
@@ -459,6 +460,8 @@ export interface ResultadoAplicacaoLista {
   /** Itens sem cor identificada — entram mesmo assim com cor "Não informada"; só avisam o dono pra corrigir depois. */
   itensSemCor: ItemExtraido[];
   motivosSemCor: string[];
+  /** Lista bem menor que a anterior: aplicada só como ENTRADA/ATUALIZAÇÃO de preço — nada foi removido do site. */
+  parcial: boolean;
   plano: PlanoAplicacao;
   itensAtivosAnteriores: ItemArmazenado[];
 }
@@ -473,15 +476,23 @@ export async function aplicarListaFornecedor(
   const itensAtivosAnteriores = await carregarItensAtivos(admin, fornecedor, tipoLista);
   // Item sem cor identificada ENTRA do mesmo jeito (cor "Não informada") — o dono
   // corrige a cor depois; só avisamos (ver `itensSemCor`). Não trava e não some.
-  const plano = calcularPlanoAplicacao(itensValidos, itensAtivosAnteriores);
-  const travas = avaliarTravasDeSeguranca(plano, itensAtivosAnteriores, {
+  const planoCompleto = calcularPlanoAplicacao(itensValidos, itensAtivosAnteriores);
+  const travas = avaliarTravasDeSeguranca(planoCompleto, itensAtivosAnteriores, {
     itensNovosValidos: itensValidos as (ItemExtraido | ItemFlagado)[],
     descartados: totalDescartados,
   });
 
+  // Lista muito menor que a anterior (ex.: Realeza manda só 1 item atualizado):
+  // antes travava e a atualização se perdia (14/10: 1 item vs 17). Agora aplica
+  // só o que ela traz (novos + preços) e NÃO desativa o que ficou de fora — uma
+  // lista parcial não prova que os outros saíram. Qualquer outro motivo de trava
+  // (descartes demais etc.) continua bloqueando tudo.
+  const parcial = travas.bloqueado && travas.bloqueioSoPorVolume && itensValidos.length > 0;
+  const plano: PlanoAplicacao = parcial ? { ...planoCompleto, desativar: [] } : planoCompleto;
+
   // Queda de volume ou muitos descartes = a lista
   // INTEIRA veio malformada — não aplica nada, espera revisão manual.
-  if (travas.bloqueado) {
+  if (travas.bloqueado && !parcial) {
     return {
       aplicado: false,
       bloqueado: true,
@@ -490,6 +501,7 @@ export async function aplicarListaFornecedor(
       motivosRetencao: travas.motivosRetencao,
       itensSemCor: travas.itensSemCor,
       motivosSemCor: travas.motivosSemCor,
+      parcial: false,
       plano,
       itensAtivosAnteriores,
     };
@@ -522,6 +534,7 @@ export async function aplicarListaFornecedor(
     motivosRetencao: travas.motivosRetencao,
     itensSemCor: travas.itensSemCor,
     motivosSemCor: travas.motivosSemCor,
+    parcial,
     plano: { ...plano, atualizarPreco: atualizarPrecoAplicaveis },
     itensAtivosAnteriores,
   };

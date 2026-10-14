@@ -109,3 +109,14 @@ describe("parseRealezaAppleSeminovos", () => {
     expect(r.descartados.some((d) => d.motivo === "bateria_baixa" && d.detalhe === "72%")).toBe(true);
   });
 });
+
+describe("seminovos — armazenamento 'GB' e emojis de cor extras", () => {
+  it("lê '128GB' (antes só '128G' funcionava) e 🖤/🤍/💙 como cor", () => {
+    const { itens } = parseRealezaAppleSeminovos("*semi novos 30 dias de garantia*\n📲13 128GB 85%🖤 1780,0\n📲14 256 GB 90%🤍 2500,0\n📲15 128gb 88%💙 3000,0");
+    expect(itens.map((i) => [i.armazenamentoGb, i.cor])).toEqual([[128, "Preto"], [256, "Branco/Prata"], [128, "Azul"]]);
+  });
+  it("emoji fora da tabela sobe como 'Não informada' mas guarda QUAL emoji era", () => {
+    const { itens } = parseRealezaAppleSeminovos("*semi novos 30 dias de garantia*\n📲13 128G 85%🫧 1780,0");
+    expect(itens[0]).toMatchObject({ cor: "Não informada", corEmojiOrigem: "🫧", armazenamentoGb: 128 });
+  });
+});

@@ -163,3 +163,18 @@ describe("separarItensSemCor", () => {
 
 
 });
+
+describe("bloqueioSoPorVolume", () => {
+  const anteriores = Array.from({ length: 17 }, (_, n) => ({ ...itemBase({ modeloCanonico: `iPhone ${n}` }), id: `id${n}` }));
+  const vazio: PlanoAplicacao = { inserir: [], atualizarPreco: [], desativar: [], semMudanca: [] };
+  it("1 item contra 17 bloqueia só por volume (candidato a lista parcial)", () => {
+    const t = avaliarTravasDeSeguranca(vazio, anteriores, { itensNovosValidos: [itemBase()], descartados: 0 });
+    expect(t.bloqueado).toBe(true);
+    expect(t.bloqueioSoPorVolume).toBe(true);
+  });
+  it("volume + muitos descartes NÃO é parcial: continua travando tudo", () => {
+    const t = avaliarTravasDeSeguranca(vazio, anteriores, { itensNovosValidos: [itemBase()], descartados: 5 });
+    expect(t.bloqueado).toBe(true);
+    expect(t.bloqueioSoPorVolume).toBe(false);
+  });
+});

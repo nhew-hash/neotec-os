@@ -117,7 +117,10 @@ export async function POST(request: NextRequest) {
 
     const resumo = resultadoAplicacao.bloqueado
       ? `⚠️ ${fornecedor === "goat" ? "Goat" : "Realeza"} — lista recebida mas NÃO aplicada automaticamente (travas de segurança):\n${resultadoAplicacao.motivosBloqueio.map((m) => `• ${m}`).join("\n")}\nRevise manualmente antes de aplicar.`
-      : montarResumoWhatsApp(fornecedor, tipoLista, resultadoAplicacao.plano, descartados) +
+      : (resultadoAplicacao.parcial
+          ? `ℹ️ Lista PARCIAL (${itensValidos.length} item(ns), bem menos que a anterior): apliquei só o que ela traz e não removi nada do site.\n`
+          : "") +
+        montarResumoWhatsApp(fornecedor, tipoLista, resultadoAplicacao.plano, descartados) +
         (resultadoAplicacao.itensRetidos.length > 0
           ? `\n⚠️ ${resultadoAplicacao.itensRetidos.length} item(ns) com variação de preço suspeita NÃO atualizados automaticamente (resto da lista aplicado normalmente):\n${resultadoAplicacao.motivosRetencao.map((m) => `• ${m}`).join("\n")}\nRevise manualmente na tela de Importação.`
           : "") +
@@ -144,7 +147,9 @@ export async function POST(request: NextRequest) {
       travada_por_seguranca: resultadoAplicacao.bloqueado,
       motivo_trava: resultadoAplicacao.bloqueado
         ? resultadoAplicacao.motivosBloqueio.join(" | ")
-        : [...resultadoAplicacao.motivosRetencao, ...resultadoAplicacao.motivosSemCor].length > 0
+        : resultadoAplicacao.parcial
+          ? "Lista parcial: aplicada sem remover itens"
+          : [...resultadoAplicacao.motivosRetencao, ...resultadoAplicacao.motivosSemCor].length > 0
           ? [...resultadoAplicacao.motivosRetencao, ...resultadoAplicacao.motivosSemCor].join(" | ")
           : null,
       snapshot_para_rollback: resultadoAplicacao.itensAtivosAnteriores,

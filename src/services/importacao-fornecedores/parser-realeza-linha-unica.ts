@@ -176,18 +176,9 @@ function extrairComentarioLinhaUnica(
   textoModelo: string,
   _ctx: { conectividade: string | null; nfc: boolean; ramPossivelTypo: boolean }
 ): string | null {
-  let limpo = textoModelo;
-  for (const regex of TERMOS_PERMITIDOS_REGEX) {
-    limpo = limpo.replace(regex, " ");
-  }
-  limpo = limpo.replace(/[a-zA-ZÀ-ÿ]+/g, (palavra) => {
-    // remove palavras conhecidas de modelo (marcas/linhas) — resolvidas via catálogo, não comentário
-    return palavra; // deixa passar; o filtro real é feito checando resíduo alfabético não reconhecido abaixo
-  });
-  // Heurística final: nesta fase, tratamos como comentário só quando sobra
-  // texto claramente fora de padrão de modelo (ex.: números de telefone,
-  // frases). Como os 3 formatos de fixture (android/tablets/jbl) não têm
-  // nenhum caso de comentário nos exemplos reais, mantemos a checagem
-  // simples e conservadora para não descartar itens legítimos por engano.
-  return null;
+  // Observação do fornecedor colada no modelo ("JBL Flip 7 Piucas Pecas" =
+  // "poucas peças") virava produto. Checagem conservadora: só palavras de
+  // aviso de estoque, nunca resíduo genérico (que descartaria item legítimo).
+  const m = textoModelo.match(/\b(poucas?|piucas?|restam|[uú]ltimas?\s+(?:pe[cç]as?|unidades?)|unidades?\s+restantes?)\b/i);
+  return m ? textoModelo.trim() : null;
 }

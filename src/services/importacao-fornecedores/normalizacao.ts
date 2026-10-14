@@ -136,6 +136,11 @@ export function extrairArmazenamentoRam(texto: string): ArmazenamentoRam {
   if (comBarra) {
     const armazenamento = Number(comBarra[1]);
     const ram = Number(comBarra[2]);
+    // "36/512G" (6 digitado como 36): o 2º número é um armazenamento válido e
+    // o 1º não → o fornecedor inverteu/errou a RAM. Não confunde a RAM com GB.
+    if (!ARMAZENAMENTOS_VALIDOS.includes(armazenamento) && ARMAZENAMENTOS_VALIDOS.includes(ram) && ram > armazenamento) {
+      return { armazenamentoGb: ram, ramGb: armazenamento, possivelTypo: true };
+    }
     const possivelTypo = !ARMAZENAMENTOS_VALIDOS.includes(armazenamento);
     return { armazenamentoGb: armazenamento, ramGb: ram, possivelTypo };
   }

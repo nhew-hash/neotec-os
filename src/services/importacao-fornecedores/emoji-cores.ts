@@ -27,6 +27,22 @@ export const EMOJI_COR_BASE: Record<string, string> = {
   "❤️": "Vermelho",
   "❤": "Vermelho",
   "🔴": "Vermelho",
+  // Emojis de cor que o fornecedor também usa (coração/quadrado/círculo):
+  // sem eles a linha inteira ficava com cor "Não informada".
+  "🖤": "Preto",
+  "⬛": "Preto",
+  "🤍": "Branco/Prata",
+  "⬜": "Branco/Prata",
+  "💙": "Azul",
+  "🩵": "Azul",
+  "🟦": "Azul",
+  "🟢": "Verde",
+  "🟩": "Verde",
+  "🟠": "Laranja",
+  "🟧": "Laranja",
+  "🟥": "Vermelho",
+  "🟨": "Amarelo/Dourado",
+  "🟪": "Roxo/Lilás",
 };
 
 /** Emojis que aparecem em listas mas NÃO representam cor. */

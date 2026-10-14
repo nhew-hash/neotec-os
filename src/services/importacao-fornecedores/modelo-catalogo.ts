@@ -184,15 +184,17 @@ function resolverPorFamilia(normalizado: string, textoOriginal: string): Resulta
   // mini). Sem isso caíam em "não classificado" -> categoria errada na
   // loja pública (bug reportado pelo dono em 23/09/2026, iPhone 12
   // aparecendo em Acessórios).
-  let m = normalizado.match(/\biphone[-\s]*(\d{1,2})\s*(pro\s*max|pro|plus|mini)?\b/);
+  let m = normalizado.match(/\biphone[-\s]*(\d{1,2})(e(?![a-z]))?\s*(pro\s*max|pro|plus|mini)?\b/);
   if (m) {
-    const sufixoBruto = (m[2] ?? "").replace(/\s+/g, " ").trim();
+    const sufixoBruto = (m[3] ?? "").replace(/\s+/g, " ").trim();
     let sufixo = "";
     if (sufixoBruto === "pro max") sufixo = " Pro Max";
     else if (sufixoBruto === "pro") sufixo = " Pro";
     else if (sufixoBruto === "plus") sufixo = " Plus";
     else if (sufixoBruto === "mini") sufixo = " Mini";
-    return { canonico: `iPhone ${m[1]}${sufixo}`, marca: "Apple", categoriaSlug: "smartphones_iphone", reconhecido: true };
+    // "iPhone-16E" (sem espaço antes do E) não era reconhecido: virava item
+    // sem categoria, no meio do Android.
+    return { canonico: `iPhone ${m[1]}${m[2] ? "e" : ""}${sufixo}`, marca: "Apple", categoriaSlug: "smartphones_iphone", reconhecido: true };
   }
 
   // Redmi Note / "Note ..." (Realeza escreve só "Note", sem "Redmi")
@@ -288,6 +290,11 @@ function resolverPorFamilia(normalizado: string, textoOriginal: string): Resulta
               ? "Samsung"
               : "Desconhecida";
     return { canonico: capitalizarLinha(textoOriginal), marca, categoriaSlug: "computadores_notebook", reconhecido: marca !== "Desconhecida" };
+  }
+
+  // Starlink e afins: eletrônico avulso, vai pra "Eletrônicos e Mobilidade"
+  if (/\bstarlink\b/.test(normalizado)) {
+    return { canonico: capitalizarLinha(textoOriginal), marca: "Starlink", categoriaSlug: "eletronicos_diversos", reconhecido: true };
   }
 
   // Robô aspirador
