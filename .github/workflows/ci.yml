@@ -1,0 +1,44 @@
+name: CI — typecheck, testes e build
+
+# Roda em todo push e PR. Antes não havia verificação automática: um erro de
+# tipo ou um teste quebrado só aparecia no deploy (ou em produção).
+# O build usa valores fictícios só para compilar — nenhuma credencial real
+# é necessária nem usada aqui.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # `secrets` não pode ser usado direto em `if:` de step — passa por env.
+      TEM_SUPABASE_CI: ${{ secrets.CI_SUPABASE_URL != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Testes
+        run: npm test
+      - name: Build
+        # As páginas ISR do Achadinhos consultam o Supabase durante o build;
+        # sem um projeto de teste configurado, o build falha nelas por rede.
+        # Defina os secrets abaixo (projeto de staging) para habilitar este passo.
+        if: env.TEM_SUPABASE_CI == 'true'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.CI_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.CI_SUPABASE_ANON_KEY }}
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build

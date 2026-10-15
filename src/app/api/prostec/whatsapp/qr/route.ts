@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { segredoConfere } from "@/services/whatsapp/webhook-assinatura";
 
 /** Bridge da Prostec chama isso a cada QR Code novo gerado — segredo PRÓPRIO, nunca o da loja. */
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-bridge-secret");
-  if (!secret || secret !== process.env.WHATSAPP_PROSTEC_BRIDGE_SECRET) {
+  if (!segredoConfere(secret, process.env.WHATSAPP_PROSTEC_BRIDGE_SECRET)) {
     return new NextResponse("Não autorizado", { status: 401 });
   }
 

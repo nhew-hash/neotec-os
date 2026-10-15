@@ -72,3 +72,20 @@ export function interpretarBuscaCliente(entrada: string): BuscaInterpretada {
 export function finalDoTelefone(digitos: string): string {
   return digitos.slice(-8);
 }
+
+/**
+ * Variantes de um telefone BR para casar um número que CHEGA pelo WhatsApp
+ * com `clientes.whatsapp` (sempre DDD + número, sem 55).
+ *
+ * A Meta entrega muitos celulares brasileiros SEM o 9º dígito
+ * (ex.: 55 34 9999-1234), enquanto o cadastro tem 11 dígitos. Sem testar as
+ * duas formas, a automação não reconhecia o cliente e criava um duplicado.
+ * Devolve a forma recebida primeiro.
+ */
+export function variantesTelefoneBR(texto: string): string[] {
+  const d = normalizarTelefone(texto);
+  const variantes = [d];
+  if (d.length === 10 && /^[6-9]/.test(d.slice(2))) variantes.push(`${d.slice(0, 2)}9${d.slice(2)}`);
+  if (d.length === 11 && d[2] === "9") variantes.push(`${d.slice(0, 2)}${d.slice(3)}`);
+  return variantes;
+}

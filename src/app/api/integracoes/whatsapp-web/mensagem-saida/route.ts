@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
     .select("id")
     .eq("telefone", telefone)
     .eq("status", "aberta")
+    // Mais recente: com conversas duplicadas, `.maybeSingle()` sozinho dava
+    // erro e `data = null` (auditoria 360°, achado C2).
+    .order("ultima_mensagem_em", { ascending: false, nullsFirst: false })
+    .limit(1)
     .maybeSingle();
 
   if (!conversa) {

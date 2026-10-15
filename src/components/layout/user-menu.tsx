@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Settings, User as UserIcon } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -56,15 +57,16 @@ export function UserMenu({ nome, email, cargo }: UserMenuProps) {
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          <UserIcon className="h-4 w-4" />
-          Meu perfil
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled>
-          <Settings className="h-4 w-4" />
-          Configurações
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
+        {/* "Meu perfil" e "Configurações" ficavam sempre desabilitados (itens
+            mortos). Configurações agora leva à tela real, só para quem tem acesso. */}
+        {cargo === "admin" && (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href="/configuracoes"><Settings className="h-4 w-4" />Configurações</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
           <LogOut className="h-4 w-4" />
           Sair

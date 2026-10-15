@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -11,6 +11,10 @@ import { createClient } from "@/lib/supabase/client";
  */
 export function useContagemNaoLidas(inicial: number) {
   const [contagem, setContagem] = useState(inicial);
+  // Nome de canal único por instância: sidebar e barra inferior usam este
+  // hook ao mesmo tempo, e dois canais com o mesmo nome no mesmo client
+  // (singleton do @supabase/ssr) disputavam a assinatura.
+  const idCanal = useId();
 
   useEffect(() => {
     setContagem(inicial);
@@ -20,12 +24,13 @@ export function useContagemNaoLidas(inicial: number) {
     const supabase = createClient();
 
     async function recontar() {
-      const { data } = await supabase.from("whatsapp_conversas").select("nao_lidas").gt("nao_lidas", 0);
-      setContagem((data ?? []).length);
+      // Só a contagem (head), sem baixar as linhas — isto roda a cada mensagem recebida.
+      const { count, error } = await supabase.from("whatsapp_conversas").select("id", { count: "exact", head: true }).gt("nao_lidas", 0);
+      if (!error && count != null) setContagem(count);
     }
 
     const channel = supabase
-      .channel("badge-nao-lidas")
+      .channel(`badge-nao-lidas-${idCanal}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_conversas" }, () => {
         void recontar();
       })
@@ -34,7 +39,7 @@ export function useContagemNaoLidas(inicial: number) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [idCanal]);
 
   return contagem;
 }

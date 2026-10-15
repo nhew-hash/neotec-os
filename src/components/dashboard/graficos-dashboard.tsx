@@ -10,7 +10,7 @@ import type {
   PontoVendasPeriodo, PontoOrigemCliente, PontoFunilCRM, PontoDesempenhoEquipe,
 } from "@/services/dashboard/dashboard-graficos.service";
 
-const CORES_ORIGEM = ["#2643D6", "#4CA9D9", "#16A34A", "#D97706", "#E4572E", "#8A90A0"];
+const CORES_ORIGEM = ["#0071E3", "#4CA9D9", "#16A34A", "#D97706", "#E4572E", "#8A90A0"];
 
 interface GraficosDashboardProps {
   vendasPorPeriodo: PontoVendasPeriodo[];

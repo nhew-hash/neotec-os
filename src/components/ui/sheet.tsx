@@ -57,4 +57,13 @@ const SheetContent = React.forwardRef<
 ));
 SheetContent.displayName = DialogPrimitive.Content.displayName;
 
-export { Sheet, SheetTrigger, SheetClose, SheetContent };
+/** Título do painel — obrigatório para leitores de tela (o Radix avisa sem ele). Use `className="sr-only"` se não quiser exibi-lo. */
+const SheetTitle = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Title ref={ref} className={cn("text-base font-semibold text-foreground", className)} {...props} />
+));
+SheetTitle.displayName = DialogPrimitive.Title.displayName;
+
+export { Sheet, SheetTrigger, SheetClose, SheetContent, SheetTitle };

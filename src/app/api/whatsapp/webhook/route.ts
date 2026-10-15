@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createHmac, timingSafeEqual } from "crypto";
 
-import { receberMensagemNormalizada } from "@/services/whatsapp/whatsapp.service";
+import { receberMensagemNormalizada, atualizarStatusEntrega } from "@/services/whatsapp/whatsapp.service";
+import { verificarAssinaturaMeta } from "@/services/whatsapp/webhook-assinatura";
 import { registrarLog } from "@/services/whatsapp/whatsapp.logs";
 
 import type {
@@ -71,55 +71,6 @@ export async function GET(request: NextRequest) {
 
 
 
-function assinaturaValida(
-  bodyRaw: string,
-  assinatura: string | null
-): boolean {
-
-
-  const appSecret = process.env.WHATSAPP_APP_SECRET;
-
-
-  if (!appSecret) {
-    return true;
-  }
-
-
-  if (!assinatura) {
-    return false;
-  }
-
-
-  const hashEsperado =
-    "sha256=" +
-    createHmac(
-      "sha256",
-      appSecret
-    )
-      .update(bodyRaw)
-      .digest("hex");
-
-
-  const bufferA = Buffer.from(hashEsperado);
-  const bufferB = Buffer.from(assinatura);
-
-
-  if (
-    bufferA.length !== bufferB.length
-  ) {
-    return false;
-  }
-
-
-  return timingSafeEqual(
-    bufferA,
-    bufferB
-  );
-
-}
-
-
-
 export async function POST(
   request: NextRequest
 ) {
@@ -134,34 +85,26 @@ export async function POST(
 
 
 
-  if (
-    !assinaturaValida(
-      bodyRaw,
-      assinatura
-    )
-  ) {
+  const verificacao = verificarAssinaturaMeta({
+    corpo: bodyRaw,
+    assinatura,
+    segredo: process.env.WHATSAPP_APP_SECRET,
+    permitirSemAssinatura: process.env.WHATSAPP_WEBHOOK_ALLOW_UNSIGNED === "true",
+    producao: process.env.NODE_ENV === "production",
+  });
 
-
+  if (!verificacao.valida) {
     await registrarLog({
       direcao: "entrada",
       evento: "webhook_assinatura_invalida",
-      payload: {},
+      payload: { motivo: verificacao.motivo },
       sucesso: false,
-      erro:
-        "Assinatura X-Hub-Signature-256 inválida",
+      erro: verificacao.motivo === "segredo_ausente"
+        ? "WHATSAPP_APP_SECRET não configurado — webhook recusado (fail-closed)"
+        : "Assinatura X-Hub-Signature-256 inválida ou ausente",
     });
-
-
-    return new NextResponse(
-      "Assinatura inválida",
-      {
-        status: 401
-      }
-    );
-
+    return new NextResponse("Assinatura inválida", { status: 401 });
   }
-
-
 
   let payload: MetaWebhookPayload;
 
@@ -220,28 +163,17 @@ export async function POST(
 
 
 
-        for (
-          const status of value.statuses ?? []
-        ) {
-
-
+        for (const status of value.statuses ?? []) {
+          // Status de entrega da mensagem que o sistema enviou: agora
+          // atualiza a mensagem no histórico (antes só ia para o log).
+          const aplicado = await atualizarStatusEntrega({ whatsappMessageId: status.id, statusMeta: status.status });
           await registrarLog({
-
-            direcao:"entrada",
-
-            evento:"webhook_status",
-
-            payload:{
-              status
-            },
-
-            sucesso:true
-
+            direcao: "entrada",
+            evento: "webhook_status",
+            payload: { id: status.id, status: status.status, aplicado },
+            sucesso: true,
           });
-
-
         }
-
 
       }
 
@@ -251,40 +183,19 @@ export async function POST(
 
 
   } catch(err) {
-
-
     await registrarLog({
-
-      direcao:"entrada",
-
-      evento:"webhook_erro_processamento",
-
-      payload:{
-        erro:
-          err instanceof Error
-            ? err.message
-            : String(err)
-      },
-
-      sucesso:false,
-
-      erro:
-        err instanceof Error
-          ? err.message
-          : "Erro desconhecido"
-
+      direcao: "entrada",
+      evento: "webhook_erro_processamento",
+      payload: { erro: err instanceof Error ? err.message : String(err) },
+      sucesso: false,
+      erro: err instanceof Error ? err.message : "Erro desconhecido",
     });
-
-
+    // 500 de propósito: a Meta reenvia o evento. Como o recebimento agora é
+    // idempotente (dedupe por whatsapp_message_id), o retry não duplica
+    // nada — e uma falha transitória do banco não perde mais a mensagem
+    // (antes, o 200 fazia a Meta desistir dela).
+    return new NextResponse("Erro ao processar", { status: 500 });
   }
 
-
-
-  return new NextResponse(
-    "EVENT_RECEIVED",
-    {
-      status:200
-    }
-  );
-
+  return new NextResponse("EVENT_RECEIVED", { status: 200 });
 }

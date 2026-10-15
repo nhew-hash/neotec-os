@@ -251,7 +251,7 @@ export async function enviarPropostaPeloWhatsapp(params: { orcamentoId: string; 
   if (conversa.cliente_id !== orc.cliente_id) throw new Error("Esta conversa não pertence ao cliente da proposta.");
   if (conversa.nao_contatar === true) throw new Error("Este cliente pediu para não ser contatado. A mensagem não foi enviada.");
   const msg = await enviarMensagem({ conversaId: conversa.id, telefone: conversa.telefone, texto, usuarioId: params.usuarioId });
-  if ((msg as unknown as { status_entrega?: string }).status_entrega !== "enviado") {
+  if (msg.status_entrega !== "enviado") {
     throw new Error("O WhatsApp não confirmou o envio. A mensagem NÃO foi enviada: tente de novo ou copie o texto.");
   }
   await marcarComoEnviada(orc.id);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -23,10 +23,16 @@ export function ClientesSearchBar() {
   const [isPending, startTransition] = useTransition();
   const [busca, setBusca] = useState(searchParams.get("busca") ?? "");
 
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+
   function atualizarUrl(campo: string, valor: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (valor) params.set(campo, valor);
     else params.delete(campo);
+    // Filtro novo sempre volta para a página 1 (antes, na página 5 uma busca
+    // com 3 resultados mostrava a lista vazia).
+    params.delete("pagina");
 
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
@@ -35,7 +41,9 @@ export function ClientesSearchBar() {
 
   function handleBuscaChange(valor: string) {
     setBusca(valor);
-    atualizarUrl("busca", valor);
+    // Uma navegação por pausa na digitação, não uma por tecla.
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => atualizarUrl("busca", valor.trim()), 300);
   }
 
   const temFiltroAtivo = searchParams.get("nivel") || searchParams.get("origem");

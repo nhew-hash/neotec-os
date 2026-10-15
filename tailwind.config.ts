@@ -49,7 +49,19 @@ const config: Config = {
         },
 
         // ---- Tokens de marca da Neotec OS (fora do padrão shadcn) ----
-        app: "#F7F8FA",
+        // Fundo do app: variável com fallback no valor antigo, para o escopo
+        // `.neotec-os` (sistema interno) trocar sem afetar login/portal/loja.
+        app: "hsl(var(--app, 220 23% 97.6%) / <alpha-value>)",
+        // ---- Navegação do sistema interno (redesign 2026) ----
+        nav: {
+          DEFAULT: "hsl(var(--nav) / <alpha-value>)",
+          foreground: "hsl(var(--nav-foreground) / <alpha-value>)",
+          muted: "hsl(var(--nav-muted) / <alpha-value>)",
+          hover: "hsl(var(--nav-hover) / <alpha-value>)",
+          active: "hsl(var(--nav-active) / <alpha-value>)",
+          "active-foreground": "hsl(var(--nav-active-foreground) / <alpha-value>)",
+          border: "hsl(var(--nav-border) / <alpha-value>)",
+        },
         sidebar: {
           DEFAULT: "#0B0D12",
           hover: "#161923",
@@ -83,14 +95,14 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        card: "8px",
+        card: "var(--radius-card, 8px)",
       },
       boxShadow: {
         // Sombra quase inexistente de propósito — a definição do card
         // agora vem da borda de 1px, não de profundidade simulada. Isso
         // é a mudança de "app fofo" pra "ferramenta de precisão".
-        card: "0 1px 2px 0 rgba(11, 13, 18, 0.03)",
-        "card-hover": "0 1px 2px 0 rgba(11, 13, 18, 0.06)",
+        card: "var(--shadow-card, 0 1px 2px 0 rgba(11, 13, 18, 0.03))",
+        "card-hover": "var(--shadow-card-hover, 0 1px 2px 0 rgba(11, 13, 18, 0.06))",
         popover: "0 8px 20px -4px rgba(11, 13, 18, 0.14), 0 2px 6px -2px rgba(11, 13, 18, 0.08)",
       },
       keyframes: {

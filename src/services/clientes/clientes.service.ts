@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { finalDoTelefone, interpretarBuscaCliente } from "@/lib/telefone";
 import type { Cliente } from "@/types";
 
 /**
@@ -22,29 +23,52 @@ interface ClienteInput {
   observacoes?: string;
 }
 
-export async function listarClientes(params?: {
+interface FiltrosClientes {
   busca?: string;
   nivel?: Cliente["nivel"];
   origem?: Cliente["origem"];
-}): Promise<Cliente[]> {
-  const supabase = await createClient();
+}
 
-  let query = supabase
-    .from("clientes")
-    .select("*")
-    .order("data_cadastro", { ascending: false });
-
-  if (params?.busca) {
-    const termo = params.busca.trim();
-    // Nome, WhatsApp, CPF e e-mail — os quatro campos que fazem sentido
-    // pra alguém no balcão achar um cliente rapidamente.
-    query = query.or(
-      `nome.ilike.%${termo}%,whatsapp.ilike.%${termo}%,cpf.ilike.%${termo}%,email.ilike.%${termo}%`
-    );
+/**
+ * Aplica a busca de forma SEGURA e tolerante a formatação:
+ * - antes, o termo era interpolado direto em `.or(nome.ilike.%termo%,...)` do
+ *   PostgREST: vírgula/parêntese no texto quebrava a busca (ou alterava o
+ *   filtro) e "(34) 99999-1234" não achava "34999991234";
+ * - agora reaproveita `interpretarBuscaCliente` (mesma regra da Central
+ *   Comercial): palavras → nome, trechos numéricos → telefone; telefone
+ *   completo casa pelos 8 últimos dígitos (com ou sem o 9º dígito/DDD).
+ * Um termo que não é nome nem telefone (e-mail, CPF com pontuação) ainda
+ * busca em e-mail/CPF, sem caracteres especiais do PostgREST.
+ */
+function aplicarFiltrosClientes<Q extends { ilike: (c: string, v: string) => Q; eq: (c: string, v: string) => Q; or: (f: string) => Q }>(query: Q, params?: FiltrosClientes): Q {
+  const termo = params?.busca?.trim() ?? "";
+  if (termo) {
+    if (termo.includes("@")) {
+      query = query.ilike("email", `%${termo.replace(/[,()%*\\"'`;:]/g, "")}%`);
+    } else {
+      const { nomes, digitos } = interpretarBuscaCliente(termo);
+      for (const n of nomes) query = query.ilike("nome", `%${n}%`);
+      for (const d of digitos) {
+        const trecho = d.length >= 10 ? finalDoTelefone(d) : d;
+        // Telefone OU CPF (CPF é guardado só com dígitos ou com máscara; os dois casam pelo trecho).
+        query = d.length === 11 && nomes.length === 0
+          ? query.or(`whatsapp.ilike.%${trecho}%,cpf.ilike.%${d}%`)
+          : query.ilike("whatsapp", `%${trecho}%`);
+      }
+    }
   }
-
   if (params?.nivel) query = query.eq("nivel", params.nivel);
   if (params?.origem) query = query.eq("origem", params.origem);
+  return query;
+}
+
+export async function listarClientes(params?: FiltrosClientes): Promise<Cliente[]> {
+  const supabase = await createClient();
+
+  const query = aplicarFiltrosClientes(
+    supabase.from("clientes").select("*").order("data_cadastro", { ascending: false }),
+    params
+  );
 
   const { data, error } = await query;
 
@@ -53,6 +77,22 @@ export async function listarClientes(params?: {
   }
 
   return data ?? [];
+}
+
+/** Listagem paginada NO BANCO (antes a tela de Clientes baixava a base inteira e paginava em memória). */
+export async function listarClientesPaginado(params: FiltrosClientes & { pagina: number; porPagina: number }): Promise<{ clientes: Cliente[]; total: number }> {
+  const supabase = await createClient();
+  const pagina = Math.max(1, Math.trunc(params.pagina) || 1);
+  const de = (pagina - 1) * params.porPagina;
+
+  const query = aplicarFiltrosClientes(
+    supabase.from("clientes").select("*", { count: "exact" }).order("data_cadastro", { ascending: false }),
+    params
+  ).range(de, de + params.porPagina - 1);
+
+  const { data, error, count } = await query;
+  if (error) throw new Error(`Não foi possível carregar os clientes: ${error.message}`);
+  return { clientes: data ?? [], total: count ?? 0 };
 }
 
 export async function buscarClientePorId(id: string): Promise<Cliente | null> {

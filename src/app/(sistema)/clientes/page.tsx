@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { listarClientes } from "@/services/clientes/clientes.service";
+import { listarClientesPaginado } from "@/services/clientes/clientes.service";
 import { ClientesTable } from "@/components/clientes/clientes-table";
 import { ClientesSearchBar } from "@/components/clientes/clientes-search-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
-import { paginar } from "@/utils/paginar";
 import type { Cliente } from "@/types";
 
 const POR_PAGINA = 20;
@@ -19,20 +18,19 @@ interface ClientesPageProps {
 export default async function ClientesPage({ searchParams }: ClientesPageProps) {
   const { busca, nivel, origem, pagina } = await searchParams;
 
-  const clientes = await listarClientes({
+  const { clientes: clientesPaginados, total } = await listarClientesPaginado({
     busca,
     nivel: nivel as Cliente["nivel"] | undefined,
     origem: origem as Cliente["origem"] | undefined,
+    pagina: Number(pagina ?? "1"),
+    porPagina: POR_PAGINA,
   });
-
-  const paginaAtual = Number(pagina ?? "1");
-  const clientesPaginados = paginar(clientes, paginaAtual, POR_PAGINA);
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Clientes"
-        description={`${clientes.length} cliente(s) encontrado(s)`}
+        description={busca ? `${total} cliente(s) encontrado(s) para “${busca}”` : `${total} cliente(s) cadastrado(s)`}
         actions={
           <Button asChild>
             <Link href="/clientes/novo"><Plus className="h-4 w-4" />Novo cliente</Link>
@@ -45,7 +43,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
       <Card>
         <CardContent className="p-0">
           <ClientesTable clientes={clientesPaginados} />
-          <Pagination totalItens={clientes.length} itensPorPagina={POR_PAGINA} />
+          <Pagination totalItens={total} itensPorPagina={POR_PAGINA} />
         </CardContent>
       </Card>
     </div>

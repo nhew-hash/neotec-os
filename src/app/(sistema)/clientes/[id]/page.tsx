@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { MessageCircle, Pencil, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buscarClientePorId } from "@/services/clientes/clientes.service";
 import { listarCashbackPorCliente, obterSaldoCashback } from "@/services/cashback/cashback.service";
 import { listarGarantiasPorCliente } from "@/services/garantias/garantias.service";
 import { listarTimelinePorCliente } from "@/services/timeline/timeline.service";
 import { ClienteProfileTabs } from "@/components/clientes/cliente-profile-tabs";
+import { AtendimentoClienteCard, type ConversaDoCliente } from "@/components/clientes/atendimento-cliente-card";
+import { obterResumoClienteAtendimento } from "@/services/comunicacao/comunicacao-cliente-resumo.service";
 import { CashbackQuickForm } from "@/components/clientes/cashback-quick-form";
 import { CriarAcessoPortalButton } from "@/components/clientes/criar-acesso-portal-button";
 import { Button } from "@/components/ui/button";
@@ -36,6 +38,8 @@ export default async function ClientePerfilPage({ params }: { params: Promise<{ 
     { data: orcamentos },
     { data: conversas },
     { data: fotos },
+    { data: conversasWhatsapp },
+    { data: cardAberto },
   ] = await Promise.all([
     supabase.from("vw_vendas_seguro").select("*").eq("cliente_id", id).order("data_venda", { ascending: false }),
     supabase.from("ordens_servico").select("*").eq("cliente_id", id).order("data_entrada", { ascending: false }),
@@ -46,11 +50,15 @@ export default async function ClientePerfilPage({ params }: { params: Promise<{ 
     supabase.from("orcamentos").select("*").eq("cliente_id", id).order("data_criacao", { ascending: false }),
     supabase.from("conversas").select("*").eq("cliente_id", id).order("data_inicio", { ascending: false }),
     supabase.from("fotos").select("*").eq("tipo", "cliente").eq("referencia_id", id),
+    supabase.from("whatsapp_conversas").select("id, status, nao_lidas, ultima_mensagem_em").eq("cliente_id", id).order("ultima_mensagem_em", { ascending: false, nullsFirst: false }).limit(5),
+    supabase.from("crm_cards").select("id").eq("cliente_id", id).eq("perdido", false).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
+  const resumoAtendimento = await obterResumoClienteAtendimento(id, cardAberto?.id ?? null);
+  const conversaAtual = (conversasWhatsapp ?? []).find((c) => c.status === "aberta") ?? (conversasWhatsapp ?? [])[0];
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 font-display text-sm font-semibold text-primary">
             {getInitials(cliente.nome)}
@@ -60,9 +68,21 @@ export default async function ClientePerfilPage({ params }: { params: Promise<{ 
             <p className="font-mono text-sm text-muted-foreground">{formatWhatsapp(cliente.whatsapp)}</p>
           </div>
         </div>
-        <Button variant="outline" asChild>
-          <Link href={`/clientes/${id}/editar`}><Pencil className="h-4 w-4" />Editar</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {conversaAtual && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/comunicacao/${conversaAtual.id}`}><MessageCircle aria-hidden />Conversa</Link>
+            </Button>
+          )}
+          {["admin", "gerente", "vendedor"].includes(cargo) && conversaAtual && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/central-comercial/proposta?conversa=${conversaAtual.id}`}><FileText aria-hidden />Proposta</Link>
+            </Button>
+          )}
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/clientes/${id}/editar`}><Pencil aria-hidden />Editar</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
@@ -83,6 +103,9 @@ export default async function ClientePerfilPage({ params }: { params: Promise<{ 
         </Card>
 
         <div className="flex flex-col gap-4">
+          {["admin", "gerente", "vendedor"].includes(cargo) && (
+            <AtendimentoClienteCard conversas={(conversasWhatsapp ?? []) as ConversaDoCliente[]} resumo={resumoAtendimento} />
+          )}
           <Card>
             <CardHeader><CardTitle>Dados</CardTitle></CardHeader>
             <CardContent className="flex flex-col gap-2 text-sm">

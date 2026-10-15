@@ -36,3 +36,14 @@ describe("precisaResposta", () => {
   it("respondida depois da última mensagem do cliente (ex.: pelo celular): não precisa", () => expect(precisaResposta("2026-10-14T10:00:00Z", "2026-10-14T10:05:00Z")).toBe(false));
   it("cliente escreveu de novo depois da resposta: precisa", () => expect(precisaResposta("2026-10-14T11:00:00Z", "2026-10-14T10:05:00Z")).toBe(true));
 });
+
+describe("proximaAcao — retornos do CRM (integração com o CRM)", () => {
+  const vazio = { clientesAguardando: [], orcamentosParados: [], sugestoesPendentes: 0, tarefasAtrasadas: 0, tarefasPendentes: 0 };
+  it("retorno atrasado vem depois de cliente esperando e antes de proposta parada", () => {
+    expect(proximaAcao({ ...vazio, followupsAtrasados: 2, orcamentosParados: [{ cliente: "Ana", dias: 5 }] }).tipo).toBe("followup_atrasado");
+    expect(proximaAcao({ ...vazio, followupsAtrasados: 2, clientesAguardando: [{ nome: "Ana", naoLidas: 1, conversaId: "c" }] }).tipo).toBe("responder");
+  });
+  it("sem o campo, o comportamento anterior não muda", () => {
+    expect(proximaAcao({ ...vazio, orcamentosParados: [{ cliente: "Ana", dias: 5 }] }).tipo).toBe("orcamento_parado");
+  });
+});

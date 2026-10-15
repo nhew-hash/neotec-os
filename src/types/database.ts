@@ -463,6 +463,10 @@ export interface CrmEtapa {
   ordem: number;
   cor: string;
   ativa: boolean;
+  /** Fase 176 — "venda" ou "assistencia". */
+  tipo?: string;
+  /** Fase 180 — card parado aqui por mais dias que isto gera alerta. Null = nunca. */
+  dias_para_alerta?: number | null;
   created_at: string;
 }
 
@@ -540,6 +544,8 @@ export interface WhatsappConversa {
   nao_lidas: number;
   ultima_mensagem_em: string | null;
   primeira_resposta_em: string | null;
+  /** Fase 264 — cliente pediu para não ser contatado (opcional até a migration ser aplicada). */
+  nao_contatar?: boolean | null;
   created_at: string;
   updated_at: string;
 }

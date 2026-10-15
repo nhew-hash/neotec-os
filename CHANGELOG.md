@@ -4,6 +4,32 @@ Todas as mudancas relevantes do projeto, por fase de desenvolvimento.
 
 # Changelog - Neotec OS
 
+## [Fase 269] - Auditoria 360°: segurança, integridade da Comunicação e redesign dos três pilares
+
+Relatório completo, achados priorizados (P0–P3), decisões de módulos, testes e
+pendências em **`docs/AUDITORIA_360.md`**. Resumo:
+
+- **Segurança**: webhook da Meta fail-closed (sem `WHATSAPP_APP_SECRET` recusa
+  o POST); Next.js 16.4.1 (falha crítica de bypass de middleware); rota pública
+  exata (`/loja-admin` não é mais "público"); `/api/loja/*` público (a busca e o
+  comparador da loja não funcionavam para visitante); upload do Catálogo de
+  fotos com lista branca; segredos comparados em tempo constante.
+- **Comunicação**: recebimento idempotente, conversa robusta a duplicatas,
+  contador atômico, status de entrega real (entregue/lido/falhou), tela só diz
+  "enviado" com confirmação do provedor, sem envio duplo no Enter.
+- **CRM/automação**: aviso de mudança de etapa ao cliente desligado por padrão
+  (ignorava "não contatar"); um follow-up por card; 9º dígito; cron de
+  follow-ups automáticos e de retiradas agendadas passam a rodar.
+- **Números**: dia de Brasília em tudo, fonte que falha mostra "—" (nunca 0),
+  faturamento só de vendas concluídas, horários sem o erro de 3h.
+- **Redesign**: design system `.neotec-os` (loja/portal/login inalterados),
+  navegação com os três pilares no topo e grupos recolhíveis, busca Ctrl+K,
+  novo Início, Comunicação, CRM e integração com Central Comercial e perfil do
+  cliente.
+- **Banco**: `fase269_comunicacao_integridade.sql` (aditiva, com guarda contra
+  duplicatas antigas). **Deploy**: ver checklist na seção G do relatório.
+- **CI**: typecheck + testes em todo push/PR.
+
 ## [Fase 257] - Editar preço de venda direto pelo Estoque
 
 Recurso pra alterar o preço de venda de um produto ou aparelho sem abrir

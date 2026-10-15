@@ -2,7 +2,7 @@ import { cronAutorizado } from "@/lib/cron-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { gerarSugestoesComerciais } from "@/services/ia/sugestoes-comerciais.service";
 import { processarFollowupsDeVenda } from "@/services/ia/followup-vendas.service";
-import { processarRetiradasAgendadas } from "@/services/estoque/estoque.actions";
+import { processarRetiradasAgendadas } from "@/services/estoque/retiradas-agendadas.service";
 import { expirarPerguntasAntigas } from "@/services/ia/ia-pergunta-equipe.service";
 import { gerarFollowupsAutomaticos } from "@/services/crm-pipeline/crm-pipeline.service";
 import { gerarFollowupsAutomaticosProstec, verificarTaxaOptOutProstec, recalcularNextBestActionTodosLeads } from "@/services/prostec/prostec.service";

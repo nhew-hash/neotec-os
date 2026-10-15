@@ -40,9 +40,20 @@ export function useConversasRealtime(iniciais: ConversaComCliente[]) {
           if (payload.eventType === "DELETE") return;
           const atualizada = payload.new as WhatsappConversa;
 
+          // A automação vincula o cliente DEPOIS de criar a conversa: sem buscar
+          // o nome aqui, a conversa ficava mostrando só o telefone até um F5.
+          const precisaNome = (anterior: ConversaComCliente | undefined) =>
+            atualizada.cliente_id && anterior?.cliente?.id !== atualizada.cliente_id;
+          if (precisaNome(conversasRef.current.find((c) => c.id === atualizada.id))) {
+            void supabase.from("clientes").select("id, nome").eq("id", atualizada.cliente_id!).maybeSingle().then(({ data }) => {
+              if (!data) return;
+              setConversas((prev) => prev.map((c) => (c.id === atualizada.id ? { ...c, cliente: data } : c)));
+            });
+          }
+
           setConversas((prev) => {
             const existente = prev.find((c) => c.id === atualizada.id);
-            const mesclada: ConversaComCliente = { ...atualizada, cliente: existente?.cliente ?? null };
+            const mesclada: ConversaComCliente = { ...atualizada, cliente: existente?.cliente?.id === atualizada.cliente_id ? existente.cliente : null };
             const semEla = prev.filter((c) => c.id !== atualizada.id);
             return [mesclada, ...semEla].sort((a, b) =>
               (b.ultima_mensagem_em ?? "").localeCompare(a.ultima_mensagem_em ?? "")

@@ -1,4 +1,5 @@
 import type { CrmFollowup, CrmCard, Cliente } from "@/types";
+import { inicioDoDiaBrasilia } from "@/utils/data-brasilia";
 
 type FollowupComCard = CrmFollowup & { card: Pick<CrmCard, "id" | "titulo"> | null; cliente: Pick<Cliente, "id" | "nome"> | null };
 
@@ -20,11 +21,12 @@ export interface ItemFollowupUnificado {
  * vinculado a um card OU direto a um cliente). O sistema paralelo de
  * "retornos" foi migrado pra cá e não é mais usado.
  */
-export function categorizarFollowups(followups: FollowupComCard[]): ItemFollowupUnificado[] {
-  const hojeInicio = new Date();
-  hojeInicio.setHours(0, 0, 0, 0);
-  const hojeFim = new Date(hojeInicio);
-  hojeFim.setHours(23, 59, 59, 999);
+export function categorizarFollowups(followups: FollowupComCard[], agora: Date = new Date()): ItemFollowupUnificado[] {
+  // "Hoje" no fuso de Brasília — com setHours(0) no servidor (UTC na Vercel),
+  // um follow-up das 22h de ontem aparecia como "hoje" e o de 21h30 de hoje
+  // como "amanhã".
+  const hojeInicio = inicioDoDiaBrasilia(agora);
+  const hojeFim = new Date(hojeInicio.getTime() + 24 * 60 * 60 * 1000 - 1);
 
   function categoriaDe(dataStr: string): ItemFollowupUnificado["categoria"] {
     const data = new Date(dataStr);
@@ -45,6 +47,6 @@ export function categorizarFollowups(followups: FollowupComCard[]): ItemFollowup
 }
 
 /** Contagem pro badge da aba — só hoje + atrasado conta como "precisa de atenção agora". */
-export function contarFollowupsUrgentes(followups: FollowupComCard[]): number {
-  return categorizarFollowups(followups).filter((i) => i.categoria !== "futuro").length;
+export function contarFollowupsUrgentes(followups: FollowupComCard[], agora: Date = new Date()): number {
+  return categorizarFollowups(followups, agora).filter((i) => i.categoria !== "futuro").length;
 }

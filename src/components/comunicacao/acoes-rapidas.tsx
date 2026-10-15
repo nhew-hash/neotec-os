@@ -34,6 +34,7 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
     if (!expandido || !cardId || etapas.length > 0) return;
     listarEtapasAction().then((result) => {
       if (result.success) setEtapas(result.data);
+      else setMensagem(result.error);
     });
   }, [expandido, cardId, etapas.length]);
 
@@ -57,9 +58,11 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
   async function handleMoverEtapa(etapaId: string) {
     if (!cardId) return;
     setMovendoEtapa(true);
-    await moverCardEtapaAction(cardId, etapaId);
+    const result = await moverCardEtapaAction(cardId, etapaId);
     setMovendoEtapa(false);
-    setMensagem("Etapa do CRM atualizada.");
+    // Antes mostrava "atualizada" sem olhar o resultado.
+    setMensagem(result.success ? "Etapa do CRM atualizada." : result.error);
+    if (result.success) router.refresh();
   }
 
   return (
@@ -67,7 +70,8 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
       <button
         type="button"
         onClick={() => setExpandido((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+        className="flex w-full items-center justify-between px-4 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+        aria-expanded={expandido}
       >
         Ações rápidas
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandido ? "rotate-180" : ""}`} />

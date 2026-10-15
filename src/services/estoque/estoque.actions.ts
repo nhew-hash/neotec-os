@@ -217,27 +217,6 @@ export async function apagarAparelhoAction(id: string): Promise<ActionResult> {
   }
 }
 
-/** Processa retiradas agendadas — chamado pelo cron diário. Despublica sozinho todo item cuja data de retirada já chegou. */
-export async function processarRetiradasAgendadas(): Promise<{ produtos: number; aparelhos: number }> {
-  const supabase = await createClient();
-  const agora = new Date().toISOString();
-
-  const { data: produtosRetirados } = await supabase
-    .from("produtos")
-    .update({ visivel_loja: false, retirar_em: null })
-    .lte("retirar_em", agora)
-    .not("retirar_em", "is", null)
-    .select("id");
-
-  const { data: aparelhosRetirados } = await supabase
-    .from("aparelhos")
-    .update({ disponivel_loja_virtual: false, retirar_em: null })
-    .lte("retirar_em", agora)
-    .not("retirar_em", "is", null)
-    .select("id");
-
-  return { produtos: produtosRetirados?.length ?? 0, aparelhos: aparelhosRetirados?.length ?? 0 };
-}
 
 /** Agenda ou cancela a retirada de um produto — usado pelos botões "Retirar agora" (imediato, chama diretamente a action de despublicar) e "Retirar em 1 dia útil" (agenda, cron processa depois). */
 export async function agendarRetiradaProdutoAction(produtoId: string, diasUteis: number | null): Promise<ActionResult> {

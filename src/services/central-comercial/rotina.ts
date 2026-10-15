@@ -1,7 +1,7 @@
 /**
  * "O que preciso fazer agora?" — escolhe UMA próxima ação a partir do que a tela já carregou.
  * Função pura: sem banco, sem relógio. Prioridade fixa e explicável:
- * cliente esperando > orçamento parado > follow-up sugerido > tarefa atrasada > tarefa pendente.
+ * cliente esperando > retorno do CRM atrasado > orçamento parado > follow-up sugerido > tarefa atrasada > tarefa pendente.
  */
 export interface EntradaRotina {
   clientesAguardando: { nome: string; naoLidas: number; conversaId: string }[];
@@ -9,10 +9,12 @@ export interface EntradaRotina {
   sugestoesPendentes: number;
   tarefasAtrasadas: number;
   tarefasPendentes: number;
+  /** Follow-ups do CRM que já passaram da data (opcional: telas antigas não informam). */
+  followupsAtrasados?: number;
 }
 
 export interface ProximaAcao {
-  tipo: "responder" | "orcamento_parado" | "follow_up" | "tarefa_atrasada" | "tarefa" | "em_dia";
+  tipo: "responder" | "followup_atrasado" | "orcamento_parado" | "follow_up" | "tarefa_atrasada" | "tarefa" | "em_dia";
   titulo: string;
   detalhe: string;
   rotulo: string;
@@ -31,6 +33,16 @@ export function proximaAcao(e: EntradaRotina): ProximaAcao {
       detalhe: outros > 0 ? `Mais ${plural(outros, "cliente", "clientes")} na fila depois dele.` : `${plural(primeiro.naoLidas, "mensagem nova", "mensagens novas")}.`,
       rotulo: "Responder agora",
       href: `/comunicacao/${primeiro.conversaId}`,
+    };
+  }
+  if ((e.followupsAtrasados ?? 0) > 0) {
+    const n = e.followupsAtrasados ?? 0;
+    return {
+      tipo: "followup_atrasado",
+      titulo: `${plural(n, "retorno atrasado", "retornos atrasados")} no CRM`,
+      detalhe: "Clientes que você combinou de procurar e ainda não procurou.",
+      rotulo: "Ver retornos",
+      href: "#retornos",
     };
   }
   const parados = e.orcamentosParados.filter((o) => o.dias >= 3).sort((a, b) => b.dias - a.dias);

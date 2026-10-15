@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { exigirCargo } from "@/lib/auth/exigir-cargo";
-import { conversasAguardandoResposta, garantirTarefasDoDia, listarMinhasTarefas, orcamentosEmAberto, resultadoDoMes, tentar } from "@/services/central-comercial/central-comercial.service";
+import { conversasAguardandoResposta, garantirTarefasDoDia, listarMinhasTarefas, orcamentosEmAberto, resultadoDoMes, retornosDoDia, tentar } from "@/services/central-comercial/central-comercial.service";
+import { RetornosLista } from "@/components/central-comercial/retornos-lista";
 import { listarSugestoes } from "@/services/ia/sugestoes-comerciais.service";
 import { listarMinhasAprovacoes } from "@/services/vendas/aprovacoes-desconto.service";
 import { SugestoesLista } from "@/components/central-comercial/sugestoes-lista";
@@ -34,13 +35,14 @@ export default async function MinhaRotinaPage() {
   const agora = new Date();
 
   await tentar(() => garantirTarefasDoDia(agora)); // idempotente
-  const [tarefas, aguardando, orcamentos, sugestoes, meta, aprovacoes] = await Promise.all([
+  const [tarefas, aguardando, orcamentos, sugestoes, meta, aprovacoes, retornos] = await Promise.all([
     tentar(() => listarMinhasTarefas(auth.userId, agora)),
     tentar(() => conversasAguardandoResposta(auth.userId, auth.cargo)),
     tentar(() => orcamentosEmAberto(auth.userId, auth.cargo, agora)),
     tentar(() => listarSugestoes({ responsavelId: auth.cargo === "vendedor" ? auth.userId : undefined, limite: 20 })),
     tentar(() => resultadoDoMes(auth.userId, agora)),
     tentar(() => listarMinhasAprovacoes(auth.userId)),
+    tentar(() => retornosDoDia(auth.userId, auth.cargo, agora)),
   ]);
 
   const hora = obterDataHoraBrasilia(agora).hora;
@@ -52,9 +54,10 @@ export default async function MinhaRotinaPage() {
     sugestoesPendentes: sugestoes.ok ? sugestoes.dados.filter((x) => x.status === "sugerida").length : 0,
     tarefasAtrasadas: tarefas.ok ? tarefas.dados.filter((t) => t.status === "pendente" && new Date(t.prazo).getTime() < agora.getTime()).length : 0,
     tarefasPendentes: tarefas.ok ? tarefas.dados.filter((t) => t.status === "pendente").length : 0,
+    followupsAtrasados: retornos.ok ? retornos.dados.filter((r) => r.atrasado).length : 0,
   });
   // Se alguma fonte falhou, não declaramos "tudo em dia": a tela precisa dizer que não sabe.
-  const algumaFalhou = [aguardando, orcamentos, sugestoes, tarefas].some((f) => !f.ok);
+  const algumaFalhou = [aguardando, orcamentos, sugestoes, tarefas, retornos].some((f) => !f.ok);
 
   return (
     <div className="space-y-8">
@@ -129,6 +132,10 @@ export default async function MinhaRotinaPage() {
           )}
         </Secao>
       </div>
+
+      <Secao id="retornos" titulo="Retornos do CRM" descricao="Follow-ups agendados para hoje ou atrasados — os mesmos da aba Follow-ups do CRM.">
+        {!retornos.ok ? <Indisponivel motivo={retornos.motivo} /> : <RetornosLista retornos={retornos.dados} />}
+      </Secao>
 
       <Secao id="follow-ups" titulo="Follow-ups sugeridos" descricao="O sistema sugere; você edita, envia, adia ou descarta. Nada é enviado sozinho.">
         {!sugestoes.ok ? <Indisponivel motivo={sugestoes.motivo} /> : <SugestoesLista sugestoes={sugestoes.dados} />}

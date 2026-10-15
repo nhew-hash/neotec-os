@@ -1,6 +1,7 @@
 import { MobileNav } from "./mobile-nav";
 import { UserMenu } from "./user-menu";
-import { BuscaRapida } from "./busca-rapida";
+import { BuscaComandos } from "./busca-comandos";
+import { TituloSecao } from "./titulo-secao";
 import { getSaudacao } from "@/utils";
 import type { CargoUsuario } from "@/types";
 
@@ -11,30 +12,25 @@ interface TopbarProps {
     cargo: CargoUsuario;
   };
   naoLidasInicial: number;
-  titulo?: string;
 }
 
 /**
  * Server Component — os dados do usuário chegam prontos via props
- * (buscados no layout do grupo (sistema)). Só o UserMenu, MobileNav e
- * BuscaRapida, que precisam de interatividade, são Client Components.
+ * (buscados no layout do grupo (sistema)). Só as partes interativas são
+ * Client Components.
  */
-export function Topbar({ usuario, naoLidasInicial, titulo }: TopbarProps) {
+export function Topbar({ usuario, naoLidasInicial }: TopbarProps) {
   const primeiroNome = usuario.nome.split(" ")[0];
 
   return (
-    <header className="flex h-14 items-center justify-between gap-4 border-b border-border bg-card px-4 md:px-6">
-      <div className="flex min-w-0 items-center gap-3">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card/80 px-4 backdrop-blur md:px-6">
+      <div className="flex min-w-0 items-center gap-2">
         <MobileNav cargo={usuario.cargo} naoLidasInicial={naoLidasInicial} />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">
-            {titulo ?? `${getSaudacao()}, ${primeiroNome}`}
-          </p>
-        </div>
+        <TituloSecao saudacao={`${getSaudacao()}, ${primeiroNome}`} />
       </div>
 
-      <div className="flex items-center gap-3">
-        <BuscaRapida />
+      <div className="flex items-center gap-2">
+        <BuscaComandos cargo={usuario.cargo} />
         <UserMenu nome={usuario.nome} email={usuario.email} cargo={usuario.cargo} />
       </div>
     </header>

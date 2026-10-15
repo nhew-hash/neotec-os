@@ -160,6 +160,50 @@ export async function conversasAguardandoResposta(usuarioId: string, cargo: stri
   return [...porTelefone.values()];
 }
 
+export interface RetornoDoDia {
+  id: string; motivo: string; data_agendada: string; atrasado: boolean;
+  cliente_id: string | null; cliente_nome: string | null; card_id: string | null; conversa_id: string | null;
+}
+
+/**
+ * Follow-ups do CRM (crm_followups) que vencem hoje ou já atrasaram — a ponte
+ * entre o CRM e a rotina da vendedora. Vendedora vê os dela e os sem dono
+ * (inclusive os automáticos, que nascem sem usuário); gerente/admin veem todos.
+ */
+export async function retornosDoDia(usuarioId: string, cargo: string, agora = new Date()): Promise<RetornoDoDia[]> {
+  const supabase = await createClient();
+  const fimDoDia = new Date(new Date(`${dataRefBrasilia(agora)}T03:00:00Z`).getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("crm_followups")
+    .select("id, motivo, data_agendada, usuario_id, card_id, cliente_id, cliente:clientes(id, nome), card:crm_cards(id, responsavel_id, cliente:clientes(id, nome))")
+    .eq("status", "pendente")
+    .lt("data_agendada", fimDoDia)
+    .order("data_agendada", { ascending: true })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  type Linha = { id: string; motivo: string; data_agendada: string; usuario_id: string | null; card_id: string | null; cliente_id: string | null;
+    cliente: { id: string; nome: string } | null; card: { id: string; responsavel_id: string | null; cliente: { id: string; nome: string } | null } | null };
+  const linhas = ((data ?? []) as unknown as Linha[]).filter((l) => {
+    if (cargo !== "vendedor") return true;
+    const dono = l.usuario_id ?? l.card?.responsavel_id ?? null;
+    return dono === null || dono === usuarioId;
+  });
+  const cardIds = linhas.map((l) => l.card_id).filter((x): x is string => Boolean(x));
+  const conversaPorCard = new Map<string, string>();
+  if (cardIds.length > 0) {
+    const { data: conversas } = await supabase.from("whatsapp_conversas").select("id, card_id").in("card_id", cardIds).eq("status", "aberta");
+    for (const c of conversas ?? []) if (c.card_id && !conversaPorCard.has(c.card_id)) conversaPorCard.set(c.card_id, c.id);
+  }
+  return linhas.map((l) => {
+    const cliente = l.cliente ?? l.card?.cliente ?? null;
+    return {
+      id: l.id, motivo: l.motivo, data_agendada: l.data_agendada, atrasado: new Date(l.data_agendada).getTime() < agora.getTime(),
+      cliente_id: cliente?.id ?? null, cliente_nome: cliente?.nome ?? null, card_id: l.card_id,
+      conversa_id: l.card_id ? conversaPorCard.get(l.card_id) ?? null : null,
+    };
+  });
+}
+
 export interface OrcamentoAberto { id: string; cliente_nome: string | null; cliente_whatsapp: string | null; valor: number; status: string; data_criacao: string; dias_parado: number }
 
 /** Orçamentos que ainda não viraram venda. Vendedora vê os seus; gerente/admin veem todos. Nenhum campo de custo. */

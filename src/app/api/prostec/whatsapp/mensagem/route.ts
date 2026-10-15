@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { segredoConfere } from "@/services/whatsapp/webhook-assinatura";
 
 /** Bridge da Prostec chama a cada mensagem nova recebida. Payload real do Bridge: telefone, nomeContato, tipo, conteudo, idExterno, jidOriginal, midiaBase64?, midiaMimeType?. */
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-bridge-secret");
-  if (!secret || secret !== process.env.WHATSAPP_PROSTEC_BRIDGE_SECRET) {
+  if (!segredoConfere(secret, process.env.WHATSAPP_PROSTEC_BRIDGE_SECRET)) {
     return new NextResponse("Não autorizado", { status: 401 });
   }
 

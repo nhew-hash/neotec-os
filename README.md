@@ -44,6 +44,10 @@ npm run dev
 27. `supabase/migrations/fase27_central_cotacoes.sql` — Central de Cotações Inteligente.
 28. `supabase/migrations/fase28_ia_atendimento.sql` — IA de Atendimento (pausa por conversa, selo de mensagem enviada pela IA).
 
+…(fases 29–268 em `supabase/migrations/`, aplicar em ordem numérica)…
+
+269. `supabase/migrations/fase269_comunicacao_integridade.sql` — unicidade do id da mensagem do WhatsApp, uma conversa aberta por telefone, contador de não lidas atômico (auditoria 360°, ver `docs/AUDITORIA_360.md`).
+
 ## WhatsApp — dois provedores
 
 O Neotec OS suporta **Meta Cloud API** (oficial) e **WhatsApp Web via QR
@@ -68,8 +72,13 @@ Todas aditivas — nenhuma reescreve ou apaga dado das fases anteriores.
 ## Testes
 
 ```bash
+npm run typecheck   # tsc --noEmit
 npm run test
 ```
+
+`npm run lint` ainda aponta para `next lint`, que não existe mais no Next 16
+(não há ESLint configurado). O CI (`.github/workflows/ci.yml`) roda typecheck
+e testes em todo push/PR.
 
 Cobertura atual: funções puras (`utils/format.ts`, `utils/permissions.ts`).
 Testes de RLS e de fluxo completo (Server Actions contra um Supabase real)
@@ -79,6 +88,8 @@ simula localmente. Ver `ARCHITECTURE.md` para o racional.
 
 ## Documentação
 
+- `docs/AUDITORIA_360.md` — auditoria 360°: achados, correções, decisões, pendências e checklist de deploy
+- `DESIGN_SYSTEM.md` — tokens e padrões visuais do sistema interno
 - `ARCHITECTURE.md` — decisões arquiteturais e o porquê de cada uma
 - `CHANGELOG.md` — histórico por fase de desenvolvimento
 
@@ -156,6 +167,15 @@ nenhuma. O que fica desligado por padrão é só o **envio**:
 configuradas. Até lá, toda mensagem "enviada" pela tela de Comunicação
 fica registrada no histórico com `status_entrega: erro` e o motivo — não
 quebra a experiência, só não sai de verdade.
+
+**Segurança do webhook (auditoria 360°)**: sem `WHATSAPP_APP_SECRET`, o
+webhook agora **recusa** o POST (antes aceitava qualquer corpo). Só para
+desenvolvimento local existe `WHATSAPP_WEBHOOK_ALLOW_UNSIGNED=true`, ignorado
+em produção.
+
+**Aviso de mudança de etapa**: o WhatsApp automático ao cliente quando o card
+muda de etapa no CRM está **desligado por padrão**. Para religar:
+`CRM_AVISO_ETAPA_WHATSAPP=true` (respeita "não contatar" e o horário de envio).
 
 Passo a passo para ligar de verdade, quando for a hora:
 1. Criar o app e o número de teste/produção no Meta for Developers.

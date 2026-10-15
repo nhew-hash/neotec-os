@@ -58,3 +58,17 @@ describe("finalDoTelefone", () => {
     expect(finalDoTelefone("3499990000")).toBe("99990000");
   });
 });
+
+import { variantesTelefoneBR } from "../telefone";
+
+describe("variantesTelefoneBR", () => {
+  it("número da Meta sem o 9º dígito também casa com o cadastro de 11 dígitos", () => {
+    expect(variantesTelefoneBR("553499991234")).toEqual(["3499991234", "34999991234"]);
+  });
+  it("cadastro de 11 dígitos também testa a forma sem o 9", () => {
+    expect(variantesTelefoneBR("5534999991234")).toEqual(["34999991234", "3499991234"]);
+  });
+  it("fixo (começa com 2-5) não ganha 9", () => {
+    expect(variantesTelefoneBR("553432221234")).toEqual(["3432221234"]);
+  });
+});

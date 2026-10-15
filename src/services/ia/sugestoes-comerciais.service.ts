@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { enviarMensagem } from "@/services/whatsapp/whatsapp.service";
+import { enviarMensagem, exigirEnvioConfirmado } from "@/services/whatsapp/whatsapp.service";
 import { avaliarEnvioAutomatico, janelaDaConfig, proximoHorarioPermitido, modoDoBot, type ConfigBotLinha } from "@/services/whatsapp/trava-envio";
 import { gerarSugestao, resultadoDoAcompanhamento, type ContextoConversa, type MensagemResumo, type SugestaoAnterior } from "./sugestoes-comerciais";
 
@@ -189,7 +189,9 @@ export async function aprovarEEnviarSugestao(id: string, texto: string, usuarioI
   if (!reservada || reservada.length === 0) throw new Error("Esta sugestão já foi tratada por outra pessoa.");
 
   try {
-    await enviarMensagem({ conversaId: sug.conversa_id, telefone: conversa.telefone, texto: mensagem, usuarioId });
+    // Antes, falha do provedor não lançava erro e a sugestão ficava como
+    // "enviada" sem a mensagem ter saído. Agora confirma antes de manter.
+    exigirEnvioConfirmado(await enviarMensagem({ conversaId: sug.conversa_id, telefone: conversa.telefone, texto: mensagem, usuarioId }));
   } catch (err) {
     await supabase.from("sugestoes_comerciais").update({ status: "sugerida", mensagem_final: null, enviada_em: null, decidido_por: null, decidido_em: null }).eq("id", id);
     throw err instanceof Error ? err : new Error("Falha ao enviar a mensagem.");

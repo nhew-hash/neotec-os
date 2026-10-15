@@ -1,5 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { paraFormatoLocalBR } from "@/utils/telefone";
+import { variantesTelefoneBR } from "@/lib/telefone";
+
+export const MOTIVO_FOLLOWUP_NOVO_CONTATO = "Responder novo contato recebido pelo WhatsApp";
 
 /**
  * Automação da Central de Comunicação:
@@ -19,12 +22,18 @@ export async function processarAutomacaoNovaMensagem(params: {
   // Sem normalizar aqui, nunca casava com cliente já cadastrado.
   const telefoneLocal = paraFormatoLocalBR(params.telefone);
 
-  // 1) Buscar cliente pelo WhatsApp
-  const { data: clienteExistente } = await supabase
+  // 1) Buscar cliente pelo WhatsApp — com e sem o 9º dígito: a Meta entrega
+  // muitos celulares BR sem ele, e o cadastro tem 11 dígitos. Sem isso, um
+  // cliente cadastrado virava um "Contato 3499..." duplicado.
+  const variantes = variantesTelefoneBR(params.telefone);
+  const { data: candidatos, error: erroBusca } = await supabase
     .from("clientes")
-    .select("id")
-    .eq("whatsapp", telefoneLocal)
-    .maybeSingle();
+    .select("id, whatsapp")
+    .in("whatsapp", variantes)
+    .limit(variantes.length);
+  if (erroBusca) throw new Error(`Não foi possível buscar o cliente pelo telefone: ${erroBusca.message}`);
+  // Prefere o cadastro idêntico ao número recebido; senão, a variante.
+  const clienteExistente = (candidatos ?? []).find((c) => c.whatsapp === telefoneLocal) ?? (candidatos ?? [])[0];
 
   let clienteId: string | undefined = clienteExistente?.id;
 
@@ -80,11 +89,15 @@ export async function processarAutomacaoNovaMensagem(params: {
     .eq("id", params.conversaId);
 
 
-  // 2) Buscar card existente no CRM
+  // 2) Buscar card EM ABERTO no CRM. Card marcado como perdido não é
+  // reaproveitado: cliente que volta a falar vira oportunidade nova em
+  // "Lead" (é o comportamento descrito no README; antes a conversa ia
+  // parar no card perdido e sumia do pipeline).
   const { data: cardExistente } = await supabase
     .from("crm_cards")
     .select("id")
     .eq("cliente_id", clienteId)
+    .eq("perdido", false)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -166,18 +179,30 @@ export async function processarAutomacaoNovaMensagem(params: {
     .eq("id", cardId);
 
 
-  // 3) Criar follow-up automático
-  const dataFollowup = new Date();
-  dataFollowup.setHours(dataFollowup.getHours() + 24);
-
-
-  await supabase
+  // 3) Follow-up automático — UM por card. Antes, cada mensagem recebida
+  // criava mais um "Responder novo contato" (cliente que mandava 10
+  // mensagens gerava 10 lembretes pendentes).
+  const { data: followupPendente } = await supabase
     .from("crm_followups")
-    .insert({
-      card_id: cardId,
-      data_agendada: dataFollowup.toISOString(),
-      motivo: "Responder novo contato recebido pelo WhatsApp",
-    });
+    .select("id")
+    .eq("card_id", cardId)
+    .eq("status", "pendente")
+    .eq("motivo", MOTIVO_FOLLOWUP_NOVO_CONTATO)
+    .limit(1)
+    .maybeSingle();
+
+  if (!followupPendente) {
+    const dataFollowup = new Date();
+    dataFollowup.setHours(dataFollowup.getHours() + 24);
+    const { error: erroFollowup } = await supabase
+      .from("crm_followups")
+      .insert({
+        card_id: cardId,
+        data_agendada: dataFollowup.toISOString(),
+        motivo: MOTIVO_FOLLOWUP_NOVO_CONTATO,
+      });
+    if (erroFollowup) throw new Error(`Não foi possível agendar o follow-up: ${erroFollowup.message}`);
+  }
 
 
   return {

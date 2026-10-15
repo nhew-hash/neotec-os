@@ -7,6 +7,7 @@ import { uploadMidiaWhatsapp, extensaoPorMimeType } from "./whatsapp-midia.servi
 import { getActiveProvider } from "./providers/provider-resolver";
 import { paraFormatoInternacionalBR, paraFormatoLocalBR } from "@/utils/telefone";
 import { detectarPedidoNaoContato } from "./trava-envio";
+import { proximoStatusEntrega, statusMetaParaEntrega } from "./entrega-status";
 import type { DisparoWhatsapp, MensagemRecebidaNormalizada } from "./whatsapp.types";
 import type { WhatsappConversa, WhatsappMensagem, Cliente } from "@/types";
 
@@ -39,32 +40,105 @@ export interface ConversaComCliente extends WhatsappConversa {
   cliente: Pick<Cliente, "id" | "nome"> | null;
 }
 
-export async function listarConversas(): Promise<ConversaComCliente[]> {
+/**
+ * Mensagem de saída já gravada no histórico + o motivo, quando o provedor
+ * NÃO confirmou o envio. A mensagem é gravada de qualquer jeito (auditoria),
+ * mas quem chama precisa olhar `status_entrega`/`motivoFalha` antes de dizer
+ * "enviado" para a pessoa — ver `exigirEnvioConfirmado`.
+ */
+export type MensagemEnviada = WhatsappMensagem & { motivoFalha: string | null };
+
+/** Lança erro legível quando o provedor não confirmou o envio. */
+export function exigirEnvioConfirmado(msg: MensagemEnviada): void {
+  if (msg.status_entrega === "erro") {
+    throw new Error(`O WhatsApp não confirmou o envio — a mensagem NÃO saiu${msg.motivoFalha ? ` (${msg.motivoFalha})` : ""}. Ela ficou marcada com falha no histórico.`);
+  }
+}
+
+/** Limite da lista lateral. Conversas mais antigas continuam acessíveis pela busca do servidor. */
+export const LIMITE_CONVERSAS = 300;
+
+export async function listarConversas(params?: { busca?: string }): Promise<ConversaComCliente[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("whatsapp_conversas")
     .select("*, cliente:clientes(id, nome)")
-    .order("ultima_mensagem_em", { ascending: false, nullsFirst: false });
+    .order("ultima_mensagem_em", { ascending: false, nullsFirst: false })
+    .limit(LIMITE_CONVERSAS);
 
+  const digitos = params?.busca?.replace(/\D/g, "") ?? "";
+  if (digitos.length >= 4) query = query.ilike("telefone", `%${digitos.slice(-8)}%`);
+
+  const { data, error } = await query;
   if (error) throw new Error(`Não foi possível carregar as conversas: ${error.message}`);
   return (data ?? []) as unknown as ConversaComCliente[];
 }
 
-export async function listarMensagens(conversaId: string): Promise<WhatsappMensagem[]> {
+/** Uma conversa só (antes, a página carregava a lista inteira para achar uma). */
+export async function obterConversa(id: string): Promise<ConversaComCliente | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
+    .from("whatsapp_conversas")
+    .select("*, cliente:clientes(id, nome)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Não foi possível carregar a conversa: ${error.message}`);
+  return (data ?? null) as unknown as ConversaComCliente | null;
+}
+
+/** Histórico carregado por página: as últimas N mensagens (antes, a conversa inteira de uma vez). */
+export const LIMITE_MENSAGENS = 200;
+
+export async function listarMensagens(conversaId: string, params?: { antesDe?: string; limite?: number }): Promise<{ mensagens: WhatsappMensagem[]; temMais: boolean }> {
+  const limite = Math.min(Math.max(params?.limite ?? LIMITE_MENSAGENS, 1), 500);
+  const supabase = await createClient();
+  let query = supabase
     .from("whatsapp_mensagens")
     .select("*")
     .eq("conversa_id", conversaId)
-    .order("criado_em", { ascending: true });
+    .order("criado_em", { ascending: false })
+    .limit(limite + 1);
+  if (params?.antesDe) query = query.lt("criado_em", params.antesDe);
 
+  const { data, error } = await query;
   if (error) throw new Error(`Não foi possível carregar as mensagens: ${error.message}`);
-  return (data ?? []) as unknown as WhatsappMensagem[];
+  const linhas = (data ?? []) as unknown as WhatsappMensagem[];
+  return { mensagens: linhas.slice(0, limite).reverse(), temMais: linhas.length > limite };
 }
 
 export async function marcarConversaComoLida(conversaId: string): Promise<void> {
   const supabase = await createClient();
-  await supabase.from("whatsapp_conversas").update({ nao_lidas: 0 }).eq("id", conversaId);
+  const { error } = await supabase.from("whatsapp_conversas").update({ nao_lidas: 0 }).eq("id", conversaId);
+  if (error) throw new Error(`Não foi possível marcar a conversa como lida: ${error.message}`);
+}
+
+/**
+ * Status de entrega vindos do webhook da Meta (`statuses[]`). Antes eles só
+ * iam para o log: o chat nunca mostrava "entregue"/"lido"/"falhou" de verdade
+ * (o hook de realtime da tela já escutava o UPDATE, mas nada atualizava).
+ * O status só avança — ver `proximoStatusEntrega`.
+ */
+export async function atualizarStatusEntrega(evento: { whatsappMessageId: string; statusMeta: string }): Promise<boolean> {
+  const recebido = statusMetaParaEntrega(evento.statusMeta);
+  if (!recebido) return false;
+  const supabase = createAdminClient();
+  const { data: atual, error } = await supabase
+    .from("whatsapp_mensagens")
+    .select("id, status_entrega")
+    .eq("whatsapp_message_id", evento.whatsappMessageId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`Falha ao ler mensagem para status de entrega: ${error.message}`);
+  if (!atual) return false; // mensagem enviada fora do sistema (ou anterior a ele)
+
+  const novo = proximoStatusEntrega(atual.status_entrega, recebido);
+  if (!novo) return false;
+  const { error: erroUpd } = await supabase
+    .from("whatsapp_mensagens")
+    .update({ status_entrega: novo, ...(novo === "lido" ? { lida_em: new Date().toISOString() } : {}) })
+    .eq("id", atual.id);
+  if (erroUpd) throw new Error(`Falha ao gravar status de entrega: ${erroUpd.message}`);
+  return true;
 }
 
 /**
@@ -83,7 +157,7 @@ export async function enviarMensagem(input: {
   telefone: string;
   texto: string;
   usuarioId: string;
-}): Promise<WhatsappMensagem> {
+}): Promise<MensagemEnviada> {
   const supabase = await createClient();
 
   const { data: conversa } = await supabase
@@ -122,6 +196,7 @@ export async function enviarMensagem(input: {
     .single();
 
   if (error) throw new Error(`Não foi possível registrar a mensagem: ${error.message}`);
+  const mensagem: MensagemEnviada = { ...(data as unknown as WhatsappMensagem), motivoFalha: resultado.enviado ? null : resultado.motivo ?? "provedor recusou o envio" };
 
   // Humano mandou mensagem nesta conversa — pausa a IA de atendimento
   // aqui automaticamente. É um "assumir conversa" implícito: se alguém
@@ -132,7 +207,7 @@ export async function enviarMensagem(input: {
     .update({ ultima_mensagem_em: new Date().toISOString(), ia_pausada: true })
     .eq("id", input.conversaId);
 
-  return data as unknown as WhatsappMensagem;
+  return mensagem;
 }
 
 /**
@@ -198,7 +273,7 @@ export async function enviarMensagemComMidia(input: {
   caminhoMidia: string;
   mimeType: string;
   usuarioId: string;
-}): Promise<WhatsappMensagem> {
+}): Promise<MensagemEnviada> {
   const supabase = await createClient();
 
   const { data: conversa } = await supabase
@@ -255,7 +330,7 @@ export async function enviarMensagemComMidia(input: {
     .update({ ultima_mensagem_em: new Date().toISOString(), ia_pausada: true })
     .eq("id", input.conversaId);
 
-  return data as unknown as WhatsappMensagem;
+  return { ...(data as unknown as WhatsappMensagem), motivoFalha: resultado.enviado ? null : resultado.motivo ?? "provedor recusou o envio" };
 }
 
 /**
@@ -273,7 +348,7 @@ export async function enviarFotoCatalogo(input: {
   urlFoto: string;
   legenda?: string;
   usuarioId?: string;
-}): Promise<WhatsappMensagem> {
+}): Promise<MensagemEnviada> {
   const supabase = createAdminClient();
 
   const { data: conversa } = await supabase
@@ -322,7 +397,7 @@ export async function enviarFotoCatalogo(input: {
     .update({ ultima_mensagem_em: new Date().toISOString(), ia_pausada: true })
     .eq("id", input.conversaId);
 
-  return data as unknown as WhatsappMensagem;
+  return { ...(data as unknown as WhatsappMensagem), motivoFalha: resultado.enviado ? null : resultado.motivo ?? "provedor recusou o envio" };
 }
 
 export async function enviarMensagemTemplate(input: {
@@ -334,7 +409,7 @@ export async function enviarMensagemTemplate(input: {
   variaveis: string[];
   corpoPreenchido: string;
   usuarioId: string;
-}): Promise<WhatsappMensagem> {
+}): Promise<MensagemEnviada> {
   const supabase = await createClient();
   const provider = await getActiveProvider();
   const resultado = await provider.enviarTemplate(paraFormatoInternacionalBR(input.telefone), input.nomeTemplate, input.idioma, input.variaveis);
@@ -363,7 +438,7 @@ export async function enviarMensagemTemplate(input: {
     .single();
 
   if (error) throw new Error(`Não foi possível registrar a mensagem: ${error.message}`);
-  return data as unknown as WhatsappMensagem;
+  return { ...(data as unknown as WhatsappMensagem), motivoFalha: resultado.enviado ? null : resultado.motivo ?? "provedor recusou o envio" };
 }
 
 /**
@@ -395,6 +470,23 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
     return;
   }
 
+  // Idempotência: a Meta reenvia o mesmo evento quando não recebe 200 a
+  // tempo (e o Bridge pode repetir após reconectar). Mensagem já gravada =
+  // nada a fazer — sem isso, a automação e a IA rodavam duas vezes.
+  if (msg.idExterno) {
+    const { data: jaGravada, error: erroDup } = await supabase
+      .from("whatsapp_mensagens")
+      .select("id")
+      .eq("whatsapp_message_id", msg.idExterno)
+      .limit(1)
+      .maybeSingle();
+    if (erroDup) throw new Error(`Falha ao checar mensagem duplicada: ${erroDup.message}`);
+    if (jaGravada) {
+      await registrarLog({ direcao: "entrada", evento: "mensagem_duplicada_ignorada", payload: { idExterno: msg.idExterno }, sucesso: true });
+      return;
+    }
+  }
+
   await registrarLog({
     direcao: "entrada",
     evento: "mensagem_recebida",
@@ -409,7 +501,6 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
   if (configIA?.numero_vendedor_perguntas) {
     const telefoneLocalRecebido = paraFormatoLocalBR(msg.telefone);
     const numeroVendedorNormalizado = configIA.numero_vendedor_perguntas.replace(/\D/g, "");
-    console.log("Comparação vendedor:", { bruto: msg.telefone, normalizado: telefoneLocalRecebido, vendedorConfigurado: numeroVendedorNormalizado, bate: telefoneLocalRecebido === numeroVendedorNormalizado });
     if (telefoneLocalRecebido === numeroVendedorNormalizado) {
       const { processarRespostaVendedor } = await import("@/services/ia/ia-pergunta-equipe.service");
       await processarRespostaVendedor(msg.conteudo);
@@ -417,37 +508,7 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
     }
   }
 
-  let { data: conversa } = await supabase
-    .from("whatsapp_conversas")
-    .select("*")
-    .eq("telefone", msg.telefone)
-    .eq("status", "aberta")
-    .maybeSingle();
-
-  if (!conversa) {
-    // Quem já pediu para não ser contatado continua assim em conversa nova.
-    const { data: anteriorOptOut } = await supabase
-      .from("whatsapp_conversas")
-      .select("id")
-      .eq("telefone", msg.telefone)
-      .eq("nao_contatar", true)
-      .limit(1)
-      .maybeSingle();
-    const { data: novaConversa, error } = await supabase
-      .from("whatsapp_conversas")
-      .insert({
-        telefone: msg.telefone, status: "aberta", jid_envio: msg.jidOriginal ?? null,
-        ...(anteriorOptOut ? { nao_contatar: true, ia_pausada: true } : {}),
-      })
-      .select("*")
-      .single();
-    if (error || !novaConversa) throw new Error(`Não foi possível criar a conversa: ${error?.message}`);
-    conversa = novaConversa;
-  } else if (msg.jidOriginal && conversa.jid_envio !== msg.jidOriginal) {
-    // Atualiza se o JID mudou (ex: WhatsApp resolveu o LID pro número
-    // real numa mensagem seguinte) — não custa manter atualizado.
-    await supabase.from("whatsapp_conversas").update({ jid_envio: msg.jidOriginal }).eq("id", conversa.id);
-  }
+  const conversa = await obterOuCriarConversaAberta(supabase, msg);
 
   let urlMidia: string | null = null;
   if (msg.midiaBase64 && msg.midiaMimeType) {
@@ -461,7 +522,7 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
     }
   }
 
-  await supabase.from("whatsapp_mensagens").insert({
+  const { error: erroInsercao } = await supabase.from("whatsapp_mensagens").insert({
     conversa_id: conversa.id,
     direcao: "entrada",
     tipo: msg.tipo,
@@ -470,15 +531,16 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
     status_entrega: "entregue",
     url_midia: urlMidia,
   });
+  if (erroInsercao) {
+    // 23505 = a mesma mensagem acabou de ser gravada por um retry
+    // simultâneo (índice único da fase269) — não é erro, só não repete.
+    if (erroInsercao.code === "23505") return;
+    // Antes este erro era ignorado: a conversa "recebia" mensagem que não
+    // existia no histórico e a automação/IA rodava mesmo assim.
+    throw new Error(`Não foi possível gravar a mensagem recebida: ${erroInsercao.message}`);
+  }
 
-  await supabase
-    .from("whatsapp_conversas")
-    .update({
-      ultima_mensagem_em: new Date().toISOString(),
-      nao_lidas: (conversa.nao_lidas ?? 0) + 1,
-      primeira_resposta_em: conversa.primeira_resposta_em ?? null,
-    })
-    .eq("id", conversa.id);
+  await incrementarNaoLidas(supabase, conversa.id, conversa.nao_lidas ?? 0);
 
   // Pedido de não contato ("pare", "não me mande mais"): marca a conversa,
   // pausa a IA e encerra a sequência de follow-up. Não responde automaticamente.
@@ -521,6 +583,75 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
   } catch (err) {
     console.error("Falha na IA de atendimento:", err);
   }
+}
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+/**
+ * Conversa aberta do telefone, ou uma nova. Robusta a duplicatas antigas:
+ * antes, com 2 conversas abertas para o mesmo número, `.maybeSingle()`
+ * devolvia erro (ignorado) e `data = null` — e CADA mensagem nova criava
+ * mais uma conversa. Agora pega a mais recente e, se outra chamada criou a
+ * conversa no meio do caminho (índice único da fase269), reaproveita a dela.
+ */
+async function obterOuCriarConversaAberta(supabase: AdminClient, msg: MensagemRecebidaNormalizada): Promise<WhatsappConversa> {
+  const buscarAberta = async () => {
+    const { data, error } = await supabase
+      .from("whatsapp_conversas")
+      .select("*")
+      .eq("telefone", msg.telefone)
+      .eq("status", "aberta")
+      .order("ultima_mensagem_em", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(`Não foi possível buscar a conversa: ${error.message}`);
+    return data as WhatsappConversa | null;
+  };
+
+  const existente = await buscarAberta();
+  if (existente) {
+    if (msg.jidOriginal && existente.jid_envio !== msg.jidOriginal) {
+      // Atualiza se o JID mudou (ex: WhatsApp resolveu o LID pro número
+      // real numa mensagem seguinte) — não custa manter atualizado.
+      await supabase.from("whatsapp_conversas").update({ jid_envio: msg.jidOriginal }).eq("id", existente.id);
+    }
+    return existente;
+  }
+
+  // Quem já pediu para não ser contatado continua assim em conversa nova.
+  const { data: anteriorOptOut } = await supabase
+    .from("whatsapp_conversas")
+    .select("id")
+    .eq("telefone", msg.telefone)
+    .eq("nao_contatar", true)
+    .limit(1)
+    .maybeSingle();
+  const { data: nova, error } = await supabase
+    .from("whatsapp_conversas")
+    .insert({
+      telefone: msg.telefone, status: "aberta", jid_envio: msg.jidOriginal ?? null,
+      ...(anteriorOptOut ? { nao_contatar: true, ia_pausada: true } : {}),
+    })
+    .select("*")
+    .single();
+  if (nova) return nova as WhatsappConversa;
+  if (error?.code === "23505") {
+    const daCorrida = await buscarAberta();
+    if (daCorrida) return daCorrida;
+  }
+  throw new Error(`Não foi possível criar a conversa: ${error?.message}`);
+}
+
+/** Incremento atômico (RPC da fase269); cai para leitura+escrita só se a migration ainda não foi aplicada. */
+async function incrementarNaoLidas(supabase: AdminClient, conversaId: string, valorLido: number): Promise<void> {
+  const { error } = await supabase.rpc("incrementar_nao_lidas_conversa", { p_conversa_id: conversaId });
+  if (!error) return;
+  console.warn("incrementar_nao_lidas_conversa indisponível (aplicar fase269?):", error.message);
+  const { error: erroFallback } = await supabase
+    .from("whatsapp_conversas")
+    .update({ ultima_mensagem_em: new Date().toISOString(), nao_lidas: valorLido + 1 })
+    .eq("id", conversaId);
+  if (erroFallback) throw new Error(`Não foi possível atualizar a conversa: ${erroFallback.message}`);
 }
 
 /** Total de conversas com mensagem não lida — usado no badge do menu lateral. */

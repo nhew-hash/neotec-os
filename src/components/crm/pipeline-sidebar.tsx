@@ -6,7 +6,9 @@ import { CheckCircle2, Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { ClienteBusca } from "@/components/central-comercial/cliente-busca";
+import type { ClienteResultado } from "@/services/central-comercial/clientes-busca.service";
 import { criarCardAction, concluirFollowupAction } from "@/services/crm-pipeline/crm-pipeline.actions";
 import { formatDateTime } from "@/utils";
 import { cn } from "@/lib/utils";
@@ -15,18 +17,28 @@ import type { Cliente, CrmEtapa, CrmFollowup, CrmCard } from "@/types";
 
 // ---- Nova oportunidade — botão de destaque + painel lateral ----
 
-export function NovaOportunidadeButton({ clientes, etapas }: { clientes: Cliente[]; etapas: CrmEtapa[] }) {
+/**
+ * O cliente é escolhido pela mesma busca no servidor da Central Comercial
+ * (nome/telefone, com cadastro rápido e checagem de duplicidade). Antes era
+ * um <Select> com TODOS os clientes da base — inutilizável com centenas de
+ * cadastros, e obrigava a página do CRM a baixar a base inteira.
+ */
+export function NovaOportunidadeButton({ etapas }: { etapas: CrmEtapa[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [cliente, setCliente] = useState<ClienteResultado | null>(null);
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
   function handleSubmit(formData: FormData) {
     setErro(null);
+    if (!cliente) return setErro("Escolha o cliente.");
+    formData.set("cliente_id", cliente.id);
     startTransition(async () => {
       const result = await criarCardAction(formData);
       if (!result.success) return setErro(result.error);
       setOpen(false);
+      setCliente(null);
       router.refresh();
     });
   }
@@ -34,26 +46,35 @@ export function NovaOportunidadeButton({ clientes, etapas }: { clientes: Cliente
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button size="lg" className="shadow-card-hover">
-          <Plus className="h-4 w-4" />
+        <Button size="sm">
+          <Plus aria-hidden />
           Nova oportunidade
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="flex flex-col gap-4 p-6">
-        <h2 className="font-display text-lg font-semibold text-foreground">Nova oportunidade</h2>
+      <SheetContent side="right" className="flex w-full flex-col gap-4 overflow-y-auto p-6 sm:max-w-md">
+        <SheetTitle className="text-lg">Nova oportunidade</SheetTitle>
         <form action={handleSubmit} className="flex flex-col gap-3">
-          <Select name="cliente_id">
-            <SelectTrigger><SelectValue placeholder="Cliente" /></SelectTrigger>
-            <SelectContent>{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select name="etapa_id" defaultValue={etapas[0]?.id}>
-            <SelectTrigger><SelectValue placeholder="Etapa inicial" /></SelectTrigger>
-            <SelectContent>{etapas.map((e) => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}</SelectContent>
-          </Select>
-          <Input name="titulo" placeholder="Ex: Interesse em iPhone 15 Pro" />
-          <Input name="valor_estimado" type="number" step="0.01" placeholder="Valor estimado (opcional)" />
-          {erro && <p className="text-xs text-danger">{erro}</p>}
-          <Button type="submit" disabled={isPending}>{isPending ? "Salvando..." : "Criar oportunidade"}</Button>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Cliente</span>
+            <ClienteBusca cliente={cliente} onSelecionar={setCliente} />
+          </div>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Etapa inicial</span>
+            <Select name="etapa_id" defaultValue={etapas[0]?.id}>
+              <SelectTrigger><SelectValue placeholder="Etapa inicial" /></SelectTrigger>
+              <SelectContent>{etapas.map((e) => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}</SelectContent>
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">O que o cliente procura</span>
+            <Input name="titulo" placeholder="Ex.: iPhone 15 Pro 256GB, troca do 12" required />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Valor estimado (opcional)</span>
+            <Input name="valor_estimado" type="number" step="0.01" min="0" inputMode="decimal" placeholder="0,00" />
+          </label>
+          {erro && <p className="text-xs text-danger" role="alert">{erro}</p>}
+          <Button type="submit" loading={isPending} loadingText="Salvando…">Criar oportunidade</Button>
         </form>
       </SheetContent>
     </Sheet>
@@ -74,8 +95,15 @@ export function FollowupsPanel({ followups }: FollowupsPanelProps) {
   const hoje = itens.filter((i) => i.categoria === "hoje");
   const futuros = itens.filter((i) => i.categoria === "futuro");
 
+  const router = useRouter();
+  const [erro, setErro] = useState<string | null>(null);
   function handleConcluir(item: ItemFollowupUnificado) {
-    startTransition(() => { void concluirFollowupAction(item.id); });
+    setErro(null);
+    startTransition(async () => {
+      const r = await concluirFollowupAction(item.id);
+      if (!r.success) setErro(r.error);
+      else router.refresh();
+    });
   }
 
   function Grupo({ titulo, dados, destaque }: { titulo: string; dados: ItemFollowupUnificado[]; destaque?: boolean }) {
@@ -100,8 +128,8 @@ export function FollowupsPanel({ followups }: FollowupsPanelProps) {
               <span className="text-foreground">{item.titulo}</span>
               <span className="text-xs text-muted-foreground">{formatDateTime(item.quando)}</span>
             </div>
-            <Button variant="ghost" size="sm" disabled={isPending} onClick={() => handleConcluir(item)}>
-              <CheckCircle2 className="h-4 w-4" />
+            <Button variant="ghost" size="sm" disabled={isPending} onClick={() => handleConcluir(item)} aria-label="Marcar como feito" title="Marcar como feito">
+              <CheckCircle2 className="h-4 w-4" />Feito
             </Button>
           </div>
         ))}
@@ -119,6 +147,7 @@ export function FollowupsPanel({ followups }: FollowupsPanelProps) {
 
   return (
     <div className="flex flex-col gap-5">
+      {erro && <p className="text-xs text-danger" role="alert">{erro}</p>}
       <Grupo titulo="Atrasados" dados={atrasados} destaque />
       <Grupo titulo="Hoje" dados={hoje} />
       <Grupo titulo="Próximos" dados={futuros} />

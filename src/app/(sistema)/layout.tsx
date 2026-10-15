@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { Sidebar } from "@/components/layout/sidebar";
+import { Sidebar, COOKIE_SIDEBAR } from "@/components/layout/sidebar";
+import { ShellTema } from "@/components/layout/shell-tema";
 import { Topbar } from "@/components/layout/topbar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { RadixOverlaySafetyNet } from "@/components/layout/radix-overlay-safety-net";
@@ -37,16 +39,21 @@ export default async function SistemaLayout({ children }: { children: ReactNode 
     redirect("/login?erro=perfil_nao_encontrado");
   }
 
-  const naoLidasInicial = await contarConversasNaoLidas();
+  const [naoLidasInicial, cookieStore] = await Promise.all([contarConversasNaoLidas(), cookies()]);
+  const sidebarRecolhida = cookieStore.get(COOKIE_SIDEBAR)?.value === "recolhida";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-app">
-      <Sidebar cargo={perfil.cargo} naoLidasInicial={naoLidasInicial} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="neotec-os flex h-dvh overflow-hidden bg-app text-foreground">
+      <ShellTema />
+      <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:text-sm focus:shadow-popover">
+        Pular para o conteúdo
+      </a>
+      <Sidebar cargo={perfil.cargo} naoLidasInicial={naoLidasInicial} recolhidaInicial={sidebarRecolhida} />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar usuario={perfil} naoLidasInicial={naoLidasInicial} />
-        <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-8 md:pb-8">{children}</main>
+        <main id="conteudo" className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-10">{children}</main>
       </div>
-      <BottomNav cargo={perfil.cargo} />
+      <BottomNav cargo={perfil.cargo} naoLidasInicial={naoLidasInicial} />
       <RadixOverlaySafetyNet />
     </div>
   );

@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  LayoutDashboard,
+  Home,
   BarChart3,
   Users,
-  MessagesSquare,
+  KanbanSquare,
   MessageCircle,
   Package,
   Wrench,
@@ -27,7 +27,8 @@ import {
   Repeat,
   Smartphone,
   TrendingUp,
-  ClipboardCheck,
+  BriefcaseBusiness,
+  Images,
 } from "lucide-react";
 import type { CargoUsuario } from "@/types";
 
@@ -35,88 +36,99 @@ export interface SidebarNavItem {
   label: string;
   href: string;
   icon: LucideIcon;
-  /** Cargos que veem este item. Sem isso, o item apareceria pra todo
-   * mundo mesmo em telas que o cargo não consegue realmente usar (o RLS
-   * bloqueia o dado, mas o item ficava visível levando a uma tela vazia
-   * — problema real que a reorganização resolve). */
+  /** Cargos que veem este item. O RLS já bloqueia o dado; isto evita mostrar atalho para uma tela que o cargo não usa. */
   cargos: CargoUsuario[];
+  /** Descrição curta usada na busca de comandos (Ctrl+K). */
+  descricao?: string;
 }
 
 export interface SidebarNavGroup {
+  id: string;
   label: string;
   items: SidebarNavItem[];
 }
 
 const TODOS_OS_CARGOS: CargoUsuario[] = ["admin", "gerente", "vendedor", "tecnico", "caixa"];
+const COMERCIAL: CargoUsuario[] = ["admin", "gerente", "vendedor"];
+const GESTAO: CargoUsuario[] = ["admin", "gerente"];
 
 /**
- * Navegação agrupada por área de uso, e filtrada por cargo — cada grupo
- * reflete como a operação da loja realmente pensa o sistema, não a ordem
- * em que os módulos foram construídos.
+ * Núcleo do produto — Comunicação, CRM e Central Comercial, mais Início e
+ * Clientes, que são o ponto de entrada dos três. Ficam sempre visíveis, no
+ * topo, com peso visual maior que os grupos secundários.
  */
-export const sidebarNavGroups: SidebarNavGroup[] = [
+export const navPrincipal: SidebarNavItem[] = [
+  { label: "Início", href: "/dashboard", icon: Home, cargos: TODOS_OS_CARGOS, descricao: "Pendências do dia e indicadores" },
+  { label: "Comunicação", href: "/comunicacao", icon: MessageCircle, cargos: COMERCIAL, descricao: "Conversas do WhatsApp" },
+  { label: "CRM", href: "/crm", icon: KanbanSquare, cargos: COMERCIAL, descricao: "Pipeline de oportunidades e follow-ups" },
+  { label: "Central Comercial", href: "/central-comercial", icon: BriefcaseBusiness, cargos: COMERCIAL, descricao: "Minha rotina, propostas e gerência" },
+  { label: "Clientes", href: "/clientes", icon: Users, cargos: TODOS_OS_CARGOS, descricao: "Cadastro e histórico do cliente" },
+];
+
+/**
+ * Módulos secundários, agrupados por área de trabalho e recolhíveis. Decisões
+ * da auditoria (docs/AUDITORIA_360.md, seção "Destino dos módulos"):
+ * - NEO Performance: uma entrada só (o hub já linka Inteligência, Creative
+ *   Factory, Automação etc.) — integração de anúncios ainda não é real.
+ * - Cotações e Catálogo de fotos: mantidos (alimentam a IA de atendimento e o
+ *   envio de fotos no chat), agrupados com Estoque/Catálogo.
+ */
+export const navSecundaria: SidebarNavGroup[] = [
   {
-    label: "Relacionamento",
+    id: "operacao",
+    label: "Vendas e operação",
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, cargos: TODOS_OS_CARGOS },
-      { label: "Central comercial", href: "/central-comercial", icon: ClipboardCheck, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "CRM", href: "/crm", icon: MessagesSquare, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Comunicação", href: "/comunicacao", icon: MessageCircle, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Clientes", href: "/clientes", icon: Users, cargos: TODOS_OS_CARGOS },
-    ],
-  },
-  {
-    label: "Operação",
-    items: [
-      { label: "Central de Cadastro (IA)", href: "/estoque/central-fornecedor", icon: Sparkles, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Importação automática (WhatsApp)", href: "/estoque/importacao-fornecedores", icon: Bot, cargos: ["admin", "gerente"] },
-      { label: "Banco de Imagens", href: "/estoque/banco-imagens", icon: Sparkles, cargos: ["admin", "gerente", "vendedor"] },
+      { label: "Vendas", href: "/vendas", icon: ShoppingCart, cargos: COMERCIAL, descricao: "Vendas, orçamentos e PDV" },
       { label: "Estoque", href: "/estoque", icon: Package, cargos: ["admin", "gerente", "vendedor", "tecnico"] },
-      { label: "Cotações", href: "/cotacoes", icon: Tags, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Catálogo de fotos", href: "/catalogo-fotos", icon: Camera, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Vendas", href: "/vendas", icon: ShoppingCart, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Trade-in", href: "/trade-in", icon: Repeat, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Assistência", href: "/assistencia", icon: Wrench, cargos: ["admin", "gerente", "tecnico"] },
+      { label: "Assistência", href: "/assistencia", icon: Wrench, cargos: ["admin", "gerente", "tecnico"], descricao: "Ordens de serviço" },
+      { label: "Trade-in", href: "/trade-in", icon: Repeat, cargos: COMERCIAL, descricao: "Avaliação de aparelho na troca" },
+      { label: "Crediário", href: "/crediario", icon: CreditCard, cargos: COMERCIAL },
+      { label: "Contratos", href: "/contratos", icon: FileSignature, cargos: COMERCIAL },
+      { label: "Cotações", href: "/cotacoes", icon: Tags, cargos: COMERCIAL, descricao: "Preços de fornecedores" },
     ],
   },
   {
-    label: "Loja Virtual",
+    id: "catalogo",
+    label: "Catálogo e cadastro",
     items: [
-      { label: "Central da Loja", href: "/loja-admin", icon: Store, cargos: ["admin", "gerente"] },
-      { label: "Analytics da Loja", href: "/loja-admin/analytics", icon: BarChart3, cargos: ["admin", "gerente"] },
-      { label: "Pedidos da Loja", href: "/pedidos-loja", icon: ShoppingBag, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Achadinhos", href: "/achadinhos-admin", icon: Flame, cargos: ["admin", "gerente"] },
+      { label: "Central de Cadastro (IA)", href: "/estoque/central-fornecedor", icon: Sparkles, cargos: COMERCIAL },
+      { label: "Importação automática", href: "/estoque/importacao-fornecedores", icon: Bot, cargos: GESTAO, descricao: "Listas de fornecedores via WhatsApp" },
+      { label: "Banco de imagens", href: "/estoque/banco-imagens", icon: Images, cargos: COMERCIAL },
+      { label: "Catálogo de fotos", href: "/catalogo-fotos", icon: Camera, cargos: COMERCIAL, descricao: "Fotos enviadas no chat e pela IA" },
     ],
   },
   {
-    label: "Neotec Prostec",
+    id: "loja",
+    label: "Loja virtual",
     items: [
-      { label: "Prostec", href: "/prostec", icon: Rocket, cargos: ["admin", "gerente", "vendedor_prostec"] },
+      { label: "Central da Loja", href: "/loja-admin", icon: Store, cargos: GESTAO },
+      { label: "Pedidos da Loja", href: "/pedidos-loja", icon: ShoppingBag, cargos: COMERCIAL },
+      { label: "Analytics da Loja", href: "/loja-admin/analytics", icon: BarChart3, cargos: GESTAO },
+      { label: "Achadinhos", href: "/achadinhos-admin", icon: Flame, cargos: GESTAO },
     ],
   },
   {
-    label: "NeoLoc",
-    items: [
-      { label: "NeoLoc", href: "/neoloc", icon: Smartphone, cargos: ["admin", "gerente", "vendedor", "tecnico"] },
-    ],
-  },
-  {
+    id: "gestao",
     label: "Gestão",
     items: [
-      { label: "Financeiro", href: "/financeiro", icon: Wallet, cargos: ["admin", "gerente"] },
-      { label: "Contratos", href: "/contratos", icon: FileSignature, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Crediário", href: "/crediario", icon: CreditCard, cargos: ["admin", "gerente", "vendedor"] },
-      { label: "Investidores", href: "/investidores", icon: Landmark, cargos: ["admin", "gerente"] },
-      { label: "Consignação", href: "/consignacao", icon: HandCoins, cargos: ["admin", "gerente"] },
-      { label: "Indicações", href: "/indicacoes", icon: UserCheck, cargos: ["admin", "gerente"] },
-      { label: "Analytics", href: "/analytics", icon: BarChart3, cargos: ["admin", "gerente"] },
-      { label: "NEO Performance", href: "/neo-performance", icon: TrendingUp, cargos: ["admin", "gerente"] },
-      { label: "NEO — Inteligência", href: "/neo-performance/inteligencia", icon: Sparkles, cargos: ["admin", "gerente"] },
-      { label: "NEO — Creative Factory", href: "/neo-performance/creative-factory", icon: Bot, cargos: ["admin", "gerente"] },
-      { label: "NEO — Automação", href: "/neo-performance/automacao", icon: Rocket, cargos: ["admin"] },
+      { label: "Financeiro", href: "/financeiro", icon: Wallet, cargos: GESTAO },
+      { label: "Analytics", href: "/analytics", icon: BarChart3, cargos: GESTAO },
+      { label: "Investidores", href: "/investidores", icon: Landmark, cargos: GESTAO },
+      { label: "Consignação", href: "/consignacao", icon: HandCoins, cargos: GESTAO },
+      { label: "Indicações", href: "/indicacoes", icon: UserCheck, cargos: GESTAO },
     ],
   },
   {
+    id: "outros",
+    label: "Outros módulos",
+    items: [
+      { label: "Prostec", href: "/prostec", icon: Rocket, cargos: ["admin", "gerente", "vendedor_prostec"], descricao: "Prospecção B2B" },
+      { label: "NeoLoc", href: "/neoloc", icon: Smartphone, cargos: ["admin", "gerente", "vendedor", "tecnico"] },
+      { label: "NEO Performance", href: "/neo-performance", icon: TrendingUp, cargos: GESTAO, descricao: "Anúncios, inteligência e creative factory" },
+    ],
+  },
+  {
+    id: "sistema",
     label: "Sistema",
     items: [
       { label: "Configurações", href: "/configuracoes", icon: Settings, cargos: ["admin"] },
@@ -125,11 +137,54 @@ export const sidebarNavGroups: SidebarNavGroup[] = [
   },
 ];
 
-/** Subconjunto usado na barra inferior mobile — os destinos mais usados no dia a dia, já filtrados por cargo. */
-export const bottomNavItems: SidebarNavItem[] = [
-  { label: "Início", href: "/dashboard", icon: LayoutDashboard, cargos: TODOS_OS_CARGOS },
-  { label: "CRM", href: "/crm", icon: MessagesSquare, cargos: ["admin", "gerente", "vendedor"] },
-  { label: "Vendas", href: "/vendas", icon: ShoppingCart, cargos: ["admin", "gerente", "vendedor"] },
-  { label: "Estoque", href: "/estoque", icon: Package, cargos: ["admin", "gerente", "vendedor", "tecnico"] },
-  { label: "OS", href: "/assistencia", icon: Wrench, cargos: ["admin", "gerente", "tecnico"] },
-];
+/** Compatibilidade: lista plana de grupos (principal + secundários). */
+export const sidebarNavGroups: SidebarNavGroup[] = [{ id: "principal", label: "Principal", items: navPrincipal }, ...navSecundaria];
+
+export function todosOsItens(): SidebarNavItem[] {
+  return sidebarNavGroups.flatMap((g) => g.items);
+}
+
+export function itensDoCargo(cargo: CargoUsuario): SidebarNavItem[] {
+  return todosOsItens().filter((i) => i.cargos.includes(cargo));
+}
+
+/**
+ * Item ativo = o de href MAIS LONGO que casa com a rota. Antes, cada item
+ * testava `startsWith` sozinho e em `/neo-performance/inteligencia` dois
+ * itens ficavam destacados ao mesmo tempo (o mesmo com Estoque × Central de
+ * Cadastro, Configurações × Equipe, Central da Loja × Analytics da Loja).
+ */
+export function hrefAtivo(pathname: string, itens: SidebarNavItem[] = todosOsItens()): string | null {
+  let melhor: string | null = null;
+  for (const item of itens) {
+    const casa = pathname === item.href || pathname.startsWith(`${item.href}/`);
+    if (casa && (!melhor || item.href.length > melhor.length)) melhor = item.href;
+  }
+  return melhor;
+}
+
+/**
+ * Barra inferior (celular): os pilares que o cargo usa, completados pelos
+ * destinos mais frequentes do cargo — no máximo 5. Técnico, por exemplo,
+ * vê Assistência e Estoque em vez de CRM.
+ */
+export function itensBarraInferior(cargo: CargoUsuario): SidebarNavItem[] {
+  const ordem = ["/dashboard", "/comunicacao", "/crm", "/central-comercial", "/clientes", "/assistencia", "/vendas", "/estoque"];
+  const visiveis = itensDoCargo(cargo);
+  return ordem
+    .map((href) => visiveis.find((i) => i.href === href))
+    .filter((i): i is SidebarNavItem => Boolean(i))
+    .slice(0, 5);
+}
+
+/** Rótulos curtos para a barra inferior (cabem em 1 linha). */
+export const ROTULO_CURTO: Record<string, string> = {
+  "/dashboard": "Início",
+  "/comunicacao": "Conversas",
+  "/crm": "CRM",
+  "/central-comercial": "Comercial",
+  "/clientes": "Clientes",
+  "/assistencia": "OS",
+  "/vendas": "Vendas",
+  "/estoque": "Estoque",
+};

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { isRotaPublica } from "@/lib/rotas-publicas";
 
 export async function middleware(request: NextRequest) {
 
@@ -12,36 +13,7 @@ export async function middleware(request: NextRequest) {
   // Essas rotas nunca podem pedir login
   // ======================================================
 
- const publicRoutes = [
-  "/login",
-  "/portal",
-  "/consultar-os",
-  "/loja",
-  "/impressao",
-  "/pre-analise",
-  "/api/impressao",
-  "/api/whatsapp/webhook",
-  "/api/integracoes/whatsapp-web",
-  "/api/prostec/whatsapp",
-  "/api/cron",
-  "/api/mercadopago",
-  "/api/banco-imagens/lote",
-];
-
-
-  // Fase 263 — Achadinhos da Neotec. Comparação EXATA/por barra (não
-  // `startsWith("/achadinhos")`) de propósito: o painel admin mora em
-  // `/achadinhos-admin`, que NÃO pode ficar público por compartilhar o prefixo.
-  // `/api/achadinhos/*` é público só aqui no middleware: cada rota da API
-  // se autentica sozinha por chave (Bearer), e o clique é sem login.
-  const isAchadinhosPublico =
-    pathname === "/achadinhos" ||
-    pathname.startsWith("/achadinhos/") ||
-    pathname.startsWith("/api/achadinhos/");
-
-  const isPublicRoute = pathname === "/" || isAchadinhosPublico || publicRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
+  const isPublicRoute = isRotaPublica(pathname);
 
 
   // Se for webhook da Meta, libera direto

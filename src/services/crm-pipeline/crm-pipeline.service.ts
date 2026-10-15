@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { CrmEtapa, CrmCard, CrmTag, CrmFollowup, Cliente } from "@/types";
 
 // ---- Etapas (funil totalmente configurável) ----
@@ -33,13 +34,14 @@ export interface CardComRelacoes extends CrmCard {
   cliente: Pick<Cliente, "id" | "nome" | "whatsapp" | "temperatura">;
   tags: CrmTag[];
   conversa: { id: string; naoLidas: number } | null;
+  responsavel: { id: string; nome: string } | null;
 }
 
 export async function listarCards(): Promise<CardComRelacoes[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("crm_cards")
-    .select("*, cliente:clientes(id, nome, whatsapp, temperatura), card_tags:crm_card_tags(tag:crm_tags(*))")
+    .select("*, cliente:clientes(id, nome, whatsapp, temperatura), card_tags:crm_card_tags(tag:crm_tags(*)), responsavel:usuarios!responsavel_id(id, nome)")
     .order("updated_at", { ascending: false });
 
   if (error) throw new Error(`Não foi possível carregar os cards: ${error.message}`);
@@ -68,6 +70,7 @@ export async function listarCards(): Promise<CardComRelacoes[]> {
     cliente: (card as { cliente: Pick<Cliente, "id" | "nome" | "whatsapp" | "temperatura"> }).cliente,
     tags: ((card as { card_tags?: { tag: CrmTag }[] }).card_tags ?? []).map((ct) => ct.tag),
     conversa: conversaPorCard.get(card.id) ?? null,
+    responsavel: (card as { responsavel?: { id: string; nome: string } | null }).responsavel ?? null,
   }));
 }
 
@@ -187,11 +190,17 @@ export async function concluirFollowup(id: string): Promise<void> {
  * Nunca duplica: se já existe um follow-up pendente pra esse card, não
  * cria outro. Nunca mexe em card perdido (já não é mais uma
  * oportunidade ativa).
+ *
+ * Service Role: o cron não tem sessão. Com o client de sessão, o RLS
+ * (loja_id = current_user_loja_id()) devolvia zero etapas e a função
+ * retornava `criados: 0` todo dia, em silêncio — o alerta de card parado
+ * nunca funcionou pelo cron. Só cria lembretes internos; nada é enviado.
  */
 export async function gerarFollowupsAutomaticos(): Promise<{ criados: number }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
-  const { data: etapas } = await supabase.from("crm_etapas").select("id, nome, dias_para_alerta").not("dias_para_alerta", "is", null);
+  const { data: etapas, error: erroEtapas } = await supabase.from("crm_etapas").select("id, nome, dias_para_alerta").not("dias_para_alerta", "is", null);
+  if (erroEtapas) throw new Error(`Falha ao ler etapas com alerta: ${erroEtapas.message}`);
   if (!etapas || etapas.length === 0) return { criados: 0 };
 
   let criados = 0;
@@ -200,12 +209,13 @@ export async function gerarFollowupsAutomaticos(): Promise<{ criados: number }> 
     const limiteData = new Date();
     limiteData.setDate(limiteData.getDate() - (etapa.dias_para_alerta ?? 999));
 
-    const { data: cardsParados } = await supabase
+    const { data: cardsParados, error: erroCards } = await supabase
       .from("crm_cards")
       .select("id, titulo, cliente_id")
       .eq("etapa_id", etapa.id)
       .eq("perdido", false)
       .lt("entrou_etapa_em", limiteData.toISOString());
+    if (erroCards) throw new Error(`Falha ao ler cards parados: ${erroCards.message}`);
 
     for (const card of cardsParados ?? []) {
       const { data: followupExistente } = await supabase
@@ -218,15 +228,44 @@ export async function gerarFollowupsAutomaticos(): Promise<{ criados: number }> 
 
       if (followupExistente) continue; // já tem lembrete pendente, não duplica
 
-      await supabase.from("crm_followups").insert({
+      const { error: erroInsert } = await supabase.from("crm_followups").insert({
         card_id: card.id,
         data_agendada: new Date().toISOString(),
         motivo: `⏰ Parado em "${etapa.nome}" há mais de ${etapa.dias_para_alerta} dia(s) — dar uma olhada`,
         status: "pendente",
       });
+      if (erroInsert) throw new Error(`Falha ao criar follow-up automático: ${erroInsert.message}`);
       criados++;
     }
   }
 
   return { criados };
+}
+
+/**
+ * Aviso opcional ao cliente quando o card muda de etapa (só com
+ * CRM_AVISO_ETAPA_WHATSAPP=true). Passa pelas mesmas travas dos envios
+ * automáticos (não contatar + janela de horário) e pelo caminho normal de
+ * envio, que grava a mensagem no histórico da conversa.
+ */
+export async function avisarClienteMudancaEtapa(cardId: string, etapaId: string, usuarioId: string): Promise<"enviado" | "sem_conversa" | "bloqueado" | "falhou"> {
+  const supabase = await createClient();
+  const [{ data: card }, { data: etapa }, { data: conversa }] = await Promise.all([
+    supabase.from("crm_cards").select("cliente:clientes(nome)").eq("id", cardId).maybeSingle(),
+    supabase.from("crm_etapas").select("nome").eq("id", etapaId).maybeSingle(),
+    supabase.from("whatsapp_conversas").select("id, telefone, nao_contatar").eq("card_id", cardId).eq("status", "aberta").order("ultima_mensagem_em", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  if (!conversa || !etapa) return "sem_conversa";
+  const { avaliarEnvioAutomatico, janelaDoAmbiente } = await import("@/services/whatsapp/trava-envio");
+  const trava = avaliarEnvioAutomatico({ agora: new Date(), naoContatar: conversa.nao_contatar === true, janela: janelaDoAmbiente() });
+  if (!trava.permitido) return "bloqueado";
+  const cliente = (card as unknown as { cliente: { nome: string } | null } | null)?.cliente;
+  const { enviarMensagem } = await import("@/services/whatsapp/whatsapp.service");
+  const msg = await enviarMensagem({
+    conversaId: conversa.id,
+    telefone: conversa.telefone,
+    texto: `Olá, ${cliente?.nome.split(" ")[0] ?? ""}! Seu atendimento na Neotec avançou para: *${etapa.nome}*.`,
+    usuarioId,
+  });
+  return msg.status_entrega === "erro" ? "falhou" : "enviado";
 }

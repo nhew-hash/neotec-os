@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { crmCardSchema, crmFollowupSchema } from "./crm-pipeline.schema";
-import { criarCard, moverCardEtapa, criarFollowup, concluirFollowup, excluirCard } from "./crm-pipeline.service";
+import { criarCard, moverCardEtapa, criarFollowup, concluirFollowup, excluirCard, avisarClienteMudancaEtapa } from "./crm-pipeline.service";
 import type { ActionResult, CrmEtapa } from "@/types";
 
 export async function criarCardAction(formData: FormData): Promise<ActionResult> {
@@ -30,27 +30,19 @@ export async function moverCardEtapaAction(cardId: string, etapaId: string): Pro
     await moverCardEtapa(cardId, etapaId);
     revalidatePath("/crm");
 
-    // Avisa o cliente por WhatsApp quando o card muda de etapa —
-    // melhor esforço, nunca derruba a movimentação se o envio falhar.
-    try {
-      const supabase = await createClient();
-      const [{ data: card }, { data: etapa }] = await Promise.all([
-        supabase.from("crm_cards").select("titulo, cliente:clientes(nome, whatsapp)").eq("id", cardId).maybeSingle(),
-        supabase.from("crm_etapas").select("nome").eq("id", etapaId).maybeSingle(),
-      ]);
-      const cliente = card?.cliente as unknown as { nome: string; whatsapp: string } | null;
-      if (cliente?.whatsapp && etapa?.nome) {
-        const { getActiveProvider } = await import("@/services/whatsapp/providers/provider-resolver");
-        const { paraFormatoInternacionalBR } = await import("@/utils/telefone");
-        const provider = await getActiveProvider();
-        const resultadoEnvio = await provider.enviarTexto(
-          paraFormatoInternacionalBR(cliente.whatsapp),
-          `Olá, ${cliente.nome.split(" ")[0]}! Seu atendimento na Neotec avançou pra etapa: *${etapa.nome}*.`
-        );
-        if (!resultadoEnvio.enviado) console.error("WhatsApp de mudança de etapa não foi entregue:", resultadoEnvio.motivo);
+    // Aviso ao cliente por WhatsApp na mudança de etapa: DESLIGADO por padrão
+    // (auditoria 360°). Antes era enviado sempre, direto pelo provedor: ia
+    // para quem pediu "não contatar", fora do horário, com nomes internos do
+    // funil ("Lead", "Negociação") e sem ficar no histórico da conversa.
+    // Religar exige decisão da equipe: CRM_AVISO_ETAPA_WHATSAPP=true.
+    if (process.env.CRM_AVISO_ETAPA_WHATSAPP === "true") {
+      try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) await avisarClienteMudancaEtapa(cardId, etapaId, user.id);
+      } catch (erroWhatsapp) {
+        console.error("Aviso de mudança de etapa não enviado (não bloqueia a movimentação):", erroWhatsapp);
       }
-    } catch (erroWhatsapp) {
-      console.error("Falha ao enviar WhatsApp de mudança de etapa (não bloqueia a movimentação):", erroWhatsapp);
     }
 
     return { success: true, data: undefined };

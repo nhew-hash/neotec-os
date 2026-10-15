@@ -41,12 +41,24 @@ export function parseCurrencyBRL(input: string): number | null {
   return numero;
 }
 
+/**
+ * Fuso fixo de exibição. Sem isto, a mesma data saía diferente no servidor
+ * (UTC na Vercel: horários 3h adiantados em Server Components) e no
+ * navegador — e o Client Component dava erro de hidratação.
+ */
+export const FUSO_EXIBICAO = "America/Sao_Paulo";
+
+/** "2026-10-15" (coluna `date`) é data civil: não pode mudar de dia por causa de fuso. */
+const DATA_CIVIL = /^\d{4}-\d{2}-\d{2}$/;
+
 export function formatDate(value: string | Date): string {
-  const date = typeof value === "string" ? new Date(value) : value;
+  const civil = typeof value === "string" && DATA_CIVIL.test(value);
+  const date = typeof value === "string" ? new Date(civil ? `${value}T12:00:00Z` : value) : value;
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: civil ? "UTC" : FUSO_EXIBICAO,
   }).format(date);
 }
 
@@ -58,6 +70,7 @@ export function formatDateTime(value: string | Date): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: FUSO_EXIBICAO,
   }).format(date);
 }
 
@@ -89,15 +102,31 @@ export function getSaudacao(): string {
 }
 
 /** "Hoje" / "Ontem" / data por extenso — usado nos separadores de dia do chat. */
-export function formatDiaRelativo(dataIso: string): string {
+/** Dia civil (YYYY-MM-DD) de um instante, no fuso de exibição. */
+function diaCivil(data: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: FUSO_EXIBICAO, year: "numeric", month: "2-digit", day: "2-digit" }).format(data);
+}
+
+export function formatDiaRelativo(dataIso: string, agora: Date = new Date()): string {
   const data = new Date(dataIso);
-  const hoje = new Date();
-  const ontem = new Date(hoje);
-  ontem.setDate(ontem.getDate() - 1);
+  const ontem = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
+  if (diaCivil(data) === diaCivil(agora)) return "Hoje";
+  if (diaCivil(data) === diaCivil(ontem)) return "Ontem";
+  const mesmoAno = diaCivil(data).slice(0, 4) === diaCivil(agora).slice(0, 4);
+  return data.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: mesmoAno ? undefined : "numeric", timeZone: FUSO_EXIBICAO });
+}
 
-  const mesmoDia = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+/** Horário compacto para listas: "14:32" hoje, "Ontem", "seg." nesta semana, "03/10" antes. */
+export function formatHorarioCurto(dataIso: string, agora: Date = new Date()): string {
+  const data = new Date(dataIso);
+  const dias = (new Date(`${diaCivil(agora)}T12:00:00Z`).getTime() - new Date(`${diaCivil(data)}T12:00:00Z`).getTime()) / 86400000;
+  if (dias <= 0) return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: FUSO_EXIBICAO }).format(data);
+  if (dias === 1) return "Ontem";
+  if (dias < 7) return new Intl.DateTimeFormat("pt-BR", { weekday: "short", timeZone: FUSO_EXIBICAO }).format(data);
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: FUSO_EXIBICAO }).format(data);
+}
 
-  if (mesmoDia(data, hoje)) return "Hoje";
-  if (mesmoDia(data, ontem)) return "Ontem";
-  return data.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: data.getFullYear() !== hoje.getFullYear() ? "numeric" : undefined });
+/** Só a hora ("14:32"), para bolhas de mensagem. */
+export function formatHora(dataIso: string): string {
+  return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: FUSO_EXIBICAO }).format(new Date(dataIso));
 }

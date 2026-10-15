@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { paraFormatoInternacionalBR } from "@/utils/telefone";
+import { segredoConfere } from "@/services/whatsapp/webhook-assinatura";
 
 /**
  * Bridge chama quando detecta uma mensagem "fromMe" — pode ser uma
@@ -12,7 +13,7 @@ import { paraFormatoInternacionalBR } from "@/utils/telefone";
  */
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-bridge-secret");
-  if (!secret || secret !== process.env.WHATSAPP_PROSTEC_BRIDGE_SECRET) {
+  if (!segredoConfere(secret, process.env.WHATSAPP_PROSTEC_BRIDGE_SECRET)) {
     return new NextResponse("Não autorizado", { status: 401 });
   }
 

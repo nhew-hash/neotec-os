@@ -24,6 +24,10 @@ export async function perguntarParaEquipe(input: {
     .select("id")
     .eq("telefone", input.numeroVendedor)
     .eq("status", "aberta")
+    // Mais recente: com conversas duplicadas, `.maybeSingle()` sozinho dava
+    // erro e `data = null` (auditoria 360°, achado C2).
+    .order("ultima_mensagem_em", { ascending: false, nullsFirst: false })
+    .limit(1)
     .maybeSingle();
 
   if (!conversaVendedor) {

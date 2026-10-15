@@ -5,6 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 import { uploadFotoCatalogo, removerFotoCatalogo } from "./catalogo-fotos.service";
 import type { ActionResult } from "@/types";
 
+// O bucket `catalogo-fotos` é PÚBLICO. Antes aceitava qualquer arquivo e
+// usava a extensão vinda do navegador (`arquivo.type.split("/")[1]`): um
+// HTML/SVG enviado ficava servido publicamente. Só imagens, com extensão
+// decidida aqui, e com limite de tamanho.
+const TIPOS_PERMITIDOS: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+const TAMANHO_MAXIMO = 8 * 1024 * 1024;
+
 export async function uploadFotoCatalogoAction(formData: FormData): Promise<ActionResult> {
   const descricao = String(formData.get("descricao") ?? "").trim();
   const arquivo = formData.get("foto") as File | null;
@@ -17,8 +24,11 @@ export async function uploadFotoCatalogoAction(formData: FormData): Promise<Acti
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Sessão expirada" };
 
+    const extensao = TIPOS_PERMITIDOS[arquivo.type];
+    if (!extensao) return { success: false, error: "Envie uma foto JPG, PNG ou WebP." };
+    if (arquivo.size > TAMANHO_MAXIMO) return { success: false, error: "A foto passa de 8 MB. Reduza o tamanho e tente de novo." };
+
     const bytes = Buffer.from(await arquivo.arrayBuffer());
-    const extensao = arquivo.type.split("/")[1] ?? "jpg";
     await uploadFotoCatalogo(descricao, bytes, extensao, user.id);
 
     revalidatePath("/catalogo-fotos");

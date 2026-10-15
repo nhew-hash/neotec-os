@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { NavList } from "./nav-list";
+import { Marca } from "./marca";
 import type { CargoUsuario } from "@/types";
 
 /** Navegação para telas pequenas — abre a mesma NavList dentro de um Sheet. */
@@ -14,17 +15,14 @@ export function MobileNav({ cargo, naoLidasInicial }: { cargo: CargoUsuario; nao
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden">
+        <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu">
           <Menu className="h-5 w-5" />
-          <span className="sr-only">Abrir menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="flex flex-col bg-sidebar p-0">
-        <div className="flex h-14 items-center gap-2 px-5 border-b border-sidebar-border">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary font-display text-sm font-bold text-white">
-            N
-          </div>
-          <span className="font-display text-[15px] font-semibold text-white">Neotec OS</span>
+      <SheetContent side="left" className="flex w-72 flex-col bg-nav p-0">
+        <SheetTitle className="sr-only">Menu</SheetTitle>
+        <div className="flex h-14 items-center border-b border-nav-border px-4">
+          <Marca />
         </div>
         <NavList cargo={cargo} naoLidasInicial={naoLidasInicial} onNavigate={() => setOpen(false)} />
       </SheetContent>
