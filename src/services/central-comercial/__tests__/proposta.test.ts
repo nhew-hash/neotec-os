@@ -68,9 +68,11 @@ describe("proposta com vários itens e mensagem", () => {
   it("soma as linhas com quantidade", () => {
     expect(totalDasLinhas([{ descricao: "a", quantidade: 1, precoUnitario: 4000 }, { descricao: "b", quantidade: 2, precoUnitario: 49.9 }])).toBe(4099.8);
   });
-  it("escolhe a maior parcela sem juros e as de 6/10/12 que existem", () => {
-    expect(escolherParcelasParaMensagem(opcoes).map((o) => o.parcelas)).toEqual([3, 6, 10, 12]);
-    expect(escolherParcelasParaMensagem(opcoes.filter((o) => o.parcelas <= 3)).map((o) => o.parcelas)).toEqual([3]);
+  it("mostra só 6, 10, 12, 15 e 18x, e só as que o motor calculou", () => {
+    const ate18 = [1, 2, 3, 6, 10, 12, 15, 18].map((n) => ({ parcelas: n, valorParcela: 100, valorTotal: 100 * n, comJuros: n > 3 }));
+    expect(escolherParcelasParaMensagem(ate18).map((o) => o.parcelas)).toEqual([6, 10, 12, 15, 18]);
+    expect(escolherParcelasParaMensagem(opcoes).map((o) => o.parcelas)).toEqual([6, 10, 12]);
+    expect(escolherParcelasParaMensagem(opcoes.filter((o) => o.parcelas <= 3))).toEqual([]);
     expect(escolherParcelasParaMensagem([])).toEqual([]);
   });
   it("parcelamento não configurado é detectado, e proposta zerada não acusa falha", () => {
@@ -86,8 +88,8 @@ describe("proposta com vários itens e mensagem", () => {
     expect(m).toContain("5.200,00");
     expect(m).not.toContain("À vista (Pix)"); // Pix é o 2º passo
     expect(m).not.toContain("4.800,00");
-    expect(m).toContain("3x de");
-    expect(m).toContain("3x de R$") ;
+    expect(m).toContain("6x de R$");
+    expect(m).not.toMatch(/\b3x de/);
     expect(m).not.toMatch(/reserv|garantia/i);
     expect(m).toContain("confirmados no fechamento");
     expect(m).toContain("— Bia, Neotec");

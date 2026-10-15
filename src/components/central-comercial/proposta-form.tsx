@@ -20,6 +20,7 @@ import { ClienteBusca } from "./cliente-busca";
 import { ItemBuscaCampo } from "./item-busca";
 import { ApresentacaoCliente } from "./apresentacao-cliente";
 import { TrocaNaProposta } from "./troca-na-proposta";
+import { RoteiroFechamento } from "./roteiro-fechamento";
 
 export interface LinhaUI { tipo: "aparelho" | "produto"; id: string; rotulo: string; preco: number; quantidade: number; indisponivel?: boolean }
 export interface PropostaInicial {
@@ -37,7 +38,7 @@ export interface PropostaInicial {
 
 const chave = (l: { tipo: string; id: string }) => `${l.tipo}:${l.id}`;
 
-export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial; ehGerencia: boolean }) {
+export function PropostaForm({ inicial, ehGerencia, vendedorNome, abrirTroca }: { inicial: PropostaInicial; ehGerencia: boolean; vendedorNome?: string | null; abrirTroca?: boolean }) {
   const [modo, setModo] = useState<ModoAtendimento>(inicial.modo);
   const [cliente, setCliente] = useState<ClienteResultado | null>(inicial.cliente);
   const [linhas, setLinhas] = useState<LinhaUI[]>(inicial.itens);
@@ -258,6 +259,7 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
           {cliente && (
             <div className="flex flex-col gap-1.5">
               <TrocaNaProposta
+                abrirAoMontar={!!abrirTroca}
                 cliente={{ id: cliente.id, nome: cliente.nome, telefone: cliente.whatsapp || null }}
                 onAprovada={(t) => { setTradeIns((atual) => [t, ...atual.filter((x) => x.id !== t.id)]); setTradeInId(t.id); marcarSujo(); }}
               />
@@ -340,6 +342,8 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
         <div className="hidden space-y-2 lg:block">
           {Acoes()}
         </div>
+
+        <RoteiroFechamento cliente={cliente ? { id: cliente.id, nome: cliente.nome } : null} vendedora={vendedorNome ?? null} naoContatar={!!conversa?.naoContatar} />
       </aside>
 
       {/* Barra fixa no celular: total e ações principais ao alcance do polegar */}

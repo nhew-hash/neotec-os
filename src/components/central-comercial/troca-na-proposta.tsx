@@ -18,11 +18,13 @@ import { formatCurrency } from "@/utils/format";
  * de lá (mesma permissão). Avaliação bloqueada por avaria crítica não é
  * aprovada aqui: vai para revisão na tela da avaliação.
  */
-export function TrocaNaProposta({ cliente, onAprovada }: {
+export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false }: {
   cliente: { id: string; nome: string; telefone: string | null };
+  /** Vindo do Atendimento guiado com "tem aparelho na troca": já abre o checklist. */
+  abrirAoMontar?: boolean;
   onAprovada: (troca: { id: string; modeloNome: string; valor: number }) => void;
 }) {
-  const [aberto, setAberto] = useState(false);
+  const [aberto, setAberto] = useState(abrirAoMontar);
   const [modelos, setModelos] = useState<TrocaModeloComAvarias[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [registrada, setRegistrada] = useState<AvaliacaoRegistrada | null>(null);

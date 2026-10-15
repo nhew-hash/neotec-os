@@ -83,13 +83,13 @@ const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", curren
 /**
  * Texto curto para o WhatsApp. Usa só o preço cadastrado e diz que condições
  * (Pix, parcelas, troca) saem na proposta — não promete parcela que o motor não calculou.
+ * Sem link da loja virtual (decisão do dono): a venda da Central é da loja física.
  */
-export function textoDoItem(itens: ItemCatalogo[], base = "https://neotecbrasil.com"): string {
+export function textoDoItem(itens: ItemCatalogo[]): string {
   const linhas: string[] = [itens.length > 1 ? "Separei estas opções pra você 👇" : "Olha essa opção 👇", ""];
   for (const i of itens) {
     linhas.push(`📱 *${i.nome}*${i.detalhes.length ? ` — ${i.detalhes.join(" · ")}` : ""}`);
     linhas.push(`💰 ${brl(i.preco)}`);
-    if (i.linkLoja) linhas.push(`${base}${i.linkLoja}`);
     linhas.push("");
   }
   linhas.push("Parcelamos no cartão e aceitamos seu aparelho na troca. Quer que eu monte a proposta?");

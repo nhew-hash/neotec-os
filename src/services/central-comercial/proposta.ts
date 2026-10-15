@@ -61,7 +61,7 @@ export function textoDaProposta(params: { descricao: string; proposta: PropostaC
   if (p.desconto > 0) linhas.push(`Desconto: -${brl(p.desconto)}`);
   if (p.tradeInValor > 0) linhas.push(`Seu aparelho na troca: -${brl(p.tradeInValor)}`);
   linhas.push(`✅ À vista (Pix): ${brl(p.aVista)}`);
-  const parcelasMostradas = p.opcoes.filter((o) => [3, 6, 10, 12].includes(o.parcelas));
+  const parcelasMostradas = escolherParcelasParaMensagem(p.opcoes);
   for (const o of parcelasMostradas) linhas.push(`💳 ${o.parcelas}x de ${brl(o.valorParcela)}${o.comJuros ? "" : " sem juros"} (total ${brl(o.valorTotal)})`);
   if (validadeAte) linhas.push(`Válida até ${new Date(validadeAte).toLocaleDateString("pt-BR")}.`);
   return linhas.join("\n");
@@ -81,16 +81,16 @@ export function totalDasLinhas(linhas: LinhaProposta[]): number {
   return r2(linhas.reduce((acc, l) => acc + l.precoUnitario * l.quantidade, 0));
 }
 
+/** Parcelas que a loja fala ao cliente (definição do dono): 6x, 10x, 12x, 15x e 18x. */
+export const PARCELAS_DA_MENSAGEM = [6, 10, 12, 15, 18] as const;
+
 /**
- * Quais parcelas aparecem na mensagem: a maior SEM juros (se houver mais de 1x), 6x, 10x e 12x, só entre as que
- * o motor realmente calculou. Nunca cria opção que não existe.
+ * Quais parcelas aparecem na mensagem: 6, 10, 12, 15 e 18x, só entre as que o motor
+ * realmente calculou (tabela de taxas). Nunca cria opção que não existe.
  */
 export function escolherParcelasParaMensagem(opcoes: OpcaoPagamento[]): OpcaoPagamento[] {
-  const disponiveis = opcoes.filter((o) => o.parcelas > 1);
-  const semJuros = disponiveis.filter((o) => !o.comJuros);
-  const alvo = new Set<number>([6, 10, 12]);
-  if (semJuros.length > 0) alvo.add(Math.max(...semJuros.map((o) => o.parcelas)));
-  return disponiveis.filter((o) => alvo.has(o.parcelas)).sort((a, b) => a.parcelas - b.parcelas).slice(0, 4);
+  const alvo = new Set<number>(PARCELAS_DA_MENSAGEM);
+  return opcoes.filter((o) => alvo.has(o.parcelas)).sort((a, b) => a.parcelas - b.parcelas);
 }
 
 /** Sem nenhuma parcela calculada = a tabela de taxas não está configurada (ou está vazia). A tela precisa dizer isso. */

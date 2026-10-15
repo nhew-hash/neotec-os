@@ -50,7 +50,7 @@ export function CatalogoVenda({ itens, clienteId }: { itens: ItemCatalogo[]; cli
   async function copiar(itensTexto: ItemCatalogo[], id: string) {
     setErroCopia(null);
     try {
-      await navigator.clipboard.writeText(textoDoItem(itensTexto, window.location.origin));
+      await navigator.clipboard.writeText(textoDoItem(itensTexto));
       setCopiado(id);
       setTimeout(() => setCopiado((c) => (c === id ? null : c)), 2000);
     } catch {

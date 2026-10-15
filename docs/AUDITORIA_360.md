@@ -247,3 +247,12 @@ Backup de tudo em `backup_limpeza_20261015` (crm_followups, whatsapp_conversas, 
 **Pendente (precisa de aprovação):** apagar 23 mensagens duplicadas (com backup) e criar os índices únicos `uq_whatsapp_mensagens_message_id` e `uq_whatsapp_conversa_aberta_telefone`; após o deploy da Bridge, corrigir 6 conversas com telefone `:0`.
 
 **Para decisão do dono (não alterado):** 214 de 406 clientes com LID no lugar do telefone (irrecuperável pelo banco); 6 clientes com cards abertos duplicados; 18 clientes "Contato …"; 64 cards parados há 60+ dias; 35 conversas sem resposta há 30+ dias.
+
+## Rodada 4 — Central comercial: fluxo do Manual de Vendas (2026-10-15)
+
+- **Atender** (aba nova): o roteiro do Manual de Vendas da Júlia — Entender (perguntas do manual, frase "Então, pelo que entendi…") → Indicar (uma principal dentro do orçamento + uma alternativa até 20% acima, do estoque real; sem orçamento informado não indica) → proposta com a necessidade na observação interna e, se tem troca, o checklist já aberto.
+- **Proposta**: avaliar a troca sem sair (mesmo motor e mesma aprovação do Trade-in); cartão "Negociar e fechar" com as 10 objeções e a pergunta de fechamento; "vou pensar" agenda os lembretes do manual (no dia e em 24h) só com autorização do cliente, nunca envia sozinho e respeita "não contatar".
+- **Mensagem**: parcelas 6, 10, 12, 15 e 18x, só as que a tabela de taxas tem (hoje vai até 12x: 15x/18x aparecem quando a taxa for cadastrada em Financeiro → Parcelamento). Sem link da loja virtual.
+- **Catálogo de venda**: estoque real com foto, bateria e preço; copiar para o WhatsApp ou montar a proposta.
+- **Rotina**: as 10 tarefas do Manual de Rotina da Loja viraram checklist diário (gerente e vendedor); "Para a gerência hoje" na rotina de admin/gerente.
+- **Não feito (decisão pendente)**: lacrado na proposta — o PDV não vende lacrado (vira aparelho ao chegar), então a proposta aprovada não teria como virar venda. Precisa definir o fluxo antes da migração.

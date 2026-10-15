@@ -26,11 +26,12 @@ describe("catálogo de venda", () => {
     expect(filtrarCatalogo(lista, { precoMax: 2100, ordem: "maior_preco" }).map((i) => i.id)).toEqual(["a", "c"]);
   });
 
-  it("texto do WhatsApp usa só o preço cadastrado e o link da loja", () => {
-    const t = textoDoItem([item({ nome: "iPhone 14", detalhes: ["128 GB"], preco: 2599, linkLoja: "/loja/produto/iphone-14" })], "https://x.com");
+  it("texto do WhatsApp usa só o preço cadastrado e nunca o link da loja virtual", () => {
+    const t = textoDoItem([item({ nome: "iPhone 14", detalhes: ["128 GB"], preco: 2599, linkLoja: "/loja/produto/iphone-14" })]);
     expect(t).toContain("*iPhone 14* — 128 GB");
     expect(t).toMatch(/R\$\s2\.599,00/);
-    expect(t).toContain("https://x.com/loja/produto/iphone-14");
+    expect(t).not.toContain("/loja/");
+    expect(t).not.toMatch(/https?:\/\//);
     expect(t).not.toMatch(/\d+x de/);
   });
 

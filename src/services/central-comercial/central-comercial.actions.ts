@@ -148,3 +148,41 @@ export async function listarModelosTrocaAction(): Promise<ActionResult<import("@
     return { success: false, error: err instanceof Error ? err.message : "Não foi possível carregar a tabela de troca" };
   }
 }
+
+const acompanhamentoSchema = z.object({ clienteId: z.string().uuid(), autorizado: z.literal(true) });
+
+/**
+ * "Vou pensar" do Manual de Vendas: com a AUTORIZAÇÃO do cliente, agenda os dois
+ * lembretes de acompanhamento (no dia e em 24h) no CRM. Só cria lembretes para a
+ * vendedora — nada é enviado sozinho. Cliente que pediu para não ser contatado é
+ * bloqueado; e não duplica se já houver acompanhamento pendente para ele.
+ */
+export async function agendarAcompanhamentoAction(input: unknown): Promise<ActionResult<{ criados: number }>> {
+  const auth = await exigirCargo(EQUIPE);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  const parsed = acompanhamentoSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Confirme que o cliente autorizou o contato pelo WhatsApp." };
+  try {
+    const { createClient } = await import("@/lib/supabase/server");
+    const { criarFollowup } = await import("@/services/crm-pipeline/crm-pipeline.service");
+    const supabase = await createClient();
+    const { data: conversas, error: erroConv } = await supabase.from("whatsapp_conversas").select("nao_contatar").eq("cliente_id", parsed.data.clienteId);
+    if (erroConv) throw new Error(erroConv.message);
+    if ((conversas ?? []).some((c) => c.nao_contatar)) return { success: false, error: "Este cliente pediu para não ser contatado. Não agende acompanhamento." };
+
+    const { data: pendentes, error: erroPend } = await supabase.from("crm_followups").select("id").eq("cliente_id", parsed.data.clienteId).eq("status", "pendente").like("motivo", "Acompanhamento da proposta%");
+    if (erroPend) throw new Error(erroPend.message);
+    if ((pendentes ?? []).length > 0) return { success: true, data: { criados: 0 } };
+
+    const agora = Date.now();
+    const lembretes = [
+      { em: new Date(agora + 2 * 3600_000), motivo: "Acompanhamento da proposta (no dia): perguntar se ficou alguma dúvida." },
+      { em: new Date(agora + 24 * 3600_000), motivo: "Acompanhamento da proposta (24h): saber se conseguiu avaliar a proposta." },
+    ];
+    for (const l of lembretes) await criarFollowup({ cliente_id: parsed.data.clienteId, data_agendada: l.em.toISOString(), motivo: l.motivo, usuario_id: auth.userId });
+    revalidatePath("/central-comercial");
+    return { success: true, data: { criados: lembretes.length } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Não foi possível agendar o acompanhamento" };
+  }
+}
