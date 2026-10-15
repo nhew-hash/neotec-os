@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ShoppingBag } from "lucide-react";
 import { useCarrinho } from "./carrinho-context";
 import { DestaquePrecoCliente } from "./destaque-preco-cliente";
+import { BarraCompraFixa } from "./barra-compra-fixa";
 import type { CatalogoLacradoVariante, CatalogoLacradoModelo } from "@/types";
 
 type Variante = Pick<CatalogoLacradoVariante, "id" | "cor" | "armazenamento" | "quantidade" | "preco_venda" | "fotos">;
@@ -114,6 +115,7 @@ export function AdicionarLacradoAoCarrinho({ modelo, variantes, onVarianteFotosC
         </div>
       </div>
 
+      <BarraCompraFixa nome={modelo.nome} preco={varianteSelecionada?.preco_venda ?? null} rotulo={adicionado ? "Adicionado!" : "Comprar"} onComprar={handleAdicionar}>
       <button
         type="button"
         onClick={handleAdicionar}
@@ -123,6 +125,7 @@ export function AdicionarLacradoAoCarrinho({ modelo, variantes, onVarianteFotosC
         {adicionado ? <Check className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
         {adicionado ? "Adicionado!" : "Adicionar ao carrinho"}
       </button>
+      </BarraCompraFixa>
 
       {adicionado && (
         <button type="button" onClick={() => router.push("/loja/carrinho")} className="text-center text-sm font-medium text-primary hover:underline">

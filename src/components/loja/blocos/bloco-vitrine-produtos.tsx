@@ -13,7 +13,7 @@ export async function BlocoVitrineProdutos({ secao }: { secao: HomeSecao }) {
   if (selecionados.length === 0) return null;
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-20">
+    <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-14">
       <div className="mb-8 flex items-end justify-between">
         <h2 className="font-display text-section-title tracking-tight text-foreground">{c.titulo ?? "Destaques"}</h2>
         <Link href="/loja/categoria/iphone" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">

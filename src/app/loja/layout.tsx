@@ -6,6 +6,7 @@ import { VistosRecentesProvider } from "@/components/loja/vistos-recentes-contex
 import { LojaHeader } from "@/components/loja/loja-header";
 import { LojaFooter } from "@/components/loja/loja-footer";
 import { BarraComparacao } from "@/components/loja/barra-comparacao";
+import { BotaoWhatsappFlutuante } from "@/components/loja/botao-whatsapp-flutuante";
 import { BarraTopoRotativa } from "@/components/loja/barra-topo-rotativa";
 import { LojaTrackingProvider } from "@/components/loja/loja-tracking-provider";
 import { MetaPixelScript } from "@/components/loja/meta-pixel-script";
@@ -44,6 +45,7 @@ export default async function LojaLayout({ children }: { children: ReactNode }) 
               <main className="flex-1">{children}</main>
               <LojaFooter />
               <BarraComparacao />
+              <BotaoWhatsappFlutuante />
             </div>
           </VistosRecentesProvider>
         </FavoritosProvider>

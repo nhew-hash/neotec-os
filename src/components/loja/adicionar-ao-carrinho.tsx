@@ -6,6 +6,7 @@ import { Check, ShoppingBag, MapPin, Truck, BatteryFull, ShieldCheck } from "luc
 import { useCarrinho } from "./carrinho-context";
 import { formatCurrency } from "@/utils";
 import { DestaquePrecoCliente } from "./destaque-preco-cliente";
+import { BarraCompraFixa } from "./barra-compra-fixa";
 import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
 import { Button } from "@/components/ui/button";
 
@@ -136,6 +137,7 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
           </a>
         </div>
       ) : (
+        <BarraCompraFixa nome={produto.nome} preco={precoExibido} rotulo={modoComprarAgora ? "Comprar agora" : adicionado ? "Adicionado!" : "Comprar"} onComprar={handleAdicionar}>
         <Button
           type="button" size="xl" pill
           onClick={handleAdicionar}
@@ -144,6 +146,7 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
           {modoComprarAgora ? <ShoppingBag className="h-4 w-4" /> : adicionado ? <Check className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
           {modoComprarAgora ? "Comprar agora" : adicionado ? "Adicionado!" : "Adicionar ao carrinho"}
         </Button>
+        </BarraCompraFixa>
       )}
 
       {!modoComprarAgora && adicionado && (

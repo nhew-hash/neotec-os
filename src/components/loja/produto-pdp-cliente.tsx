@@ -16,7 +16,7 @@ import type { ProdutoLoja, AparelhoDisponivelLoja } from "@/types";
  * coluna direita (título, badges, descrição, selos etc).
  */
 export function ProdutoPdpCliente({
-  produto, aparelhosDisponiveis, pixDescontoPercentual, conteudoAntes, conteudoDepois,
+  produto, aparelhosDisponiveis: aparelhosRecebidos, pixDescontoPercentual, conteudoAntes, conteudoDepois,
 }: {
   produto: ProdutoLoja;
   aparelhosDisponiveis: AparelhoDisponivelLoja[];
@@ -24,6 +24,11 @@ export function ProdutoPdpCliente({
   conteudoAntes: ReactNode;
   conteudoDepois: ReactNode;
 }) {
+  // Mais barato primeiro: o card diz "a partir de R$ X" e a página abria
+  // com a unidade mais cara já selecionada (ex.: 2.950 em vez de 2.599).
+  const aparelhosDisponiveis = [...aparelhosRecebidos].sort(
+    (a, b) => (a.preco_venda ?? Number.POSITIVE_INFINITY) - (b.preco_venda ?? Number.POSITIVE_INFINITY)
+  );
   const fotosIniciais = aparelhosDisponiveis[0]?.fotos?.length ? aparelhosDisponiveis[0].fotos : produto.fotos;
   const [fotosAtuais, setFotosAtuais] = useState<string[]>(fotosIniciais ?? []);
 

@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { ShieldCheck, Wallet, Repeat, Wrench, Star, ArrowRight, Instagram } from "lucide-react";
+import {
+  ShieldCheck, Wallet, Repeat, Wrench, Star, ArrowRight, Instagram,
+  PackageCheck, Smartphone, TabletSmartphone, Tablet, Laptop, Watch, Headphones, SprayCan, Cable, Zap,
+} from "lucide-react";
 import { CATEGORIAS_LOJA, hrefCategoria } from "@/components/loja/categorias";
 import { Button } from "@/components/ui/button";
 import type { HomeSecao } from "@/types";
@@ -27,25 +30,36 @@ export function BlocoBanner({ secao }: { secao: HomeSecao }) {
   );
 }
 
+const ICONE_CATEGORIA: Record<string, typeof ShieldCheck> = {
+  iphone_lacrado: PackageCheck, iphone: Smartphone, android_tablet: TabletSmartphone, ipad: Tablet, mac: Laptop,
+  apple_watch: Watch, audio: Headphones, perfume: SprayCan, acessorio: Cable, eletronicos_mobilidade: Zap,
+};
+
+/**
+ * Antes: 10 blocos grandes com emoji (✨📱🤖) — no celular ocupavam duas
+ * telas inteiras antes do primeiro produto e destoavam do visual da loja.
+ * Agora: faixa compacta com ícone de linha (rola de lado no celular).
+ */
 export function BlocoCategorias() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-16">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {CATEGORIAS_LOJA.map((c, i) => (
-          <Link
-            key={c.valor}
-            href={hrefCategoria(c.valor)}
-            style={{ animationDelay: `${i * 60}ms` }}
-            className="animate-reveal-up flex flex-col items-center gap-2.5 rounded-2xl border border-border bg-card px-2 py-9 text-center transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5 hover:shadow-md"
-          >
-            <span className="text-3xl">{c.emoji}</span>
-            {/* Fase 250: rótulos longos ("Eletrônicos e Mobilidade") em células de 2
-                colunas no mobile quebravam em 2-3 linhas com altura desigual entre
-                vizinhos — `line-clamp-2` + fonte um pouco menor no mobile resolve
-                sem esconder nenhuma categoria. */}
-            <span className="line-clamp-2 text-xs font-medium leading-snug text-foreground sm:text-sm">{c.label}</span>
-          </Link>
-        ))}
+    <section className="mx-auto w-full max-w-6xl px-4 pb-4 pt-8 sm:pt-12">
+      <h2 className="sr-only">Categorias</h2>
+      <div className="neotec-scroll-x -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-5 sm:gap-3 sm:overflow-visible sm:px-0 lg:grid-cols-10">
+        {CATEGORIAS_LOJA.map((c) => {
+          const Icone = ICONE_CATEGORIA[c.valor] ?? Smartphone;
+          return (
+            <Link
+              key={c.valor}
+              href={hrefCategoria(c.valor)}
+              className="group flex w-[88px] shrink-0 flex-col items-center gap-2 rounded-2xl px-1 py-3 text-center transition-colors hover:bg-secondary sm:w-auto"
+            >
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F5F5F7] text-foreground transition-all group-hover:bg-primary group-hover:text-white">
+                <Icone className="h-6 w-6" strokeWidth={1.5} />
+              </span>
+              <span className="line-clamp-2 text-[11px] font-medium leading-tight text-foreground sm:text-xs">{c.label}</span>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );
@@ -69,23 +83,27 @@ export function BlocoTradeIn({ secao }: { secao: HomeSecao }) {
   );
 }
 
+/**
+ * Antes: bloco preto de ~650px no celular. Agora: faixa clara e compacta —
+ * os mesmos 4 argumentos (vêm do CMS), sem empurrar os produtos pra baixo.
+ */
 export function BlocoAssistencia({ secao }: { secao: HomeSecao }) {
   const c = secao.configuracao as { itens?: (ItemLista & { icone?: string })[] };
   const itens = c.itens ?? [];
   if (itens.length === 0) return null;
 
   return (
-    <section className="bg-sidebar px-4 py-20">
-      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 sm:grid-cols-4">
+    <section className="mx-auto w-full max-w-6xl px-4 py-10">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {itens.map((item, i) => {
           const Icone = ICONES[item.icone ?? ""] ?? ShieldCheck;
           return (
-            <div key={i} className="flex flex-col items-center gap-3 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.06] text-white">
-                <Icone className="h-5 w-5" strokeWidth={1.5} />
+            <div key={i} className="flex items-start gap-3 rounded-2xl bg-[#F5F5F7] p-4">
+              <Icone className="mt-0.5 h-5 w-5 shrink-0 text-primary" strokeWidth={1.75} />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold leading-snug text-foreground">{item.titulo}</p>
+                <p className="mt-1 hidden text-xs leading-relaxed text-muted-foreground sm:block">{item.descricao}</p>
               </div>
-              <span className="text-sm font-semibold text-white">{item.titulo}</span>
-              <span className="text-xs leading-relaxed text-white/50">{item.descricao}</span>
             </div>
           );
         })}

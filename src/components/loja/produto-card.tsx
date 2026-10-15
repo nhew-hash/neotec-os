@@ -73,7 +73,7 @@ export function ProdutoCard({ produto, maisVendido, ultimasUnidades }: ProdutoCa
               <PrecoComEconomia precoAtual={produto.preco_venda} precoAntigo={produto.preco_antigo} tamanho="compacto" />
               {/* Antes: "12x de" = preço do Pix ÷ 12, que não batia com a parcela real
                   do cartão mostrada no produto (taxas da maquininha). */}
-              <span className="text-xs text-muted-foreground">no Pix · ou em até 12x no cartão</span>
+              <span className="text-xs text-muted-foreground">ou em até 12x no cartão</span>
             </>
           )}
         </div>
