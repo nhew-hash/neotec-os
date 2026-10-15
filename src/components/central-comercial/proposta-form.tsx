@@ -369,7 +369,7 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
             )}
           </div>
         )}
-        <Button type="button" variant="ghost" className="w-full" onClick={() => setApresentando(true)} disabled={!resultado} hidden={modo === "presencial"}>Mostrar na tela ao cliente</Button>
+        {modo === "whatsapp" && <Button type="button" variant="ghost" className="w-full" onClick={() => setApresentando(true)} disabled={!resultado}>Mostrar na tela ao cliente</Button>}
         {orcamentoId && <Link href="/central-comercial/propostas" className={cn(buttonVariants({ variant: "link" }), "w-full")}>Ver minhas propostas</Link>}
         {orcamentoId && <p className="text-center text-xs text-muted-foreground">Quando o cliente fechar, aprove a proposta em Vendas para virar venda.</p>}
       </>

@@ -20,7 +20,7 @@ export function CentralNav({ mostrarGerente }: { mostrarGerente: boolean }) {
   const naProposta = path.startsWith("/central-comercial/proposta") && !path.startsWith("/central-comercial/propostas");
   return (
     <>
-      <div className="sticky top-0 z-20 -mx-4 flex items-center gap-2 border-b border-border bg-app/90 px-4 backdrop-blur md:-mx-8 md:px-8">
+      <div className="sticky -top-4 z-20 -mx-4 md:-top-8 flex items-center gap-2 border-b border-border bg-app/90 px-4 backdrop-blur md:-mx-8 md:px-8">
         <nav aria-label="Central comercial" className="flex flex-1 gap-1 overflow-x-auto">
           {abas.map(({ href, label, Icon, ativo }) => (
             <Link key={href} href={href} aria-current={ativo ? "page" : undefined}

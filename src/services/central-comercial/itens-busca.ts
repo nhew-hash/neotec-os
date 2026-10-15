@@ -24,7 +24,7 @@ const CONDICAO: Record<string, string> = { novo: "Novo", seminovo: "Seminovo", u
 
 /** "128GB" → "128 GB", "1tb" → "1 TB"; outros valores passam como vieram. */
 export function formatarCapacidade(memoria: string | null | undefined): string | null {
-  if (!memoria) return null;
+  if (!memoria || /^(n[aã]o informad[ao]|n\/?a|-+|\?+)$/i.test(memoria.trim())) return null;
   const m = memoria.trim().match(/^(\d+)\s*(gb|tb)$/i);
   return m ? `${m[1]} ${m[2].toUpperCase()}` : memoria.trim();
 }
@@ -49,4 +49,29 @@ export function finalDoImei(imei: string | null | undefined): string | null {
 export function paginar<T>(itens: T[], pagina: number, limite: number): { pagina: T[]; temMais: boolean } {
   const de = Math.max(pagina, 0) * limite;
   return { pagina: itens.slice(de, de + limite), temMais: itens.length > de + limite };
+}
+
+const CONDICOES = ["novo", "seminovo", "usado"] as const;
+
+/** `condicao` é ENUM no banco: não aceita ilike. Traduz o termo digitado para valores exatos do enum. */
+export function condicoesDoTermo(termo: string): string[] {
+  const t = semAcento(termo).trim();
+  if (t.length < 3) return [];
+  return CONDICOES.filter((c) => c.startsWith(t));
+}
+
+/** Unidades idênticas e sem IMEI aparecem como "Unidade 1 de 2", para a vendedora saber que são aparelhos distintos. */
+export function numerarUnidades<T extends { rotulo: string; preco: number; detalhe: string | null }>(itens: T[]): T[] {
+  const grupos = new Map<string, number[]>();
+  itens.forEach((i, idx) => {
+    if (i.detalhe) return;
+    const k = `${i.rotulo}|${i.preco}`;
+    grupos.set(k, [...(grupos.get(k) ?? []), idx]);
+  });
+  const saida = itens.map((i) => ({ ...i }));
+  for (const indices of grupos.values()) {
+    if (indices.length < 2) continue;
+    indices.forEach((idx, n) => { saida[idx].detalhe = `Unidade ${n + 1} de ${indices.length}`; });
+  }
+  return saida;
 }

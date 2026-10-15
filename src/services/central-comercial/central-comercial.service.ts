@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { obterPricingEnginePublico } from "@/services/precificacao/precificacao-publico.service";
 import { type RegraDescontoLoja } from "@/services/vendas/desconto";
+import { rotuloAparelho } from "./itens-busca";
 import { calcularProgressoMeta, dataRefBrasilia, diasParado, gerarTarefasDoDia, primeiroDiaDoMes, resumoPorResponsavel, type ModeloChecklist, type ProgressoMeta } from "./regras";
 
 /**
@@ -137,9 +138,17 @@ export async function conversasAguardandoResposta(usuarioId: string, cargo: stri
   const supabase = await createClient();
   let q = supabase.from("whatsapp_conversas").select("id, telefone, nao_lidas, ultima_mensagem_em, responsavel_id, cliente:clientes(nome)").eq("status", "aberta").gt("nao_lidas", 0);
   if (cargo === "vendedor") q = q.or(`responsavel_id.eq.${usuarioId},responsavel_id.is.null`);
-  const { data, error } = await q.order("ultima_mensagem_em", { ascending: true }).limit(30);
+  const { data, error } = await q.order("ultima_mensagem_em", { ascending: false }).limit(200);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((c) => ({ id: c.id, telefone: c.telefone, nao_lidas: c.nao_lidas, ultima_mensagem_em: c.ultima_mensagem_em, cliente_nome: (c.cliente as unknown as { nome?: string } | null)?.nome ?? null }));
+  // Um contato pode ter várias conversas abertas: agrupa por telefone (mais recente primeiro), somando as não lidas.
+  const porTelefone = new Map<string, ConversaAguardando>();
+  for (const c of data ?? []) {
+    const nome = (c.cliente as unknown as { nome?: string } | null)?.nome ?? null;
+    const atual = porTelefone.get(c.telefone);
+    if (atual) { atual.nao_lidas += c.nao_lidas; if (!atual.cliente_nome && nome) atual.cliente_nome = nome; continue; }
+    porTelefone.set(c.telefone, { id: c.id, telefone: c.telefone, nao_lidas: c.nao_lidas, ultima_mensagem_em: c.ultima_mensagem_em, cliente_nome: nome });
+  }
+  return [...porTelefone.values()];
 }
 
 export interface OrcamentoAberto { id: string; cliente_nome: string | null; cliente_whatsapp: string | null; valor: number; status: string; data_criacao: string; dias_parado: number }
@@ -221,18 +230,22 @@ export interface ItemParaProposta { tipo: "aparelho" | "produto"; id: string; de
 
 export async function buscarItemParaProposta(tipo: "aparelho" | "produto", id: string): Promise<ItemParaProposta> {
   const supabase = await createClient();
+  // Mesmo critério da loja virtual: o preço-base do motor é o "líquido desejado", se houver, senão o preço de venda.
   if (tipo === "aparelho") {
-    const { data: a, error } = await supabase.from("vw_aparelhos_seguro").select("id, produto_id, cor, memoria, condicao, preco_venda, status").eq("id", id).maybeSingle();
+    const { data: a, error } = await supabase.from("vw_aparelhos_seguro").select("id, produto_id, cor, memoria, condicao, preco_venda, preco_liquido_desejado, status").eq("id", id).maybeSingle();
     if (error || !a) throw new Error("Aparelho não encontrado.");
     if (a.status !== "disponivel") throw new Error("Este aparelho não está mais disponível.");
-    if (!a.preco_venda || a.preco_venda <= 0) throw new Error("Este aparelho está sem preço de venda cadastrado.");
-    const { data: p } = await supabase.from("produtos").select("nome").eq("id", a.produto_id).maybeSingle();
-    return { tipo, id, preco: Number(a.preco_venda), descricao: [p?.nome ?? "Aparelho", a.memoria, a.cor, a.condicao].filter(Boolean).join(" · ") };
+    const preco = Number(a.preco_liquido_desejado ?? a.preco_venda);
+    if (!preco || preco <= 0) throw new Error("Este aparelho está sem preço de venda cadastrado.");
+    // vw_produtos_seguro (e não a tabela): a vendedora não lê `produtos` direto, e sem isso o nome do modelo sumia.
+    const { data: p } = await supabase.from("vw_produtos_seguro").select("nome").eq("id", a.produto_id).maybeSingle();
+    return { tipo, id, preco, descricao: rotuloAparelho({ nome: p?.nome, memoria: a.memoria, cor: a.cor, condicao: a.condicao }) };
   }
-  const { data: p, error } = await supabase.from("produtos").select("id, nome, preco_venda").eq("id", id).maybeSingle();
+  const { data: p, error } = await supabase.from("vw_produtos_seguro").select("id, nome, preco_venda, preco_liquido_desejado").eq("id", id).maybeSingle();
   if (error || !p) throw new Error("Produto não encontrado.");
-  if (!p.preco_venda || p.preco_venda <= 0) throw new Error("Este produto está sem preço de venda cadastrado.");
-  return { tipo, id, preco: Number(p.preco_venda), descricao: p.nome };
+  const preco = Number(p.preco_liquido_desejado ?? p.preco_venda);
+  if (!preco || preco <= 0) throw new Error("Este produto está sem preço de venda cadastrado.");
+  return { tipo, id, preco, descricao: p.nome };
 }
 
 export interface PendenciaConfiguracao { chave: string; titulo: string; detalhe: string; resolvida: boolean }

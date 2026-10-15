@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { corresponde, finalDoImei, formatarCapacidade, paginar, rotuloAparelho, termosDaBusca } from "../itens-busca";
+import { condicoesDoTermo, corresponde, finalDoImei, numerarUnidades, formatarCapacidade, paginar, rotuloAparelho, termosDaBusca } from "../itens-busca";
 
 describe("rotuloAparelho", () => {
   it("monta nome completo legível", () => {
@@ -42,5 +42,25 @@ describe("finalDoImei / paginar", () => {
     const lista = Array.from({ length: 25 }, (_, i) => i);
     expect(paginar(lista, 0, 10)).toEqual({ pagina: lista.slice(0, 10), temMais: true });
     expect(paginar(lista, 2, 10)).toEqual({ pagina: lista.slice(20), temMais: false });
+  });
+});
+
+describe("correções do teste real", () => {
+  it("capacidade 'Não informada' some do nome", () => {
+    expect(rotuloAparelho({ nome: "iPhone 12", memoria: "Não informada", condicao: "seminovo" })).toBe("iPhone 12 · Seminovo");
+    expect(formatarCapacidade("nao informado")).toBeNull();
+  });
+  it("condição vira valor exato do enum (nunca ilike)", () => {
+    expect(condicoesDoTermo("semi")).toEqual(["seminovo"]);
+    expect(condicoesDoTermo("novo")).toEqual(["novo"]);
+    expect(condicoesDoTermo("us")).toEqual([]);
+    expect(condicoesDoTermo("iphone")).toEqual([]);
+  });
+  it("unidades iguais sem IMEI são numeradas; com IMEI ficam como estão", () => {
+    const r = numerarUnidades([
+      { rotulo: "Watch", preco: 10, detalhe: null }, { rotulo: "Watch", preco: 10, detalhe: null },
+      { rotulo: "Watch", preco: 10, detalhe: "IMEI …1234" }, { rotulo: "Outro", preco: 5, detalhe: null },
+    ]);
+    expect(r.map((i) => i.detalhe)).toEqual(["Unidade 1 de 2", "Unidade 2 de 2", "IMEI …1234", null]);
   });
 });

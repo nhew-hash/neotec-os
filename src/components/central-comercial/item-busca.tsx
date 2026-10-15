@@ -28,7 +28,7 @@ export function ItemBuscaCampo({ onAdicionar, jaNaProposta }: { onAdicionar: (it
       const r = await buscarItensAction(q, 0);
       if (minha !== requisicao.current) return;
       setCarregando(false);
-      if (!r.success) { setErro(r.error); setItens([]); return; }
+      if (!r.success) { setErro(r.error); setItens([]); setTemMais(false); setTruncado(false); return; }
       setItens(r.data.itens); setTemMais(r.data.temMais); setTruncado(r.data.truncado); setPagina(0);
     }, q.trim() ? 300 : 0);
     return () => clearTimeout(t);
