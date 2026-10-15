@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { proximaAcao, type EntradaRotina } from "../rotina";
+import { precisaResposta, proximaAcao, type EntradaRotina } from "../rotina";
 
 const vazio: EntradaRotina = { clientesAguardando: [], orcamentosParados: [], sugestoesPendentes: 0, tarefasAtrasadas: 0, tarefasPendentes: 0 };
 
@@ -29,4 +29,10 @@ describe("proximaAcao", () => {
     expect(proximaAcao({ ...vazio, tarefasAtrasadas: 1, tarefasPendentes: 3 }).tipo).toBe("tarefa_atrasada");
     expect(proximaAcao({ ...vazio, tarefasPendentes: 3 }).tipo).toBe("tarefa");
   });
+});
+
+describe("precisaResposta", () => {
+  it("nunca respondida: precisa", () => expect(precisaResposta("2026-10-14T10:00:00Z", null)).toBe(true));
+  it("respondida depois da última mensagem do cliente (ex.: pelo celular): não precisa", () => expect(precisaResposta("2026-10-14T10:00:00Z", "2026-10-14T10:05:00Z")).toBe(false));
+  it("cliente escreveu de novo depois da resposta: precisa", () => expect(precisaResposta("2026-10-14T11:00:00Z", "2026-10-14T10:05:00Z")).toBe(true));
 });

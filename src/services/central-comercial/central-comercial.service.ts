@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { obterPricingEnginePublico } from "@/services/precificacao/precificacao-publico.service";
 import { type RegraDescontoLoja } from "@/services/vendas/desconto";
 import { rotuloAparelho } from "./itens-busca";
+import { precisaResposta } from "./rotina";
 import { calcularProgressoMeta, dataRefBrasilia, diasParado, gerarTarefasDoDia, primeiroDiaDoMes, resumoPorResponsavel, type ModeloChecklist, type ProgressoMeta } from "./regras";
 
 /**
@@ -140,9 +141,17 @@ export async function conversasAguardandoResposta(usuarioId: string, cargo: stri
   if (cargo === "vendedor") q = q.or(`responsavel_id.eq.${usuarioId},responsavel_id.is.null`);
   const { data, error } = await q.order("ultima_mensagem_em", { ascending: false }).limit(200);
   if (error) throw new Error(error.message);
+  // Muita conversa já foi respondida direto no WhatsApp e continua com "não lidas": só conta se a última mensagem é do cliente.
+  const ultimaSaida = new Map<string, string>();
+  const ids = (data ?? []).map((c) => c.id);
+  if (ids.length > 0) {
+    const { data: saidas, error: erroSaidas } = await supabase.from("whatsapp_mensagens").select("conversa_id, criado_em").eq("direcao", "saida").in("conversa_id", ids).order("criado_em", { ascending: false }).limit(5000);
+    if (erroSaidas) throw new Error(erroSaidas.message);
+    for (const m of saidas ?? []) if (!ultimaSaida.has(m.conversa_id)) ultimaSaida.set(m.conversa_id, m.criado_em);
+  }
   // Um contato pode ter várias conversas abertas: agrupa por telefone (mais recente primeiro), somando as não lidas.
   const porTelefone = new Map<string, ConversaAguardando>();
-  for (const c of data ?? []) {
+  for (const c of (data ?? []).filter((x) => precisaResposta(x.ultima_mensagem_em, ultimaSaida.get(x.id) ?? null))) {
     const nome = (c.cliente as unknown as { nome?: string } | null)?.nome ?? null;
     const atual = porTelefone.get(c.telefone);
     if (atual) { atual.nao_lidas += c.nao_lidas; if (!atual.cliente_nome && nome) atual.cliente_nome = nome; continue; }

@@ -55,3 +55,13 @@ export function proximaAcao(e: EntradaRotina): ProximaAcao {
   }
   return { tipo: "em_dia", titulo: "Tudo em dia por aqui", detalhe: "Nenhum cliente esperando e nenhuma proposta parada. Que tal começar uma proposta nova?", rotulo: "Nova proposta", href: "/central-comercial/proposta" };
 }
+
+/**
+ * Uma conversa só "espera resposta" se a ÚLTIMA mensagem é do cliente. Quem já respondeu (pelo sistema ou
+ * direto no WhatsApp do celular) tem saída depois da última entrada, mesmo que `nao_lidas` continue > 0.
+ */
+export function precisaResposta(ultimaMensagemEm: string | null, ultimaSaidaEm: string | null): boolean {
+  if (!ultimaSaidaEm) return true;
+  if (!ultimaMensagemEm) return false;
+  return new Date(ultimaMensagemEm).getTime() > new Date(ultimaSaidaEm).getTime();
+}
