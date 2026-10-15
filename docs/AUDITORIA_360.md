@@ -232,3 +232,18 @@ O site ao vivo (neotecbrasil.com) **não pôde ser aberto** nesta sessão (rede 
 | L8 | P1 | Lacrado sem regra de lucro na categoria entra com **preço do fornecedor (margem zero)**, em silêncio | ◐ aviso no resumo do WhatsApp; 🔒 a margem é decisão da loja |
 
 **Para a lista nova ter "outra regra de preço"**: cadastre em Estoque → Importação automática → Regras de lucro as categorias `computadores_macbook`, `tablets_ipad` e `acessorios_apple` (condição Lacrado). Sem isso, esses itens sobem pelo preço da Realeza. A lista que já chegou e caiu como "desconhecida" precisa ser **reenviada** no grupo (ou encaminhada) para entrar.
+
+## Rodada 3 — "mais de 1000 precisando de atenção" (2026-10-15)
+
+**Causa confirmada nos dados de produção:**
+1. Lembretes "Responder novo contato" duplicados (1 por mensagem recebida, bug antigo já corrigido): 9.400 pendentes → 100 reais (1.814 concluídos, 7.487 cancelados).
+2. A Bridge ignorava `chats.update` (leitura no celular) e `messages.update` (recibos): conversa lida no aparelho seguia "não lida". Conversas não lidas 294 → 73; mensagens não lidas 2.678 → 174 (recalculadas como recebidas após a última enviada).
+3. 90 conversas fragmentadas (LID/sufixo `:N`) fundidas em 11.
+
+Backup de tudo em `backup_limpeza_20261015` (crm_followups, whatsapp_conversas, mensagens_conversa, refs_conversa, fusao).
+
+**Correção no código:** rotas `conversa-lida` e `status-entrega`; responder pelo celular zera as não lidas; Bridge repassa os eventos e tira o sufixo de aparelho do telefone.
+
+**Pendente (precisa de aprovação):** apagar 23 mensagens duplicadas (com backup) e criar os índices únicos `uq_whatsapp_mensagens_message_id` e `uq_whatsapp_conversa_aberta_telefone`; após o deploy da Bridge, corrigir 6 conversas com telefone `:0`.
+
+**Para decisão do dono (não alterado):** 214 de 406 clientes com LID no lugar do telefone (irrecuperável pelo banco); 6 clientes com cards abertos duplicados; 18 clientes "Contato …"; 64 cards parados há 60+ dias; 35 conversas sem resposta há 30+ dias.
