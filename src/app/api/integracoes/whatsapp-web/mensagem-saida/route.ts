@@ -69,7 +69,9 @@ export async function POST(request: NextRequest) {
 
   await supabase
     .from("whatsapp_conversas")
-    .update({ ultima_mensagem_em: new Date().toISOString(), ia_pausada: true })
+    // Respondeu pelo celular = viu a conversa: zera as "não lidas" (antes
+    // continuavam contando e inflavam "clientes aguardando resposta").
+    .update({ ultima_mensagem_em: new Date().toISOString(), ia_pausada: true, nao_lidas: 0 })
     .eq("id", conversa.id);
 
   return NextResponse.json({ ok: true, registradoDoCelular: true });

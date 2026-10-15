@@ -9,7 +9,7 @@ import { paraFormatoInternacionalBR, paraFormatoLocalBR } from "@/utils/telefone
 import { detectarPedidoNaoContato } from "./trava-envio";
 import { proximoStatusEntrega, statusMetaParaEntrega } from "./entrega-status";
 import type { DisparoWhatsapp, MensagemRecebidaNormalizada } from "./whatsapp.types";
-import type { WhatsappConversa, WhatsappMensagem, Cliente } from "@/types";
+import type { WhatsappConversa, WhatsappMensagem, Cliente, StatusEntregaMensagem } from "@/types";
 
 /**
  * Ponto único de disparo de comunicação TRANSACIONAL (venda aprovada, OS
@@ -121,11 +121,16 @@ export async function marcarConversaComoLida(conversaId: string): Promise<void> 
 export async function atualizarStatusEntrega(evento: { whatsappMessageId: string; statusMeta: string }): Promise<boolean> {
   const recebido = statusMetaParaEntrega(evento.statusMeta);
   if (!recebido) return false;
+  return aplicarStatusEntrega(evento.whatsappMessageId, recebido);
+}
+
+/** Mesmo avanço de status, já no vocabulário do Neotec OS (usado pela Bridge do WhatsApp Web). */
+export async function aplicarStatusEntrega(whatsappMessageId: string, recebido: StatusEntregaMensagem): Promise<boolean> {
   const supabase = createAdminClient();
   const { data: atual, error } = await supabase
     .from("whatsapp_mensagens")
     .select("id, status_entrega")
-    .eq("whatsapp_message_id", evento.whatsappMessageId)
+    .eq("whatsapp_message_id", whatsappMessageId)
     .limit(1)
     .maybeSingle();
   if (error) throw new Error(`Falha ao ler mensagem para status de entrega: ${error.message}`);
@@ -659,4 +664,29 @@ export async function contarConversasNaoLidas(): Promise<number> {
   const supabase = await createClient();
   const { count } = await supabase.from("whatsapp_conversas").select("*", { count: "exact", head: true }).gt("nao_lidas", 0);
   return count ?? 0;
+}
+
+/**
+ * Conversa lida no celular/WhatsApp Web vinculado (evento `chats.update` da
+ * Bridge). Zera as "não lidas" das conversas abertas desse contato — pelo
+ * telefone ou pelo JID exato (contas LID). Antes isso só acontecia abrindo a
+ * conversa dentro do Neotec OS, e os contadores do sistema inflavam.
+ */
+export async function marcarLidaPeloAparelho(input: { telefone: string; jid?: string | null }): Promise<number> {
+  const supabase = createAdminClient();
+  // Telefone como a Bridge grava (dígitos; conversas antigas podem ter o
+  // sufixo de aparelho ":0") — e também sem o sufixo, para casar as duas formas.
+  const bruto = input.telefone.replace(/[^\d:]/g, "");
+  const semSufixo = bruto.split(":")[0];
+  const filtros = [...new Set([bruto, semSufixo])].filter(Boolean).map((t) => `telefone.eq.${t}`);
+  if (input.jid && /^[\w.:@-]+$/.test(input.jid)) filtros.push(`jid_envio.eq.${input.jid}`);
+  const { data, error } = await supabase
+    .from("whatsapp_conversas")
+    .update({ nao_lidas: 0 })
+    .eq("status", "aberta")
+    .gt("nao_lidas", 0)
+    .or(filtros.join(","))
+    .select("id");
+  if (error) throw new Error(`Não foi possível marcar a conversa como lida: ${error.message}`);
+  return data?.length ?? 0;
 }
