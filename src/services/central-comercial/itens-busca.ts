@@ -24,7 +24,7 @@ const CONDICAO: Record<string, string> = { novo: "Novo", seminovo: "Seminovo", u
 
 /** "128GB" → "128 GB", "1tb" → "1 TB"; outros valores passam como vieram. */
 export function formatarCapacidade(memoria: string | null | undefined): string | null {
-  if (!memoria || /^(n[aã]o informad[ao]|n\/?a|-+|\?+)$/i.test(memoria.trim())) return null;
+  if (!memoria || /^(nao informad[ao]|n\/?a|-+|\?+)$/.test(semAcento(memoria.trim()))) return null;
   const m = memoria.trim().match(/^(\d+)\s*(gb|tb)$/i);
   return m ? `${m[1]} ${m[2].toUpperCase()}` : memoria.trim();
 }

@@ -95,16 +95,19 @@ export default async function MinhaRotinaPage() {
       </section>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
-        <Secao titulo="Clientes que precisam de resposta" descricao="Conversas com mensagem não lida, as mais antigas primeiro.">
+        <Secao titulo="Clientes que precisam de resposta" descricao="Conversas com mensagem não lida, as mais recentes primeiro.">
           {!aguardando.ok ? <Indisponivel motivo={aguardando.motivo} /> : aguardando.dados.length === 0 ? <Card className="p-4 text-sm text-muted-foreground">Ninguém esperando resposta.</Card> : (
             <Card className="px-4"><ul className="divide-y divide-border">
-              {aguardando.dados.map((c) => (
+              {aguardando.dados.slice(0, 8).map((c) => (
                 <li key={c.id} className="flex items-center gap-3 py-3 text-sm">
                   <div className="min-w-0 flex-1"><p className="truncate font-medium">{c.cliente_nome ?? c.telefone}</p>
                     <p className="text-xs text-muted-foreground">{c.nao_lidas} {c.nao_lidas === 1 ? "mensagem" : "mensagens"}{c.ultima_mensagem_em ? ` · ${formatDateTime(c.ultima_mensagem_em)}` : ""}</p></div>
                   <Link href={`/comunicacao/${c.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>Responder</Link>
                 </li>
               ))}
+              {aguardando.dados.length > 8 && (
+                <li className="py-3 text-sm"><Link href="/comunicacao" className="font-medium text-primary hover:underline">Ver todas as {aguardando.dados.length} conversas na Comunicação</Link></li>
+              )}
             </ul></Card>
           )}
         </Secao>

@@ -26,6 +26,8 @@ export function ApresentacaoCliente({ dados, onFechar }: { dados: DadosApresenta
   const { proposta: p, linhas } = dados;
   const primeiro = dados.nomeCliente?.trim().split(/\s+/)[0];
   const opcoes = p.opcoes.filter((o) => o.parcelas > 1);
+  // Com um único item e sem desconto/troca, o preço do item é o líquido da loja e destoaria do Pix mostrado logo abaixo: só o Pix e as parcelas valem.
+  const mostrarPrecoDosItens = linhas.length > 1 || p.desconto > 0 || p.tradeInValor > 0;
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Proposta para o cliente" className="fixed inset-0 z-[60] overflow-y-auto bg-white text-slate-900">
@@ -42,7 +44,7 @@ export function ApresentacaoCliente({ dados, onFechar }: { dados: DadosApresenta
           {linhas.map((l) => (
             <li key={`${l.tipo}:${l.id}`} className="flex items-baseline justify-between gap-4 py-4">
               <span className="text-base font-medium">{l.quantidade > 1 ? `${l.quantidade}x ` : ""}{l.descricao}</span>
-              <span className="whitespace-nowrap tabular-nums text-slate-600">{formatCurrency(l.precoUnitario * l.quantidade)}</span>
+              {mostrarPrecoDosItens && <span className="whitespace-nowrap tabular-nums text-slate-600">{formatCurrency(l.precoUnitario * l.quantidade)}</span>}
             </li>
           ))}
         </ul>

@@ -49,6 +49,7 @@ describe("correções do teste real", () => {
   it("capacidade 'Não informada' some do nome", () => {
     expect(rotuloAparelho({ nome: "iPhone 12", memoria: "Não informada", condicao: "seminovo" })).toBe("iPhone 12 · Seminovo");
     expect(formatarCapacidade("nao informado")).toBeNull();
+    expect(formatarCapacidade("Na\u0303o informada")).toBeNull(); // acento decomposto (NFD)
   });
   it("condição vira valor exato do enum (nunca ilike)", () => {
     expect(condicoesDoTermo("semi")).toEqual(["seminovo"]);

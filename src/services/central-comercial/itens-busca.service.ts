@@ -49,7 +49,7 @@ export async function buscarItens(params: { q: string; pagina?: number; limite?:
 
   // ---- Acessórios e demais produtos (por unidade, com saldo)
   let qp = supabase.from("vw_produtos_seguro").select("id, nome, marca, modelo, categoria, preco_venda, preco_liquido_desejado").eq("status", "ativo").gt("preco_venda", 0);
-  for (const t of termos) qp = qp.or(`nome.ilike.%${t}%,modelo.ilike.%${t}%,marca.ilike.%${t}%,categoria.ilike.%${t}%`);
+  for (const t of termos) qp = qp.or(`nome.ilike.%${t}%,modelo.ilike.%${t}%,marca.ilike.%${t}%`); // categoria é ENUM: não aceita ilike (filtrada em memória abaixo)
   const { data: produtos, error: erroP } = await qp.order("nome").limit(LIMITE_CANDIDATOS);
   if (erroP) throw new Error(`Não foi possível buscar os produtos: ${erroP.message}`);
   if ((produtos?.length ?? 0) >= LIMITE_CANDIDATOS) truncado = true;
