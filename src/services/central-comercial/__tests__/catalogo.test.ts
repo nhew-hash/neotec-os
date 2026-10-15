@@ -35,10 +35,10 @@ describe("catálogo de venda", () => {
     expect(t).not.toMatch(/\d+x de/);
   });
 
-  it("parâmetro de itens: só aparelho/produto, ida e volta, ignora lixo", () => {
+  it("parâmetro de itens: ida e volta, lacrado incluso, ignora lixo", () => {
     const p = paramItensProposta([{ tipo: "aparelho", id: U1, vaiParaProposta: true }, { tipo: "lacrado", id: U2, vaiParaProposta: false }]);
     expect(p).toBe(`aparelho:${U1}`);
-    expect(lerParamItensProposta(`${p},produto:${U2},lacrado:${U2},aparelho:xyz,${p}`)).toEqual([{ tipo: "aparelho", id: U1 }, { tipo: "produto", id: U2 }]);
+    expect(lerParamItensProposta(`${p},produto:${U2},lacrado:${U2},aparelho:xyz,${p}`)).toEqual([{ tipo: "aparelho", id: U1 }, { tipo: "produto", id: U2 }, { tipo: "lacrado", id: U2 }]);
   });
 });
 

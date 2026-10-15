@@ -5,6 +5,7 @@ import { obterCustoItem } from "@/services/estoque/estoque.service";
 import { enviarMensagem } from "@/services/whatsapp/whatsapp.service";
 import { avaliarDesconto, type AvaliacaoDesconto } from "@/services/vendas/desconto";
 import { buscarItemParaProposta, obterRegraDesconto } from "./central-comercial.service";
+import { custoDoLacrado, materializarLacrado } from "./lacrado-encomenda.service";
 import { calcularProposta, distribuirValor, mensagemComercial, parcelamentoDisponivel, totalDasLinhas, type LinhaProposta, type ModoAtendimento, type PropostaCalculada } from "./proposta";
 import { estadoDaProposta, type EstadoProposta, type EventoResumo } from "./propostas-estado";
 
@@ -16,7 +17,8 @@ import { estadoDaProposta, type EstadoProposta, type EventoResumo } from "./prop
  *  - o histórico (migration fase268) é complementar: se a migration não foi aplicada, a proposta ainda funciona e a tela avisa.
  */
 
-export interface ItemEntrada { tipo: "aparelho" | "produto"; id: string; quantidade: number }
+/** "lacrado" = variante do catálogo de lacrados vendida sob encomenda; ao salvar vira um aparelho (ver lacrado-encomenda.service). */
+export interface ItemEntrada { tipo: "aparelho" | "produto" | "lacrado"; id: string; quantidade: number }
 export interface ComposicaoEntrada {
   itens: ItemEntrada[];
   desconto: number;
@@ -29,7 +31,7 @@ export interface ComposicaoEntrada {
   /** Segundo passo da negociação: só entra na mensagem quando a vendedora libera o valor à vista. */
   incluirAVista?: boolean;
 }
-export interface LinhaResultado extends LinhaProposta { tipo: "aparelho" | "produto"; id: string }
+export interface LinhaResultado extends LinhaProposta { tipo: "aparelho" | "produto" | "lacrado"; id: string }
 export interface ResultadoComposicao {
   linhas: LinhaResultado[];
   proposta: PropostaCalculada;
@@ -59,7 +61,7 @@ export async function simularComposicao(params: ComposicaoEntrada & { cargo: str
     if (chaves.has(k)) throw new Error("Há um item repetido na proposta. Ajuste a quantidade em vez de adicionar de novo.");
     chaves.add(k);
     if (!Number.isInteger(i.quantidade) || i.quantidade < 1 || i.quantidade > 20) throw new Error("A quantidade de cada item deve ser de 1 a 20.");
-    if (i.tipo === "aparelho" && i.quantidade !== 1) throw new Error("Cada aparelho é uma unidade. Adicione outro aparelho se for o caso.");
+    if (i.tipo !== "produto" && i.quantidade !== 1) throw new Error("Cada aparelho é uma unidade. Adicione outro aparelho se for o caso.");
   }
 
   const supabase = await createClient();
@@ -103,7 +105,7 @@ export async function simularComposicao(params: ComposicaoEntrada & { cargo: str
 
   let resultadoEstimado: ResultadoComposicao["resultadoEstimado"] = null;
   if (params.cargo === "admin" || params.cargo === "gerente") {
-    const custos = await Promise.all(linhas.map(async (l) => (await obterCustoItem(l.tipo === "aparelho" ? { aparelhoId: l.id } : { produtoId: l.id })) * l.quantidade));
+    const custos = await Promise.all(linhas.map(async (l) => (l.tipo === "lacrado" ? (await custoDoLacrado(l.id)) ?? 0 : await obterCustoItem(l.tipo === "aparelho" ? { aparelhoId: l.id } : { produtoId: l.id })) * l.quantidade));
     const custo = r2(custos.reduce((a, b) => a + b, 0));
     resultadoEstimado = { custo, resultado: r2(proposta.baseLiquida - custo) };
   }
@@ -144,7 +146,11 @@ export async function registrarEventoProposta(params: { orcamentoId: string; tip
 // Salvar / retomar
 // ---------------------------------------------------------------------------
 
-export interface ResultadoSalvar { orcamentoId: string; reaproveitada: boolean; atualizada: boolean; historicoDisponivel: boolean }
+export interface ResultadoSalvar {
+  orcamentoId: string; reaproveitada: boolean; atualizada: boolean; historicoDisponivel: boolean;
+  /** Lacrados de encomenda que viraram aparelho ao salvar: a tela troca a linha para não cadastrar de novo. */
+  substituicoes: { de: string; para: { tipo: "aparelho"; id: string } }[];
+}
 const JANELA_DUPLICIDADE_MS = 3 * 60_000;
 
 export async function salvarProposta(params: ComposicaoEntrada & { clienteId: string; usuarioId: string; cargo: string; retomarId?: string | null; validadeDias?: number }): Promise<ResultadoSalvar> {
@@ -166,9 +172,19 @@ export async function salvarProposta(params: ComposicaoEntrada & { clienteId: st
   const valorTotal = r.proposta.aVista;
   const somaItens = r2(valorTotal + r.proposta.tradeInValor);
   const unitarios = distribuirValor(r.linhas, somaItens);
-  const itensLinhas = r.linhas.map((l, i) => ({
-    produto_id: l.tipo === "produto" ? l.id : null, aparelho_id: l.tipo === "aparelho" ? l.id : null, quantidade: l.quantidade, valor: unitarios[i],
-  }));
+  const substituicoes: ResultadoSalvar["substituicoes"] = [];
+  /** Lacrado de encomenda vira aparelho só na hora de gravar (o PDV só vende aparelho "disponível"). */
+  async function linhasParaGravar(orcamentoAtualId: string | null) {
+    return Promise.all(r.linhas.map(async (l, i) => {
+      let tipo = l.tipo, id = l.id;
+      if (l.tipo === "lacrado") {
+        id = await materializarLacrado(l.id, orcamentoAtualId);
+        tipo = "aparelho";
+        substituicoes.push({ de: `lacrado:${l.id}`, para: { tipo: "aparelho", id } });
+      }
+      return { produto_id: tipo === "produto" ? id : null, aparelho_id: tipo === "aparelho" ? id : null, quantidade: l.quantidade, valor: unitarios[i] };
+    }));
+  }
 
   const basico = { cliente_id: params.clienteId, usuario_id: params.usuarioId, valor: valorTotal, forma_pagamento: "pix", validade };
   const extras = {
@@ -191,19 +207,21 @@ export async function salvarProposta(params: ComposicaoEntrada & { clienteId: st
       ({ error } = await supabase.from("orcamentos").update(basico).eq("id", atual.id));
     }
     if (error) throw new Error(`Não foi possível atualizar a proposta: ${error.message}`);
+    const itensLinhas = await linhasParaGravar(atual.id);
     const { error: erroDel } = await supabase.from("orcamento_itens").delete().eq("orcamento_id", atual.id);
     if (erroDel) throw new Error(`Não foi possível atualizar os itens: ${erroDel.message}`);
     const { error: erroIns } = await supabase.from("orcamento_itens").insert(itensLinhas.map((l) => ({ ...l, orcamento_id: atual.id })));
     if (erroIns) throw new Error(`Os itens não foram regravados. Salve novamente: ${erroIns.message}`);
     const registrou = await registrarEventoProposta({ orcamentoId: atual.id, tipo: "editada", usuarioId: params.usuarioId, modo: params.modo, conversaId: params.conversaId });
-    return { orcamentoId: atual.id, reaproveitada: false, atualizada: true, historicoDisponivel: historico && registrou };
+    return { orcamentoId: atual.id, reaproveitada: false, atualizada: true, historicoDisponivel: historico && registrou, substituicoes };
   }
 
   // ---- Duplo clique / reenvio acidental: mesma pessoa, mesmo cliente, mesmo valor, poucos minutos
   const desde = new Date(Date.now() - JANELA_DUPLICIDADE_MS).toISOString();
   const { data: recentes } = await supabase.from("orcamentos").select("id")
     .eq("cliente_id", params.clienteId).eq("usuario_id", params.usuarioId).eq("valor", valorTotal).eq("status", "criado").gte("data_criacao", desde).limit(1);
-  if (recentes && recentes.length > 0) return { orcamentoId: recentes[0].id, reaproveitada: true, atualizada: false, historicoDisponivel: true };
+  if (recentes && recentes.length > 0 && !r.linhas.some((l) => l.tipo === "lacrado")) return { orcamentoId: recentes[0].id, reaproveitada: true, atualizada: false, historicoDisponivel: true, substituicoes };
+  const itensLinhas = await linhasParaGravar(null); // antes de criar o orçamento: sem permissão/custo, nada é gravado
 
   let historico = true;
   let { data: criado, error } = await supabase.from("orcamentos").insert({ ...basico, ...extras }).select("id").single();
@@ -219,7 +237,7 @@ export async function salvarProposta(params: ComposicaoEntrada & { clienteId: st
     throw new Error(`Não foi possível registrar os itens da proposta: ${erroItens.message}`);
   }
   const registrou = await registrarEventoProposta({ orcamentoId: criado.id, tipo: "criada", usuarioId: params.usuarioId, modo: params.modo, conversaId: params.conversaId });
-  return { orcamentoId: criado.id, reaproveitada: false, atualizada: false, historicoDisponivel: historico && registrou };
+  return { orcamentoId: criado.id, reaproveitada: false, atualizada: false, historicoDisponivel: historico && registrou, substituicoes };
 }
 
 // ---------------------------------------------------------------------------

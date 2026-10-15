@@ -18,7 +18,7 @@ export interface ItemCatalogo {
   preco: number;
   foto: string | null;
   bateria: number | null;
-  /** Só aparelho/produto entram na proposta hoje (lacrado ainda não tem item de orçamento). */
+  /** Tudo entra na proposta; lacrado vai sob encomenda (vira aparelho "no fornecedor" ao salvar). */
   vaiParaProposta: boolean;
   linkLoja: string | null;
   /** Quantidade em estoque (produto e lacrado); aparelho é sempre 1 unidade. */
@@ -103,13 +103,13 @@ export function paramItensProposta(itens: Pick<ItemCatalogo, "tipo" | "id" | "va
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function lerParamItensProposta(valor: string | null | undefined): { tipo: "aparelho" | "produto"; id: string }[] {
+export function lerParamItensProposta(valor: string | null | undefined): { tipo: "aparelho" | "produto" | "lacrado"; id: string }[] {
   if (!valor) return [];
   const vistos = new Set<string>();
-  const saida: { tipo: "aparelho" | "produto"; id: string }[] = [];
+  const saida: { tipo: "aparelho" | "produto" | "lacrado"; id: string }[] = [];
   for (const parte of valor.split(",").slice(0, 20)) {
     const [tipo, id] = parte.split(":");
-    if ((tipo !== "aparelho" && tipo !== "produto") || !UUID.test(id ?? "") || vistos.has(parte)) continue;
+    if ((tipo !== "aparelho" && tipo !== "produto" && tipo !== "lacrado") || !UUID.test(id ?? "") || vistos.has(parte)) continue;
     vistos.add(parte);
     saida.push({ tipo, id });
   }

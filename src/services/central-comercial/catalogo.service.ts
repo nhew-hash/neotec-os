@@ -14,10 +14,10 @@ export async function listarCatalogoVenda(): Promise<ItemCatalogo[]> {
   const supabase = await createClient();
 
   const [aparelhosR, produtosR, modelosR, variantesR] = await Promise.all([
-    supabase.from("vw_aparelhos_seguro").select("id, produto_id, cor, memoria, bateria, condicao, preco_venda, preco_liquido_desejado, fotos, banco_imagens_grupo_id").eq("status", "disponivel").gt("preco_venda", 0).limit(1000),
+    supabase.from("vw_aparelhos_seguro").select("id, produto_id, cor, memoria, bateria, condicao, preco_venda, preco_liquido_desejado, fotos, banco_imagens_grupo_id, observacoes").eq("status", "disponivel").gt("preco_venda", 0).limit(1000),
     supabase.from("vw_produtos_seguro").select("id, nome, categoria, preco_venda, preco_liquido_desejado, fotos, banco_imagens_grupo_id, slug, visivel_loja, status").limit(2000),
     supabase.from("catalogo_lacrados_modelos").select("id, nome, marca, fotos, banco_imagens_grupo_id").eq("ativo", true),
-    supabase.from("catalogo_lacrados_variantes").select("modelo_id, cor, armazenamento, quantidade, preco_venda, banco_imagens_grupo_id").eq("ativo", true).gt("quantidade", 0).not("preco_venda", "is", null),
+    supabase.from("catalogo_lacrados_variantes").select("id, modelo_id, cor, armazenamento, quantidade, preco_venda, banco_imagens_grupo_id").eq("ativo", true).gt("quantidade", 0).not("preco_venda", "is", null),
   ]);
   for (const r of [aparelhosR, produtosR, modelosR, variantesR]) if (r.error) throw new Error(`Não foi possível carregar o catálogo: ${r.error.message}`);
 
@@ -38,7 +38,8 @@ export async function listarCatalogoVenda(): Promise<ItemCatalogo[]> {
   }
   const foto = (grupo: string | null | undefined, fotos: string[] | null | undefined) => (grupo ? fotoDoGrupo.get(grupo) : undefined) ?? fotos?.[0] ?? null;
 
-  const itensAparelho: ItemCatalogo[] = (aparelhosR.data ?? []).map((a) => {
+  // Unidade de "lacrado sob encomenda" criada por uma proposta já aparece pelo card do lacrado.
+  const itensAparelho: ItemCatalogo[] = (aparelhosR.data ?? []).filter((a) => !(a.observacoes ?? "").startsWith("Lacrado sob encomenda")).map((a) => {
     const p = produtos.get(a.produto_id);
     return {
       tipo: "aparelho", id: a.id, nome: p?.nome ?? "Aparelho",
@@ -71,20 +72,20 @@ export async function listarCatalogoVenda(): Promise<ItemCatalogo[]> {
       quantidade: saldos.get(p.id) ?? 0,
     }));
 
-  const porModelo = new Map<string, { cor: string; armazenamento: string; quantidade: number; preco_venda: number; banco_imagens_grupo_id: string | null }[]>();
-  for (const v of variantesR.data ?? []) porModelo.set(v.modelo_id, [...(porModelo.get(v.modelo_id) ?? []), { ...v, preco_venda: Number(v.preco_venda) }]);
-  const itensLacrado: ItemCatalogo[] = (modelosR.data ?? []).flatMap((m) => {
-    const vs = porModelo.get(m.id);
-    if (!vs?.length) return [];
-    const armazenamentos = [...new Set(vs.map((v) => formatarCapacidade(v.armazenamento)).filter((x): x is string => Boolean(x)))];
-    const cores = [...new Set(vs.map((v) => v.cor).filter((c) => c && !/^n[aã]o informad|^—$/i.test(c)))];
+  // Lacrado: um card por variante (cor + armazenamento), que é o que vai para a proposta sob encomenda.
+  const modelos = new Map((modelosR.data ?? []).map((m) => [m.id, m]));
+  const itensLacrado: ItemCatalogo[] = (variantesR.data ?? []).flatMap((v) => {
+    const m = modelos.get(v.modelo_id);
+    if (!m) return [];
+    const cor = v.cor && !/^n[aã]o informad|^—$/i.test(v.cor) ? v.cor : null;
     return [{
-      tipo: "lacrado" as const, id: m.id, nome: m.nome, grupo: "lacrado" as const,
-      detalhes: ["Lacrado", ...armazenamentos, cores.length ? `${cores.length} ${cores.length === 1 ? "cor" : "cores"}` : null].filter((x): x is string => Boolean(x)),
-      preco: Math.min(...vs.map((v) => v.preco_venda)),
-      foto: foto(m.banco_imagens_grupo_id, m.fotos) ?? vs.map((v) => foto(v.banco_imagens_grupo_id, null)).find(Boolean) ?? null, bateria: null, vaiParaProposta: false,
+      tipo: "lacrado" as const, id: v.id, nome: m.nome, grupo: "lacrado" as const,
+      detalhes: ["Lacrado", formatarCapacidade(v.armazenamento), cor, "Encomenda"].filter((x): x is string => Boolean(x)),
+      preco: Number(v.preco_venda),
+      foto: foto(v.banco_imagens_grupo_id, null) ?? foto(m.banco_imagens_grupo_id, m.fotos),
+      bateria: null, vaiParaProposta: true,
       linkLoja: `/loja/lacrados/${slugify(m.nome)}`,
-      quantidade: vs.reduce((acc, v) => acc + v.quantidade, 0),
+      quantidade: v.quantidade,
     }];
   });
 

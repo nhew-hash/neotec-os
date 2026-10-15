@@ -22,7 +22,7 @@ import { ApresentacaoCliente } from "./apresentacao-cliente";
 import { TrocaNaProposta } from "./troca-na-proposta";
 import { RoteiroFechamento } from "./roteiro-fechamento";
 
-export interface LinhaUI { tipo: "aparelho" | "produto"; id: string; rotulo: string; preco: number; quantidade: number; indisponivel?: boolean }
+export interface LinhaUI { tipo: "aparelho" | "produto" | "lacrado"; id: string; rotulo: string; preco: number; quantidade: number; indisponivel?: boolean }
 export interface PropostaInicial {
   orcamentoId: string | null;
   cliente: ClienteResultado | null;
@@ -133,6 +133,11 @@ export function PropostaForm({ inicial, ehGerencia, vendedorNome, abrirTroca }: 
     const r = await salvarPropostaAction({ ...entradaCalculo, clienteId: cliente.id, observacoes, retomarId: orcamentoId });
     if (!r.success) { setAviso({ tom: "erro", texto: r.error }); return null; }
     setOrcamentoId(r.data.orcamentoId); setSujo(false);
+    // Lacrado de encomenda virou aparelho ao salvar: troca a linha para não cadastrar outra unidade.
+    if (r.data.substituicoes?.length) {
+      const mapa = new Map(r.data.substituicoes.map((x) => [x.de, x.para]));
+      setLinhas((atual) => atual.map((l) => { const para = mapa.get(chave(l)); return para ? { ...l, tipo: para.tipo, id: para.id } : l; }));
+    }
     setAviso({
       tom: r.data.historicoDisponivel ? "ok" : "atencao",
       texto: r.data.reaproveitada ? "Esta proposta já estava salva (não duplicamos)." : r.data.atualizada ? "Proposta atualizada." : "Proposta salva.",

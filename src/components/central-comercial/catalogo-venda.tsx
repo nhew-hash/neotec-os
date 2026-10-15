@@ -122,7 +122,7 @@ export function CatalogoVenda({ itens, clienteId }: { itens: ItemCatalogo[]; cli
                       <span key={d} className={cn(d.startsWith("Bateria") && i.bateria != null && corBateria(i.bateria))}>{idx > 0 ? " · " : ""}{d}</span>
                     ))}
                   </p>
-                  <p className="mt-auto pt-1 text-base font-semibold tabular-nums">{i.tipo === "lacrado" && <span className="text-xs font-normal text-muted-foreground">a partir de </span>}{formatCurrency(i.preco)}</p>
+                  <p className="mt-auto pt-1 text-base font-semibold tabular-nums">{formatCurrency(i.preco)}</p>
                   <div className="flex items-center gap-1 pt-1">
                     <Button type="button" variant="outline" size="sm" className="h-8 flex-1 px-2 text-xs" onClick={() => copiar([i], chave(i))}>
                       {copiado === chave(i) ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}{copiado === chave(i) ? "Copiado" : "Copiar"}
@@ -151,7 +151,7 @@ export function CatalogoVenda({ itens, clienteId }: { itens: ItemCatalogo[]; cli
             {paraProposta ? (
               <Link href={hrefProposta} className={buttonVariants({ size: "sm" })}><FileText className="h-4 w-4" /><span className="hidden sm:inline">Montar proposta</span><span className="sm:hidden">Proposta</span></Link>
             ) : (
-              <span className="text-xs text-muted-foreground">Lacrado ainda não entra na proposta.</span>
+              <span className="text-xs text-muted-foreground">Selecione um item.</span>
             )}
           </div>
         </div>

@@ -60,7 +60,9 @@ export function AtendimentoGuiado({ itens, clienteInicial }: { itens: ItemCatalo
   const necessidade: Necessidade = { ...n, orcamento: numero(orcamentoTxt), parcelaDesejada: numero(parcelaTxt) };
   const confirmacao = fraseConfirmacao(necessidade);
   const grupos = TIPOS.find((t) => t.id === tipo)?.grupos ?? [];
-  const noTipo = (i: ItemCatalogo) => i.vaiParaProposta && (grupos.length === 0 || grupos.includes(i.grupo));
+  // Lacrado (encomenda) entra no tipo pelo nome do modelo.
+  const familiaLacrado = (nome: string) => (/iphone/i.test(nome) ? "iphone" : /\bipad\b|apple\s*watch|macbook|\bimac\b|mac\s*(mini|studio)/i.test(nome) ? "apple" : "android");
+  const noTipo = (i: ItemCatalogo) => i.vaiParaProposta && (grupos.length === 0 || grupos.includes(i.grupo) || (i.grupo === "lacrado" && familiaLacrado(i.nome) === tipo));
   const indicacao = recomendar(itens, necessidade, noTipo);
   const outras = useMemo(() => {
     if (!necessidade.orcamento) return [];

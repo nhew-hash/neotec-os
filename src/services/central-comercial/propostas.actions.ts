@@ -10,7 +10,7 @@ const EQUIPE = ["admin", "gerente", "vendedor"] as const;
 const uuid = z.string().uuid();
 
 const composicaoSchema = z.object({
-  itens: z.array(z.object({ tipo: z.enum(["aparelho", "produto"]), id: uuid, quantidade: z.coerce.number().int().min(1).max(20) })).min(1, "Adicione pelo menos um item.").max(15),
+  itens: z.array(z.object({ tipo: z.enum(["aparelho", "produto", "lacrado"]), id: uuid, quantidade: z.coerce.number().int().min(1).max(20) })).min(1, "Adicione pelo menos um item.").max(15),
   desconto: z.coerce.number().min(0, "Desconto inválido.").max(1_000_000).default(0),
   tradeInId: uuid.nullish(),
   clienteId: uuid.nullish(),

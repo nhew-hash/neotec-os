@@ -279,9 +279,14 @@ export async function obterRegraDesconto(): Promise<RegraDescontoLoja> {
   return { regraAtiva: cfg?.regra_ativa === true, limitesPorCargo: Object.fromEntries((regras ?? []).map((r) => [r.cargo, Number(r.percentual_max)])) };
 }
 
-export interface ItemParaProposta { tipo: "aparelho" | "produto"; id: string; descricao: string; preco: number }
+export interface ItemParaProposta { tipo: "aparelho" | "produto" | "lacrado"; id: string; descricao: string; preco: number }
 
-export async function buscarItemParaProposta(tipo: "aparelho" | "produto", id: string): Promise<ItemParaProposta> {
+export async function buscarItemParaProposta(tipo: "aparelho" | "produto" | "lacrado", id: string): Promise<ItemParaProposta> {
+  if (tipo === "lacrado") {
+    const { lacradoParaProposta } = await import("./lacrado-encomenda.service");
+    const l = await lacradoParaProposta(id);
+    return { tipo, id, preco: l.preco, descricao: l.descricao };
+  }
   const supabase = await createClient();
   // Mesmo critério da loja virtual: o preço-base do motor é o "líquido desejado", se houver, senão o preço de venda.
   if (tipo === "aparelho") {
