@@ -40,16 +40,3 @@ export function hrefCategoria(valor: string): string {
 export function labelCategoria(valor: string): string {
   return CATEGORIAS_LOJA.find((c) => c.valor === valor)?.label ?? valor;
 }
-
-/**
- * Parcelamento exibido nos cards da grade de produtos — só uma
- * estimativa de "quantas parcelas cabem", sem afirmar juros ou não
- * (não dá pra consultar a taxa real do Mercado Pago por item numa
- * lista inteira, seria uma chamada de API por card). A página do
- * produto mostra a tabela de parcelamento REAL, com juros de verdade
- * quando existir — essa aqui é só um indicativo pra grade.
- */
-export function formatarParcelamento(valor: number, parcelas = 12): string {
-  const valorParcela = valor / parcelas;
-  return `em até ${parcelas}x de ${valorParcela.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`;
-}

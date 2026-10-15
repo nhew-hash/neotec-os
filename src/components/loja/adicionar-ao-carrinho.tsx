@@ -49,7 +49,9 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
   const temVariantes = aparelhosDisponiveis.length > 0;
   const aparelhoSelecionado = aparelhosDisponiveis.find((a) => a.id === aparelhoSelecionadoId);
   const precoExibido = temVariantes ? aparelhoSelecionado?.preco_venda ?? produto.preco_venda : produto.preco_venda;
-  const disponivel = !temVariantes || aparelhosDisponiveis.length > 0;
+  // Sem preço não se vende: antes o botão aparecia e o item ia para o
+  // carrinho valendo R$ 0 (ex.: iPhone 15 Plus sem unidade nem preço).
+  const disponivel = precoExibido != null && precoExibido > 0;
 
   function handleAdicionar() {
     if (temVariantes && aparelhoSelecionado) {
@@ -123,7 +125,16 @@ export function AdicionarAoCarrinho({ produto, aparelhosDisponiveis, pixDesconto
       )}
 
       {!disponivel ? (
-        <p className="rounded-xl bg-secondary py-3.5 text-center text-sm text-muted-foreground">Sem unidades disponíveis no momento</p>
+        <div className="flex flex-col gap-2 rounded-xl bg-secondary p-4 text-center">
+          <p className="text-sm text-muted-foreground">Sem unidade disponível no momento</p>
+          <a
+            href={`https://wa.me/5534988178338?text=${encodeURIComponent(`Olá! Tenho interesse no ${produto.nome}. Vocês têm disponível?`)}`}
+            target="_blank" rel="noopener noreferrer"
+            className="text-sm font-semibold text-primary hover:underline"
+          >
+            Consultar pelo WhatsApp →
+          </a>
+        </div>
       ) : (
         <Button
           type="button" size="xl" pill

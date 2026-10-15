@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
           ? `\n⚠️ ${resultadoAplicacao.itensRetidos.length} item(ns) com variação de preço suspeita NÃO atualizados automaticamente (resto da lista aplicado normalmente):\n${resultadoAplicacao.motivosRetencao.map((m) => `• ${m}`).join("\n")}\nRevise manualmente na tela de Importação.`
           : "") +
         (resultadoAplicacao.itensSemRegraPreco.length > 0
-          ? `\n⚠️ ${resultadoAplicacao.itensSemRegraPreco.length} item(ns) lacrado(s) SEM regra de lucro — subiram com o preço do fornecedor (margem zero):\n${[...new Set(resultadoAplicacao.itensSemRegraPreco.map((i) => `${i.modeloCanonico} (${i.categoriaSlug})`))].slice(0, 15).map((m) => `• ${m}`).join("\n")}\nCadastre a regra em Estoque → Importação automática → Regras de lucro.`
+          ? `\n⚠️ ${resultadoAplicacao.itensSemRegraPreco.length} item(ns) lacrado(s) SEM regra de lucro — ficaram FORA da venda (sem preço), nada foi a preço de custo:\n${[...new Set(resultadoAplicacao.itensSemRegraPreco.map((i) => `${i.modeloCanonico} (${i.categoriaSlug})`))].slice(0, 15).map((m) => `• ${m}`).join("\n")}\nCadastre a regra em Estoque → Importação automática → Regras de lucro.`
           : "") +
         (resultadoAplicacao.itensSemCor.length > 0
           ? `\n⚠️ ${resultadoAplicacao.itensSemCor.length} item(ns) sem cor identificada subiram com cor "Não informada" (corrija a cor depois):\n${resultadoAplicacao.motivosSemCor.slice(0, 15).map((m) => `• ${m}`).join("\n")}\nDefina a cor no estoque ou adicione o emoji na tabela de cores.`

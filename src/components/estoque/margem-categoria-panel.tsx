@@ -80,7 +80,7 @@ export function MargemCategoriaPanel({
         <p className="text-sm text-muted-foreground">
           Sem regra configurada aqui: seminovo usa a regra global marcada como padrão (
           <Link href="/estoque/seminovos/regras-lucro" className="underline">gerenciar</Link>
-          ); lacrado e genérico saem pelo preço do fornecedor mesmo, sem margem. Pra "até certo valor" (ex: iPhone
+          ); lacrado e genérico ficam sem preço (fora da venda) até ter regra — nunca a preço de custo. Pra "até certo valor" (ex: iPhone
           seminovo com margem diferente por faixa de preço), cadastre uma regra do tipo <em>Por faixa de valor</em>{" "}
           lá e escolha ela aqui.
         </p>

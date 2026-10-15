@@ -239,11 +239,15 @@ async function buscarMargemCategoria(admin: Admin, categoriaSlug: string, condic
  * Preço de venda de qualquer item da importação automática — primeiro
  * tenta a regra configurada por categoria+condição (Estoque > Importação
  * automática > Regras de lucro); se não tem nada configurado pra essa
- * combinação, cai no comportamento de sempre: seminovo usa a regra
- * global "padrão"; lacrado/genérico saem pelo preço do fornecedor
- * mesmo (staff ajusta na tela).
+ * combinação: seminovo usa a regra global "padrão"; lacrado/genérico
+ * ficam SEM preço (null) — não vão à venda até existir regra.
+ *
+ * Antes saíam pelo preço do fornecedor: linhas que o catálogo não reconhecia
+ * (categoria "nao-classificado", ex.: "*📲iPhone-16E 256G⚪️ 3250*") viravam
+ * item no site vendido a preço de CUSTO (R$ 3.250 com o iPhone 16e certo a
+ * R$ 3.850). Continuam listados em `itensSemRegraPreco` para o dono revisar.
  */
-async function calcularPrecoVenda(admin: Admin, item: ItemExtraido): Promise<number> {
+async function calcularPrecoVenda(admin: Admin, item: ItemExtraido): Promise<number | null> {
   const margem = await buscarMargemCategoria(admin, item.categoriaSlug, item.condicao);
 
   if (margem?.regra_lucro_id) {
@@ -259,7 +263,7 @@ async function calcularPrecoVenda(admin: Admin, item: ItemExtraido): Promise<num
   }
 
   if (item.condicao === "Seminovo") return calcularPrecoVendaSeminovoPadrao(admin, item.precoFornecedor);
-  return item.precoFornecedor;
+  return null;
 }
 
 // ============================================================================
@@ -394,6 +398,14 @@ async function sincronizarOfertaLacrado(admin: Admin, varianteId: string): Promi
 
 async function aplicarOfertaLacrado(admin: Admin, item: ItemExtraido, varianteId: string): Promise<void> {
   const precoVenda = await calcularPrecoVenda(admin, item);
+  if (precoVenda === null) {
+    // Sem regra de margem: a oferta deste fornecedor não fica ativa (não vende a preço de custo).
+    const { error } = await admin.from("import_lacrados_ofertas").update({ ativa: false })
+      .eq("variante_id", varianteId).eq("fornecedor", item.fornecedor).eq("tipo_lista", item.tipoLista);
+    if (error) throw new Error(`Falha ao desativar oferta sem regra de preço: ${error.message}`);
+    await sincronizarOfertaLacrado(admin, varianteId);
+    return;
+  }
   const { error } = await admin
     .from("import_lacrados_ofertas")
     .upsert(
@@ -418,7 +430,7 @@ async function aplicarProdutoGenerico(admin: Admin, item: ItemExtraido, categori
   if (existente) {
     const { error } = await admin
       .from("produtos")
-      .update({ preco_venda: precoVenda, categoria_id: categoriaId, visivel_loja: true, slug: existente.slug ?? gerarSlug(item.modeloCanonico) })
+      .update({ preco_venda: precoVenda, categoria_id: categoriaId, visivel_loja: precoVenda !== null, slug: existente.slug ?? gerarSlug(item.modeloCanonico) })
       .eq("id", existente.id);
     if (error) throw new Error(`Falha ao atualizar produto genérico "${item.modeloCanonico}": ${error.message}`);
     return existente.id;
@@ -433,7 +445,7 @@ async function aplicarProdutoGenerico(admin: Admin, item: ItemExtraido, categori
       marca: item.marca || null,
       preco_venda: precoVenda,
       slug: gerarSlug(item.modeloCanonico),
-      visivel_loja: true,
+      visivel_loja: precoVenda !== null,
     })
     .select("id")
     .single();
@@ -465,14 +477,14 @@ export interface ResultadoAplicacaoLista {
   plano: PlanoAplicacao;
   itensAtivosAnteriores: ItemArmazenado[];
   /**
-   * Itens LACRADOS sem regra de lucro na categoria (nem na categoria-mãe): o
-   * preço de venda saiu IGUAL ao do fornecedor (margem zero). Não inventamos
-   * margem — só avisamos para cadastrar a regra em Importação automática.
+   * Itens LACRADOS sem regra de lucro na categoria (nem na categoria-mãe):
+   * ficaram fora da venda (sem preço). Não inventamos margem — avisamos para
+   * cadastrar a regra em Importação automática (ou corrigir o modelo).
    */
   itensSemRegraPreco: ItemExtraido[];
 }
 
-/** Lacrado sem regra de margem = vende pelo preço do fornecedor. Detecta para avisar. */
+/** Lacrado sem regra de margem = fica fora da venda (sem preço). Detecta para avisar. */
 async function itensLacradosSemRegra(admin: Admin, itens: ItemExtraido[]): Promise<ItemExtraido[]> {
   const semRegra: ItemExtraido[] = [];
   const cache = new Map<string, boolean>();
@@ -624,7 +636,10 @@ async function atualizarPrecoItem(admin: Admin, id: string, itemAntigo: ItemArma
     await aplicarOfertaLacrado(admin, itemComPrecoNovo, linha.variante_lacrado_id);
   } else if (linha.produto_id) {
     const precoVenda = await calcularPrecoVenda(admin, itemComPrecoNovo);
-    await admin.from("produtos").update({ preco_venda: precoVenda }).eq("id", linha.produto_id);
+    const { error: erroProduto } = await admin.from("produtos")
+      .update(precoVenda === null ? { preco_venda: null, visivel_loja: false } : { preco_venda: precoVenda })
+      .eq("id", linha.produto_id);
+    if (erroProduto) throw new Error(`Falha ao atualizar preço do produto: ${erroProduto.message}`);
   }
 
   const { error } = await admin.from("import_itens_ativos").update({ preco_fornecedor: precoNovo }).eq("id", id);

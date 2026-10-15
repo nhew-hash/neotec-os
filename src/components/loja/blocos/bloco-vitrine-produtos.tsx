@@ -2,12 +2,13 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { listarProdutosLoja } from "@/services/loja/loja-publica.service";
 import { ProdutoCard } from "@/components/loja/produto-card";
+import { selecionarDestaques } from "./selecionar-destaques";
 import type { HomeSecao } from "@/types";
 
 export async function BlocoVitrineProdutos({ secao }: { secao: HomeSecao }) {
   const c = secao.configuracao as { titulo?: string; quantidade?: number };
   const produtos = await listarProdutosLoja();
-  const selecionados = produtos.slice(0, c.quantidade ?? 8);
+  const selecionados = selecionarDestaques(produtos, c.quantidade ?? 8);
 
   if (selecionados.length === 0) return null;
 

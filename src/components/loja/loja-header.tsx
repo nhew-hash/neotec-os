@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, Menu, X, Repeat, Sparkles, User } from "lucide-react";
+import { ShoppingBag, Menu, X, Repeat, Sparkles, User, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { CATEGORIAS_LOJA, hrefCategoria } from "./categorias";
 import { useCarrinho } from "./carrinho-context";
 import { BuscaLoja } from "./busca-loja";
 import { Button } from "@/components/ui/button";
+
+/** iPhone Lacrado, iPhone Seminovo, Android/Tablet, iPad, Mac, Apple Watch — o resto vai em "Mais". */
+const CATEGORIAS_VISIVEIS = 6;
 
 export function LojaHeader() {
   const { totalItens } = useCarrinho();
@@ -34,22 +37,33 @@ export function LojaHeader() {
             )}
           </Link>
 
-          {/* Fase 250: rola horizontalmente em vez de espremer/quebrar os rótulos —
-              12 itens não cabem numa linha rígida nem em telas de notebook
-              (~1024–1366px). `whitespace-nowrap` em cada item garante que o rótulo
-              nunca quebra "no meio"; quem quiser ver o resto, arrasta ou usa o mouse. */}
-          <nav className="neotec-scroll-x hidden min-w-0 items-center gap-5 overflow-x-auto lg:flex">
+          {/* Antes rolava de lado (Fase 250) e Perfumes, Acessórios, Eletrônicos e
+              "Troque seu usado" ficavam escondidos sem nenhum sinal. Agora: as
+              categorias principais ficam visíveis e o resto vai para "Mais". */}
+          <nav className="hidden min-w-0 items-center gap-5 lg:flex">
             <Link href="/loja/encontre-seu-iphone" className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-semibold text-primary">
               <Sparkles className="h-3.5 w-3.5" />Encontre seu iPhone ideal
             </Link>
-            {CATEGORIAS_LOJA.map((c) => (
+            {CATEGORIAS_LOJA.slice(0, CATEGORIAS_VISIVEIS).map((c) => (
               <Link key={c.valor} href={hrefCategoria(c.valor)} className="shrink-0 whitespace-nowrap text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
                 {c.label}
               </Link>
             ))}
-            <Link href="/loja/trade-in" className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-medium text-foreground/80 transition-colors hover:text-primary">
-              <Repeat className="h-3.5 w-3.5" />Troque seu usado
-            </Link>
+            <details className="group relative shrink-0">
+              <summary className="flex cursor-pointer list-none items-center gap-1 whitespace-nowrap text-sm font-medium text-foreground/80 transition-colors hover:text-primary [&::-webkit-details-marker]:hidden">
+                Mais<ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="absolute right-0 top-full z-40 mt-3 flex min-w-[220px] flex-col rounded-xl border border-black/[0.06] bg-white p-2 shadow-lg">
+                {CATEGORIAS_LOJA.slice(CATEGORIAS_VISIVEIS).map((c) => (
+                  <Link key={c.valor} href={hrefCategoria(c.valor)} className="rounded-lg px-3 py-2 text-sm text-foreground/80 hover:bg-secondary hover:text-primary">
+                    {c.label}
+                  </Link>
+                ))}
+                <Link href="/loja/trade-in" className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-foreground/80 hover:bg-secondary hover:text-primary">
+                  <Repeat className="h-3.5 w-3.5" />Troque seu usado
+                </Link>
+              </div>
+            </details>
           </nav>
         </div>
 

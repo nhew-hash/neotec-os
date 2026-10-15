@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Smartphone, Scale, Check, Heart } from "lucide-react";
-import { labelCategoria, formatarParcelamento } from "./categorias";
+import { labelCategoria } from "./categorias";
 import { useComparador, MAX_COMPARACAO_ITENS } from "./comparador-context";
 import { useFavoritos } from "./favoritos-context";
 import { BadgesProduto, PrecoComEconomia } from "./badges-e-economia";
@@ -71,7 +71,9 @@ export function ProdutoCard({ produto, maisVendido, ultimasUnidades }: ProdutoCa
             <>
               <span className="text-xs font-medium text-muted-foreground">A partir de</span>
               <PrecoComEconomia precoAtual={produto.preco_venda} precoAntigo={produto.preco_antigo} tamanho="compacto" />
-              <span className="text-xs text-muted-foreground">{formatarParcelamento(produto.preco_venda)}</span>
+              {/* Antes: "12x de" = preço do Pix ÷ 12, que não batia com a parcela real
+                  do cartão mostrada no produto (taxas da maquininha). */}
+              <span className="text-xs text-muted-foreground">no Pix · ou em até 12x no cartão</span>
             </>
           )}
         </div>
