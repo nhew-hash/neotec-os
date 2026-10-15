@@ -1,11 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { obterPricingEngine } from "@/services/precificacao/config-precificacao.service";
-import { obterAvaliacao } from "@/services/trade-in/aplicacao.service";
-import { obterCustoItem } from "@/services/estoque/estoque.service";
-import { avaliarDesconto, type AvaliacaoDesconto, type RegraDescontoLoja } from "@/services/vendas/desconto";
+import { obterPricingEnginePublico } from "@/services/precificacao/precificacao-publico.service";
+import { type RegraDescontoLoja } from "@/services/vendas/desconto";
 import { calcularProgressoMeta, dataRefBrasilia, diasParado, gerarTarefasDoDia, primeiroDiaDoMes, resumoPorResponsavel, type ModeloChecklist, type ProgressoMeta } from "./regras";
-import { calcularProposta, textoDaProposta, type PropostaCalculada } from "./proposta";
 
 /**
  * Leituras da Central Comercial. Regras:
@@ -150,13 +147,13 @@ export interface OrcamentoAberto { id: string; cliente_nome: string | null; clie
 /** Orçamentos que ainda não viraram venda. Vendedora vê os seus; gerente/admin veem todos. Nenhum campo de custo. */
 export async function orcamentosEmAberto(usuarioId: string, cargo: string, agora = new Date()): Promise<OrcamentoAberto[]> {
   const supabase = await createClient();
-  let q = supabase.from("orcamentos").select("id, valor, status, data_criacao, usuario_id, cliente:clientes(nome, whatsapp)").in("status", ["criado", "enviado", "visualizado"]);
+  let q = supabase.from("orcamentos").select("id, valor, status, data_criacao, updated_at, usuario_id, cliente:clientes(nome, whatsapp)").in("status", ["criado", "enviado", "visualizado"]);
   if (cargo === "vendedor") q = q.eq("usuario_id", usuarioId);
   const { data, error } = await q.order("data_criacao", { ascending: true }).limit(50);
   if (error) throw new Error(error.message);
   return (data ?? []).map((o) => {
     const c = o.cliente as unknown as { nome?: string; whatsapp?: string } | null;
-    return { id: o.id, valor: Number(o.valor), status: String(o.status), data_criacao: o.data_criacao, cliente_nome: c?.nome ?? null, cliente_whatsapp: c?.whatsapp ?? null, dias_parado: diasParado(o.data_criacao, agora) };
+    return { id: o.id, valor: Number(o.valor), status: String(o.status), data_criacao: o.data_criacao, cliente_nome: c?.nome ?? null, cliente_whatsapp: c?.whatsapp ?? null, dias_parado: diasParado((o as { updated_at?: string | null }).updated_at ?? o.data_criacao, agora) };
   });
 }
 
@@ -238,37 +235,21 @@ export async function buscarItemParaProposta(tipo: "aparelho" | "produto", id: s
   return { tipo, id, preco: Number(p.preco_venda), descricao: p.nome };
 }
 
-export interface ResultadoProposta {
-  item: ItemParaProposta;
-  proposta: PropostaCalculada;
-  avaliacaoDesconto: AvaliacaoDesconto;
-  texto: string;
-  /** Somente admin/gerente. null para os demais — e sequer é calculado para eles. */
-  resultadoEstimado: { custo: number; resultado: number } | null;
-}
+export interface PendenciaConfiguracao { chave: string; titulo: string; detalhe: string; resolvida: boolean }
 
-export async function simularProposta(params: { tipo: "aparelho" | "produto"; itemId: string; desconto: number; tradeInId?: string | null; clienteNome?: string | null; cargo: string }): Promise<ResultadoProposta> {
-  const [item, engine, regra] = await Promise.all([buscarItemParaProposta(params.tipo, params.itemId), obterPricingEngine(), obterRegraDesconto()]);
-
-  let tradeInValor = 0;
-  if (params.tradeInId) {
-    const av = await obterAvaliacao(params.tradeInId);
-    if (!av) throw new Error("Avaliação de trade-in não encontrada.");
-    if (av.status !== "aprovado") throw new Error("Só uma avaliação de trade-in já aprovada pela equipe pode entrar na proposta.");
-    tradeInValor = av.valor_aprovado ?? av.valor_calculado;
-  }
-
-  const avaliacaoDesconto = avaliarDesconto({ cargo: params.cargo, valorBruto: item.preco, desconto: params.desconto, regra });
-  if (avaliacaoDesconto.situacao === "invalido") throw new Error(avaliacaoDesconto.motivo);
-  const proposta = calcularProposta(engine, { precoTabela: item.preco, desconto: params.desconto, tradeInValor });
-
-  let resultadoEstimado: ResultadoProposta["resultadoEstimado"] = null;
-  if (params.cargo === "admin" || params.cargo === "gerente") {
-    const custo = await obterCustoItem(item.tipo === "aparelho" ? { aparelhoId: item.id } : { produtoId: item.id });
-    resultadoEstimado = { custo, resultado: Math.round((proposta.baseLiquida - custo) * 100) / 100 };
-  }
-
-  return { item, proposta, avaliacaoDesconto, texto: textoDaProposta({ descricao: item.descricao, proposta, nomeCliente: params.clienteNome }), resultadoEstimado };
+/** O que ainda falta configurar para a Central comercial funcionar por completo. Só lê; não altera nada. */
+export async function diagnosticoConfiguracao(): Promise<PendenciaConfiguracao[]> {
+  const [engine, regra] = await Promise.all([obterPricingEnginePublico(), obterRegraDesconto()]);
+  const parcelamento = engine.calcular(1000).parcelas.some((p) => p.numero > 1);
+  const limites = Object.keys(regra.limitesPorCargo).length > 0;
+  return [
+    { chave: "parcelamento", titulo: "Tabela de taxas de parcelamento", resolvida: parcelamento,
+      detalhe: parcelamento ? "Configurada: as propostas mostram as parcelas." : "Sem taxas ativas: as propostas só mostram o valor à vista. Cadastre em Configurações > Pagamentos." },
+    { chave: "limites_desconto", titulo: "Limites de desconto por cargo", resolvida: limites,
+      detalhe: limites ? "Definidos." : "Ainda não definidos. Quem decide os percentuais é o dono; enquanto isso a regra fica desligada." },
+    { chave: "regra_desconto", titulo: "Regra de desconto ativa", resolvida: regra.regraAtiva,
+      detalhe: regra.regraAtiva ? "Ativa: descontos acima do limite pedem aprovação." : "Desligada: nenhum desconto pede aprovação." },
+  ];
 }
 
 export { tentar };

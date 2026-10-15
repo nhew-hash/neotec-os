@@ -1,5 +1,7 @@
 "use server";
 
+import { exigirCargo } from "@/lib/auth/exigir-cargo";
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { pdvVendaSchema, type PdvVendaValues } from "./pdv.schema";
@@ -50,6 +52,8 @@ export async function buscarSaldoCashbackAction(clienteId: string): Promise<Acti
 
 /** Avaliações de troca já aprovadas do cliente e ainda não usadas numa venda — únicas que podem virar abatimento no PDV. */
 export async function listarTradeInsAprovadosClienteAction(clienteId: string): Promise<ActionResult<{ id: string; modeloNome: string; valor: number }[]>> {
+  const auth = await exigirCargo(["admin", "gerente", "vendedor"]);
+  if (!auth.permitido) return { success: false, error: auth.erro };
   try {
     const { listarAvaliacoes } = await import("@/services/trade-in/aplicacao.service");
     const avaliacoes = await listarAvaliacoes({ status: "aprovado", clienteId });

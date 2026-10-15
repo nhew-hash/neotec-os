@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { exigirCargo } from "@/lib/auth/exigir-cargo";
 import { createClient } from "@/lib/supabase/server";
-import { historicoDeAlteracoes, lucroDoMes, listarModelosChecklist, orcamentosEmAberto, pendenciasPorResponsavel, resultadoDoMes, resumoChecklistDaEquipe, tentar, tradeInsPendentes } from "@/services/central-comercial/central-comercial.service";
+import { diagnosticoConfiguracao, historicoDeAlteracoes, lucroDoMes, listarModelosChecklist, orcamentosEmAberto, pendenciasPorResponsavel, resultadoDoMes, resumoChecklistDaEquipe, tentar, tradeInsPendentes } from "@/services/central-comercial/central-comercial.service";
 import { listarAprovacoesPendentes } from "@/services/vendas/aprovacoes-desconto.service";
 import { obterConfigBot } from "@/services/ia/sugestoes-comerciais.service";
 import { AprovacoesGerente } from "@/components/central-comercial/aprovacoes-gerente";
@@ -34,7 +34,7 @@ export default async function GerenciaComercialPage() {
   const agora = new Date();
   const supabase = await createClient();
 
-  const [aprovacoes, tradeIns, parados, equipeCk, pendencias, metaLoja, historico, modelos, bot, lucro, vendedores] = await Promise.all([
+  const [aprovacoes, tradeIns, parados, equipeCk, pendencias, metaLoja, historico, modelos, bot, lucro, vendedores, config] = await Promise.all([
     tentar(() => listarAprovacoesPendentes()),
     tentar(() => tradeInsPendentes()),
     tentar(() => orcamentosEmAberto(auth.userId, "gerente", agora)),
@@ -50,11 +50,25 @@ export default async function GerenciaComercialPage() {
       if (error) throw new Error(error.message);
       return data ?? [];
     }),
+    tentar(() => diagnosticoConfiguracao()),
   ]);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Gerência comercial" description="Aprovações, pendências da equipe, metas e checklists." actions={<Link href="/central-comercial" className={buttonVariants({ variant: "outline" })}>Minha rotina</Link>} />
+
+      {config.ok && config.dados.some((c) => !c.resolvida) && (
+        <Secao titulo="Pendências de configuração" descricao="O que ainda falta para a Central comercial funcionar por completo.">
+          <Card className="px-4"><ul className="divide-y divide-border">
+            {config.dados.map((c) => (
+              <li key={c.chave} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+                <StatusBadge label={c.resolvida ? "Ok" : "Pendente"} tone={c.resolvida ? "success" : "warning"} />
+                <div className="min-w-0 flex-1"><p className="font-medium">{c.titulo}</p><p className="text-xs text-muted-foreground">{c.detalhe}</p></div>
+              </li>
+            ))}
+          </ul></Card>
+        </Secao>
+      )}
 
       <Secao titulo="Descontos aguardando aprovação">
         {!aprovacoes.ok ? <Indisponivel motivo={aprovacoes.motivo} /> : <AprovacoesGerente aprovacoes={aprovacoes.dados} />}

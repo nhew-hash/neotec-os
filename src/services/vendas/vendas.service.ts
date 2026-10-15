@@ -99,14 +99,16 @@ export async function aprovarOrcamentoEConverterEmVenda(
         cashback_utilizado: 0,
         cashback_concedido: 0,
         garantia_dias: orcamento.garantia_dias ?? undefined,
-        itens: [{
-          tipo: item.aparelho_id ? "aparelho" : "produto",
-          id: (item.aparelho_id ?? item.produto_id) as string,
+        // Propostas da Central comercial podem ter vários itens e troca: todos seguem para a venda.
+        trade_in_avaliacao_id: (orcamento as { trade_in_avaliacao_id?: string | null }).trade_in_avaliacao_id ?? undefined,
+        itens: (orcamento.itens as Array<{ aparelho_id: string | null; produto_id: string | null; quantidade: number | null; valor: number }>).map((it) => ({
+          tipo: it.aparelho_id ? ("aparelho" as const) : ("produto" as const),
+          id: (it.aparelho_id ?? it.produto_id) as string,
           nome: "",
-          quantidade: item.quantidade ?? 1,
-          valor: Number(item.valor),
+          quantidade: it.quantidade ?? 1,
+          valor: Number(it.valor),
           ehBrinde: false,
-        }],
+        })),
       });
       await supabase.from("vendas").update({ orcamento_id: orcamentoId }).eq("id", venda.id);
       return venda;
@@ -114,6 +116,11 @@ export async function aprovarOrcamentoEConverterEmVenda(
       await supabase.from("orcamentos").update({ status: orcamento.status }).eq("id", orcamentoId);
       throw err;
     }
+  }
+
+  // Caminho legado: só sabe vender UM item sem troca. Proposta com vários itens ou troca precisa do caminho atômico.
+  if ((orcamento.itens?.length ?? 0) > 1 || (orcamento as { trade_in_avaliacao_id?: string | null }).trade_in_avaliacao_id) {
+    throw new Error("Esta proposta tem vários itens ou um aparelho na troca. Para convertê-la em venda, ative PDV_VENDA_ATOMICA=1 ou finalize pelo PDV.");
   }
 
   const custo = await obterCustoItem({

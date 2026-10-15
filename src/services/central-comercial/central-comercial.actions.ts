@@ -3,68 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { exigirCargo } from "@/lib/auth/exigir-cargo";
-import { criarOrcamento } from "@/services/vendas/vendas.service";
-import { alternarModeloChecklist, atualizarTarefa, criarModeloChecklist, definirMeta, simularProposta, type ResultadoProposta } from "./central-comercial.service";
+import { alternarModeloChecklist, atualizarTarefa, criarModeloChecklist, definirMeta } from "./central-comercial.service";
+import { normalizarTelefone, telefoneValido } from "@/lib/telefone";
+import { buscarClientes, procurarDuplicados, type CandidatoDuplicado, type ClienteResultado } from "./clientes-busca.service";
+import { buscarItens, type ResultadoItens } from "./itens-busca.service";
+import { criarCliente } from "@/services/clientes/clientes.service";
 import type { ActionResult } from "@/types";
 
 const EQUIPE = ["admin", "gerente", "vendedor"] as const;
 const TODOS_COM_ROTINA = ["admin", "gerente", "vendedor", "tecnico", "caixa"] as const;
 const GESTAO = ["admin", "gerente"] as const;
-
-const propostaSchema = z.object({
-  tipo: z.enum(["aparelho", "produto"]),
-  itemId: z.string().uuid("Escolha um item."),
-  desconto: z.coerce.number().min(0, "Desconto inválido.").default(0),
-  tradeInId: z.string().uuid().optional().nullable(),
-  clienteNome: z.string().max(120).optional().nullable(),
-});
-
-export async function simularPropostaAction(input: z.input<typeof propostaSchema>): Promise<ActionResult<ResultadoProposta>> {
-  const auth = await exigirCargo(EQUIPE);
-  if (!auth.permitido) return { success: false, error: auth.erro };
-  const parsed = propostaSchema.safeParse(input);
-  if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
-  try {
-    const dados = await simularProposta({ ...parsed.data, cargo: auth.cargo });
-    return { success: true, data: dados };
-  } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erro ao calcular a proposta" };
-  }
-}
-
-/**
- * Salva a proposta como orçamento (módulo já existente de Vendas). O VALOR gravado é recalculado
- * aqui no servidor a partir do motor de preços — nunca vem do navegador.
- */
-export async function salvarPropostaComoOrcamentoAction(input: z.input<typeof propostaSchema> & { clienteId: string; validadeDias?: number }): Promise<ActionResult<{ orcamentoId: string }>> {
-  const auth = await exigirCargo(EQUIPE);
-  if (!auth.permitido) return { success: false, error: auth.erro };
-  const clienteId = z.string().uuid("Escolha o cliente.").safeParse(input.clienteId);
-  if (!clienteId.success) return { success: false, error: clienteId.error.issues[0].message };
-  const parsed = propostaSchema.safeParse(input);
-  if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
-  try {
-    const r = await simularProposta({ ...parsed.data, cargo: auth.cargo });
-    if (r.avaliacaoDesconto.situacao === "requer_aprovacao") {
-      return { success: false, error: `Este desconto (${r.avaliacaoDesconto.percentual}%) passa do seu limite de ${r.avaliacaoDesconto.limite}%. Peça a aprovação do gerente no PDV antes de salvar o orçamento.` };
-    }
-    const dias = Math.min(Math.max(Math.trunc(input.validadeDias ?? 3), 1), 30);
-    const orc = await criarOrcamento({
-      cliente_id: clienteId.data,
-      usuario_id: auth.userId,
-      aparelho_id: r.item.tipo === "aparelho" ? r.item.id : undefined,
-      produto_id: r.item.tipo === "produto" ? r.item.id : undefined,
-      valor: r.proposta.aVista,
-      forma_pagamento: "pix",
-      validade: new Date(Date.now() + dias * 86_400_000).toISOString().slice(0, 10),
-    });
-    revalidatePath("/vendas");
-    revalidatePath("/central-comercial");
-    return { success: true, data: { orcamentoId: orc.id } };
-  } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar o orçamento" };
-  }
-}
 
 export async function atualizarTarefaAction(id: string, concluida: boolean, observacao: string): Promise<ActionResult> {
   const auth = await exigirCargo(TODOS_COM_ROTINA);
@@ -126,5 +74,65 @@ export async function definirMetaAction(usuarioId: string | null, valor: number)
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao salvar a meta" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Busca e cadastro rápido de cliente (proposta)
+
+export async function buscarClientesAction(q: string, pagina = 0): Promise<ActionResult<{ itens: ClienteResultado[]; temMais: boolean }>> {
+  const auth = await exigirCargo(EQUIPE);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  if (typeof q !== "string" || q.length > 80) return { success: false, error: "Busca inválida." };
+  try {
+    return { success: true, data: await buscarClientes({ q, pagina: Number.isFinite(pagina) ? pagina : 0 }) };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao buscar clientes" };
+  }
+}
+
+const novoClienteSchema = z.object({
+  nome: z.string().trim().min(2, "Informe o nome do cliente.").max(120),
+  telefone: z.string().max(30),
+  confirmarSimilar: z.boolean().optional(),
+});
+
+export type ResultadoCadastroRapido =
+  | { status: "criado"; cliente: ClienteResultado }
+  | { status: "existente"; candidatos: CandidatoDuplicado[] }
+  | { status: "similar"; candidatos: CandidatoDuplicado[] };
+
+/**
+ * Cadastro rápido durante o atendimento. NÃO mescla nem altera cliente existente:
+ * se o telefone já existe, devolve o cadastro para a vendedora escolher; se houver só um número parecido,
+ * pede confirmação explícita antes de criar outro.
+ */
+export async function cadastrarClienteRapidoAction(input: z.input<typeof novoClienteSchema>): Promise<ActionResult<ResultadoCadastroRapido>> {
+  const auth = await exigirCargo(EQUIPE);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  const parsed = novoClienteSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  const telefone = normalizarTelefone(parsed.data.telefone);
+  if (!telefoneValido(telefone)) return { success: false, error: "Informe o WhatsApp com DDD (10 ou 11 números)." };
+  try {
+    const candidatos = await procurarDuplicados(telefone);
+    if (candidatos.some((c) => c.igual)) return { success: true, data: { status: "existente", candidatos: candidatos.filter((c) => c.igual) } };
+    if (candidatos.length > 0 && !parsed.data.confirmarSimilar) return { success: true, data: { status: "similar", candidatos } };
+    const c = await criarCliente({ nome: parsed.data.nome, whatsapp: telefone, origem: "loja_fisica", aceita_marketing: false });
+    revalidatePath("/clientes");
+    return { success: true, data: { status: "criado", cliente: { id: c.id, nome: c.nome, whatsapp: c.whatsapp, cidade: c.cidade ?? null, clienteDesde: c.data_cadastro ?? null, orcamentosAbertos: 0 } } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao cadastrar o cliente" };
+  }
+}
+
+export async function buscarItensAction(q: string, pagina = 0): Promise<ActionResult<ResultadoItens>> {
+  const auth = await exigirCargo(EQUIPE);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  if (typeof q !== "string" || q.length > 80) return { success: false, error: "Busca inválida." };
+  try {
+    return { success: true, data: await buscarItens({ q, pagina: Number.isFinite(pagina) ? pagina : 0 }) };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao buscar itens" };
   }
 }

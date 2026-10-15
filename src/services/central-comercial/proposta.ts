@@ -63,3 +63,87 @@ export function textoDaProposta(params: { descricao: string; proposta: PropostaC
   if (validadeAte) linhas.push(`Válida até ${new Date(validadeAte).toLocaleDateString("pt-BR")}.`);
   return linhas.join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Proposta com vários itens + mensagem comercial
+// ---------------------------------------------------------------------------
+
+export interface LinhaProposta {
+  descricao: string;
+  quantidade: number;
+  precoUnitario: number;
+}
+
+export function totalDasLinhas(linhas: LinhaProposta[]): number {
+  return r2(linhas.reduce((acc, l) => acc + l.precoUnitario * l.quantidade, 0));
+}
+
+/**
+ * Quais parcelas aparecem na mensagem: a maior SEM juros (se houver mais de 1x), 6x, 10x e 12x, só entre as que
+ * o motor realmente calculou. Nunca cria opção que não existe.
+ */
+export function escolherParcelasParaMensagem(opcoes: OpcaoPagamento[]): OpcaoPagamento[] {
+  const disponiveis = opcoes.filter((o) => o.parcelas > 1);
+  const semJuros = disponiveis.filter((o) => !o.comJuros);
+  const alvo = new Set<number>([6, 10, 12]);
+  if (semJuros.length > 0) alvo.add(Math.max(...semJuros.map((o) => o.parcelas)));
+  return disponiveis.filter((o) => alvo.has(o.parcelas)).sort((a, b) => a.parcelas - b.parcelas).slice(0, 4);
+}
+
+/** Sem nenhuma parcela calculada = a tabela de taxas não está configurada (ou está vazia). A tela precisa dizer isso. */
+export function parcelamentoDisponivel(proposta: PropostaCalculada): boolean {
+  return proposta.baseLiquida === 0 || proposta.opcoes.some((o) => o.parcelas > 1);
+}
+
+export type ModoAtendimento = "whatsapp" | "presencial";
+
+/**
+ * Mensagem comercial para revisão e edição. Só usa valores calculados; não promete reserva, garantia
+ * nem "sem juros" que o motor não tenha confirmado, e deixa explícito que a disponibilidade vale até o fechamento.
+ */
+export function mensagemComercial(params: { linhas: LinhaProposta[]; proposta: PropostaCalculada; nomeCliente?: string | null; vendedor?: string | null; validadeAte?: string | null; modo: ModoAtendimento }): string {
+  const { linhas, proposta: p, nomeCliente, vendedor, validadeAte, modo } = params;
+  const primeiro = nomeCliente?.trim().split(/\s+/)[0];
+  const out: string[] = [];
+  out.push(modo === "whatsapp" ? `Olá${primeiro ? `, ${primeiro}` : ""}! Segue a proposta da Neotec 👇` : `Proposta Neotec${primeiro ? ` para ${primeiro}` : ""}:`);
+  out.push("");
+  for (const l of linhas) out.push(`📱 ${l.quantidade > 1 ? `${l.quantidade}x ` : ""}${l.descricao}`);
+  out.push("");
+  if (p.desconto > 0 || p.tradeInValor > 0) {
+    out.push(`Valor: ${brl(p.precoTabela)}`);
+    if (p.desconto > 0) out.push(`Desconto: -${brl(p.desconto)}`);
+    if (p.tradeInValor > 0) out.push(`Seu aparelho na troca: -${brl(p.tradeInValor)}`);
+  }
+  out.push(`✅ À vista (Pix): *${brl(p.aVista)}*`);
+  for (const o of escolherParcelasParaMensagem(p.opcoes)) {
+    out.push(`💳 ${o.parcelas}x de ${brl(o.valorParcela)}${o.comJuros ? "" : " sem juros"} (total ${brl(o.valorTotal)})`);
+  }
+  out.push("");
+  if (validadeAte) out.push(`Proposta válida até ${new Date(validadeAte + "T12:00:00").toLocaleDateString("pt-BR")}. Disponibilidade confirmada no fechamento.`);
+  else out.push("Valores e disponibilidade confirmados no fechamento.");
+  out.push(modo === "whatsapp" ? "Se fizer sentido para você, me avise por aqui que eu continuo o atendimento." : "Qualquer dúvida, é só perguntar!");
+  if (vendedor) out.push(`— ${vendedor.split(/\s+/)[0]}, Neotec`);
+  return out.join("\n");
+}
+
+/**
+ * Reparte o valor FINAL da proposta entre as linhas, proporcional ao preço de tabela, para que a soma dos
+ * itens do orçamento bata exatamente com o que o cliente pagará (+ troca). O resíduo de centavos vai para
+ * a última linha de quantidade 1 (ou para a última linha, se não houver).
+ */
+export function distribuirValor(linhas: LinhaProposta[], totalFinal: number): number[] {
+  const tabela = totalDasLinhas(linhas);
+  if (linhas.length === 0) return [];
+  if (tabela === 0) return linhas.map(() => 0);
+  const fator = totalFinal / tabela;
+  const unitarios = linhas.map((l) => r2(l.precoUnitario * fator));
+  const soma = r2(unitarios.reduce((acc, v, i) => acc + v * linhas[i].quantidade, 0));
+  const residuo = r2(totalFinal - soma);
+  if (residuo !== 0) {
+    let alvo = -1;
+    for (let i = linhas.length - 1; i >= 0; i--) if (linhas[i].quantidade === 1) { alvo = i; break; }
+    if (alvo === -1) alvo = linhas.length - 1;
+    unitarios[alvo] = r2(unitarios[alvo] + residuo / linhas[alvo].quantidade);
+  }
+  return unitarios;
+}

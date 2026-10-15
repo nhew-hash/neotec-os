@@ -58,3 +58,46 @@ describe("calcularProposta — reutiliza o PricingEngine", () => {
     expect(t).toMatch(/12x/);
   });
 });
+
+import { escolherParcelasParaMensagem, mensagemComercial, parcelamentoDisponivel, totalDasLinhas } from "../proposta";
+
+describe("proposta com vários itens e mensagem", () => {
+  const opcoes = [1, 2, 3, 6, 10, 12].map((n) => ({ parcelas: n, valorParcela: 100, valorTotal: 100 * n, comJuros: n > 3 }));
+  const base = { precoTabela: 5000, desconto: 0, tradeInValor: 0, baseLiquida: 5000, aVista: 4800, opcoes };
+
+  it("soma as linhas com quantidade", () => {
+    expect(totalDasLinhas([{ descricao: "a", quantidade: 1, precoUnitario: 4000 }, { descricao: "b", quantidade: 2, precoUnitario: 49.9 }])).toBe(4099.8);
+  });
+  it("escolhe a maior parcela sem juros e as de 6/10/12 que existem", () => {
+    expect(escolherParcelasParaMensagem(opcoes).map((o) => o.parcelas)).toEqual([3, 6, 10, 12]);
+    expect(escolherParcelasParaMensagem(opcoes.filter((o) => o.parcelas <= 3)).map((o) => o.parcelas)).toEqual([3]);
+    expect(escolherParcelasParaMensagem([])).toEqual([]);
+  });
+  it("parcelamento não configurado é detectado, e proposta zerada não acusa falha", () => {
+    expect(parcelamentoDisponivel({ ...base, opcoes: [{ parcelas: 1, valorParcela: 4800, valorTotal: 4800, comJuros: false }] })).toBe(false);
+    expect(parcelamentoDisponivel(base)).toBe(true);
+    expect(parcelamentoDisponivel({ ...base, baseLiquida: 0, aVista: 0, opcoes: [] })).toBe(true);
+  });
+  it("mensagem de WhatsApp usa só valores calculados, sem prometer reserva", () => {
+    const m = mensagemComercial({ linhas: [{ descricao: "iPhone 13 · 128 GB · Roxo · Seminovo", quantidade: 1, precoUnitario: 5000 }], proposta: base, nomeCliente: "Ana Souza", vendedor: "Bia Lima", modo: "whatsapp" });
+    expect(m).toContain("Olá, Ana!");
+    expect(m).toContain("iPhone 13 · 128 GB · Roxo · Seminovo");
+    expect(m).toContain("À vista (Pix)");
+    expect(m).toContain("3x de");
+    expect(m).toContain("3x de R$") ;
+    expect(m).not.toMatch(/reserv|garantia/i);
+    expect(m).toContain("confirmados no fechamento");
+    expect(m).toContain("— Bia, Neotec");
+  });
+  it("presencial não começa com saudação de conversa e mostra desconto/troca quando há", () => {
+    const m = mensagemComercial({ linhas: [{ descricao: "Capa", quantidade: 2, precoUnitario: 50 }], proposta: { ...base, desconto: 100, tradeInValor: 800 }, modo: "presencial" });
+    expect(m.startsWith("Proposta Neotec")).toBe(true);
+    expect(m).toContain("2x Capa");
+    expect(m).toContain("Desconto: -");
+    expect(m).toContain("na troca: -");
+  });
+  it("sem parcelas do motor, não inventa parcelamento", () => {
+    const m = mensagemComercial({ linhas: [{ descricao: "X", quantidade: 1, precoUnitario: 5000 }], proposta: { ...base, opcoes: [] }, modo: "whatsapp" });
+    expect(m).not.toContain("💳");
+  });
+});

@@ -1,44 +1,68 @@
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
-import { createClient } from "@/lib/supabase/server";
-import { PropostaForm, type OpcaoCliente, type OpcaoItem } from "@/components/central-comercial/proposta-form";
+import { Card } from "@/components/ui/card";
+import { exigirCargo } from "@/lib/auth/exigir-cargo";
+import { PropostaForm, type LinhaUI, type PropostaInicial } from "@/components/central-comercial/proposta-form";
+import { buscarItemParaProposta } from "@/services/central-comercial/central-comercial.service";
+import { obterClienteBasico } from "@/services/central-comercial/clientes-busca.service";
+import { contextoDaConversa, obterPropostaParaRetomar } from "@/services/central-comercial/propostas.service";
 
 export const metadata = { title: "Proposta" };
 export const dynamic = "force-dynamic";
 
-export default async function PropostaPage() {
-  const supabase = await createClient();
-  const [aparelhosRes, produtosRes, clientesRes] = await Promise.all([
-    // View mascarada: custo e preço mínimo vêm nulos para quem não é admin — e nem são selecionados aqui.
-    supabase.from("vw_aparelhos_seguro").select("id, produto_id, cor, memoria, condicao, preco_venda").eq("status", "disponivel").gt("preco_venda", 0).limit(300),
-    supabase.from("produtos").select("id, nome, preco_venda").eq("status", "ativo").gt("preco_venda", 0).order("nome").limit(300),
-    supabase.from("clientes").select("id, nome").order("nome").limit(400),
-  ]);
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const pegar = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-  const produtos = produtosRes.data ?? [];
-  const nomeProduto = new Map(produtos.map((p) => [p.id, p.nome]));
-  const idsFaltando = [...new Set((aparelhosRes.data ?? []).map((a) => a.produto_id).filter((id) => id && !nomeProduto.has(id)))];
-  if (idsFaltando.length > 0) {
-    const { data } = await supabase.from("produtos").select("id, nome").in("id", idsFaltando);
-    for (const p of data ?? []) nomeProduto.set(p.id, p.nome);
+export default async function PropostaPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const auth = await exigirCargo(["admin", "gerente", "vendedor"]);
+  if (!auth.permitido) redirect("/dashboard");
+  const sp = await searchParams;
+  const retomar = pegar(sp.retomar);
+  const conversa = pegar(sp.conversa);
+  const clienteParam = pegar(sp.cliente);
+  const modoParam = pegar(sp.modo);
+
+  const vazio: PropostaInicial = { orcamentoId: null, cliente: null, itens: [], desconto: "", tradeInId: null, modo: modoParam === "whatsapp" ? "whatsapp" : "presencial", conversaId: null, naoContatar: false, observacoes: "", aviso: null };
+  let inicial: PropostaInicial = vazio;
+  let erro: string | null = null;
+
+  try {
+    if (retomar && uuid.test(retomar)) {
+      const p = await obterPropostaParaRetomar(retomar, auth.userId, auth.cargo);
+      const cliente = await obterClienteBasico(p.clienteId);
+      const resolvidos = await Promise.allSettled(p.itens.map((i) => buscarItemParaProposta(i.tipo, i.id)));
+      const itens: LinhaUI[] = p.itens.map((i, idx) => {
+        const r = resolvidos[idx];
+        return r.status === "fulfilled"
+          ? { tipo: i.tipo, id: i.id, rotulo: r.value.descricao, preco: r.value.preco, quantidade: i.quantidade }
+          : { tipo: i.tipo, id: i.id, rotulo: "Item", preco: 0, quantidade: i.quantidade, indisponivel: true };
+      });
+      const algumIndisponivel = itens.some((i) => i.indisponivel);
+      inicial = {
+        orcamentoId: p.orcamentoId, cliente: cliente ?? { id: p.clienteId, nome: p.clienteNome, whatsapp: p.clienteWhatsapp ?? "", cidade: null, clienteDesde: null, orcamentosAbertos: 0 },
+        itens, desconto: p.desconto > 0 ? String(p.desconto).replace(".", ",") : "", tradeInId: p.tradeInId, modo: p.modo,
+        conversaId: p.conversaId, naoContatar: false, observacoes: p.observacoes ?? "",
+        aviso: algumIndisponivel ? "Algum item desta proposta não está mais disponível. Remova-o e atualize. Os valores foram recalculados com os preços de hoje." : "Valores recalculados com os preços de hoje.",
+      };
+    } else if (conversa && uuid.test(conversa)) {
+      const ctx = await contextoDaConversa(conversa);
+      if (!ctx) erro = "Não encontrei essa conversa, ou ela ainda não está ligada a um cliente cadastrado. Busque o cliente abaixo.";
+      else {
+        const cliente = await obterClienteBasico(ctx.clienteId);
+        inicial = { ...vazio, cliente, modo: "whatsapp", conversaId: ctx.conversaId, naoContatar: ctx.naoContatar };
+      }
+    } else if (clienteParam && uuid.test(clienteParam)) {
+      inicial = { ...vazio, cliente: await obterClienteBasico(clienteParam) };
+    }
+  } catch (e) {
+    erro = e instanceof Error ? e.message : "Não foi possível abrir a proposta.";
   }
-
-  const itens: OpcaoItem[] = [
-    ...(aparelhosRes.data ?? []).map((a): OpcaoItem => ({
-      tipo: "aparelho", id: a.id, preco: Number(a.preco_venda),
-      rotulo: [nomeProduto.get(a.produto_id) ?? "Aparelho", a.memoria, a.cor, a.condicao].filter(Boolean).join(" · "),
-    })),
-    ...produtos.map((p): OpcaoItem => ({ tipo: "produto", id: p.id, preco: Number(p.preco_venda), rotulo: p.nome })),
-  ];
-  const clientes: OpcaoCliente[] = (clientesRes.data ?? []).map((c) => ({ id: c.id, nome: c.nome }));
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Proposta" description="À vista e parcelado, calculados pelo mesmo motor de preços da loja virtual." />
-      {aparelhosRes.error || produtosRes.error ? (
-        <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">Não foi possível carregar os itens agora. Tente novamente em instantes.</p>
-      ) : (
-        <PropostaForm itens={itens} clientes={clientes} />
-      )}
+      <PageHeader title={inicial.orcamentoId ? "Retomar proposta" : "Nova proposta"} description="Valores à vista e parcelados pelo mesmo motor de preços da loja virtual." />
+      {erro && <Card className="p-4 text-sm text-danger" role="alert">{erro}</Card>}
+      <PropostaForm key={inicial.orcamentoId ?? `${inicial.cliente?.id ?? "novo"}:${inicial.modo}`} inicial={inicial} ehGerencia={auth.cargo === "admin" || auth.cargo === "gerente"} />
     </div>
   );
 }

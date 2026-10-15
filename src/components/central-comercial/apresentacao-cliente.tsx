@@ -1,0 +1,87 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { Printer, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { ResultadoComposicao } from "@/services/central-comercial/propostas.service";
+import { formatCurrency } from "@/utils/format";
+
+/**
+ * Tela para mostrar ao cliente na loja. Só recebe o que o cliente pode ver: itens, valores e parcelas.
+ * NÃO recebe custo, margem, limites de desconto nem observações internas — nem como prop.
+ */
+export type DadosApresentacao = Pick<ResultadoComposicao, "linhas" | "proposta"> & { nomeCliente: string | null; validadeAte?: string | null };
+
+export function ApresentacaoCliente({ dados, onFechar }: { dados: DadosApresentacao; onFechar: () => void }) {
+  const fechar = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    fechar.current?.focus();
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onFechar(); };
+    window.addEventListener("keydown", esc);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", esc); document.body.style.overflow = overflow; };
+  }, [onFechar]);
+
+  const { proposta: p, linhas } = dados;
+  const primeiro = dados.nomeCliente?.trim().split(/\s+/)[0];
+  const opcoes = p.opcoes.filter((o) => o.parcelas > 1);
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Proposta para o cliente" className="fixed inset-0 z-[60] overflow-y-auto bg-white text-slate-900">
+      <style>{`@media print { body * { visibility: hidden; } #apresentacao, #apresentacao * { visibility: visible; } #apresentacao { position: absolute; inset: 0; } .nao-imprimir { display: none !important; } }`}</style>
+      <div className="nao-imprimir sticky top-0 z-10 flex items-center justify-end gap-2 border-b border-slate-200 bg-white/95 px-4 py-2 backdrop-blur">
+        <Button type="button" variant="outline" size="sm" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" aria-hidden />Imprimir</Button>
+        <Button ref={fechar} type="button" size="sm" onClick={onFechar}><X className="mr-2 h-4 w-4" aria-hidden />Fechar</Button>
+      </div>
+      <div id="apresentacao" className="mx-auto max-w-2xl px-6 py-10 sm:py-14">
+        <p className="font-display text-lg font-semibold tracking-tight text-primary">Neotec</p>
+        <h2 className="mt-6 font-display text-3xl font-semibold tracking-tight sm:text-4xl">{primeiro ? `Proposta para ${primeiro}` : "Sua proposta"}</h2>
+
+        <ul className="mt-8 divide-y divide-slate-200 border-y border-slate-200">
+          {linhas.map((l) => (
+            <li key={`${l.tipo}:${l.id}`} className="flex items-baseline justify-between gap-4 py-4">
+              <span className="text-base font-medium">{l.quantidade > 1 ? `${l.quantidade}x ` : ""}{l.descricao}</span>
+              <span className="whitespace-nowrap tabular-nums text-slate-600">{formatCurrency(l.precoUnitario * l.quantidade)}</span>
+            </li>
+          ))}
+        </ul>
+
+        {(p.desconto > 0 || p.tradeInValor > 0) && (
+          <dl className="mt-4 space-y-1 text-sm text-slate-600">
+            <div className="flex justify-between"><dt>Valor dos itens</dt><dd className="tabular-nums">{formatCurrency(p.precoTabela)}</dd></div>
+            {p.desconto > 0 && <div className="flex justify-between"><dt>Desconto</dt><dd className="tabular-nums">- {formatCurrency(p.desconto)}</dd></div>}
+            {p.tradeInValor > 0 && <div className="flex justify-between"><dt>Seu aparelho na troca</dt><dd className="tabular-nums">- {formatCurrency(p.tradeInValor)}</dd></div>}
+          </dl>
+        )}
+
+        <div className="mt-8 rounded-2xl bg-slate-50 p-6">
+          <p className="text-sm text-slate-600">À vista no Pix</p>
+          <p className="mt-1 font-display text-5xl font-semibold tabular-nums tracking-tight">{formatCurrency(p.aVista)}</p>
+        </div>
+
+        {opcoes.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-sm font-medium text-slate-600">Parcelado no cartão</h3>
+            <table className="mt-2 w-full text-left text-base">
+              <thead className="sr-only"><tr><th>Parcelas</th><th>Valor da parcela</th><th>Total</th></tr></thead>
+              <tbody className="divide-y divide-slate-200">
+                {opcoes.map((o) => (
+                  <tr key={o.parcelas}>
+                    <td className="py-2.5 font-medium">{o.parcelas}x {!o.comJuros && <span className="ml-1 text-sm font-normal text-emerald-700">sem juros</span>}</td>
+                    <td className="py-2.5 tabular-nums">{formatCurrency(o.valorParcela)}</td>
+                    <td className="py-2.5 text-right tabular-nums text-slate-500">{formatCurrency(o.valorTotal)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <p className="mt-10 text-xs text-slate-500">
+          {dados.validadeAte ? `Proposta válida até ${new Date(`${dados.validadeAte}T12:00:00`).toLocaleDateString("pt-BR")}. ` : ""}Valores e disponibilidade confirmados no fechamento.
+        </p>
+      </div>
+    </div>
+  );
+}

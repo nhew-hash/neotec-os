@@ -7,7 +7,7 @@ export default async function CentralComercialLayout({ children }: { children: R
   const auth = await exigirCargo(["admin", "gerente", "vendedor"]);
   if (!auth.permitido) redirect("/dashboard");
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       <CentralNav mostrarGerente={auth.cargo === "admin" || auth.cargo === "gerente"} />
       {children}
     </div>
