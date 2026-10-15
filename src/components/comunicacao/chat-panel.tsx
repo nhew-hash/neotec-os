@@ -19,6 +19,8 @@ import {
 import { useMensagensRealtime } from "@/hooks/use-mensagens-realtime";
 import { SeletorEmoji } from "@/components/comunicacao/seletor-emoji";
 import { SeletorFotoCatalogo } from "@/components/comunicacao/seletor-foto-catalogo";
+import { AssistenteConversa } from "./assistente-conversa";
+import { conversaPareceEncerrada } from "@/services/comunicacao/encerramento";
 import { AcoesRapidas } from "@/components/comunicacao/acoes-rapidas";
 import { nomeDaConversa } from "@/components/comunicacao/conversas-filtro";
 import { formatDiaRelativo, formatHora } from "@/utils";
@@ -100,6 +102,10 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
   const naoContatar = conversa.nao_contatar === true;
   const encerrada = conversa.status === "resolvida" || conversa.status === "perdida";
   const souResponsavel = conversa.responsavel_id === usuarioId;
+  // Última mensagem do cliente é só "ok/obrigado" depois da nossa resposta? Sugere encerrar (nunca automático).
+  const ultima = mensagens[mensagens.length - 1];
+  const ultimaSaidaEm = [...mensagens].reverse().find((m) => m.direcao === "saida")?.criado_em ?? null;
+  const pareceEncerrada = !!ultima && ultima.direcao === "entrada" && conversaPareceEncerrada({ texto: ultima.conteudo, em: ultima.criado_em }, ultimaSaidaEm);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fimRef = useRef<HTMLDivElement>(null);
@@ -398,6 +404,17 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
         {erro && <p className="flex items-start gap-1.5 px-4 pt-2 text-xs text-danger" role="alert"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{erro}</p>}
         {gravando && <p className="flex items-center gap-1.5 px-4 pt-2 text-xs text-danger"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger" />Gravando áudio… toque em parar para enviar</p>}
         {enviandoAudio && <p className="px-4 pt-2 text-xs text-muted-foreground">Enviando áudio…</p>}
+
+        <AssistenteConversa
+          conversaId={conversa.id}
+          clienteId={conversa.cliente_id}
+          nomeCliente={conversa.cliente?.nome ?? ""}
+          pareceEncerrada={pareceEncerrada}
+          encerrada={encerrada}
+          encerrando={isAcaoPending}
+          onEncerrar={() => executar(() => alterarStatusConversaAction(conversa.id, "resolvida"))}
+          onInserir={(t) => { setTexto((atual) => (atual.trim() ? `${atual.trimEnd()} ${t}` : t)); requestAnimationFrame(() => textareaRef.current?.focus()); }}
+        />
 
         <div className="flex items-end gap-1 p-2 md:gap-2 md:p-3">
           <SeletorEmoji onSelecionar={(emoji) => setTexto((t) => t + emoji)} />

@@ -186,3 +186,30 @@ export async function agendarAcompanhamentoAction(input: unknown): Promise<Actio
     return { success: false, error: err instanceof Error ? err.message : "Não foi possível agendar o acompanhamento" };
   }
 }
+
+/**
+ * Encerra (status "resolvida", não lidas zeradas) as conversas que só terminaram
+ * com "ok/obrigado" depois da resposta da loja. Ação de quem clicou — nada é
+ * encerrado sozinho — e o servidor reconfere quais ainda se encaixam na regra.
+ */
+export async function encerrarConversasFinalizadasAction(ids: string[]): Promise<ActionResult<{ encerradas: number }>> {
+  const auth = await exigirCargo(EQUIPE);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  const pedidos = new Set((Array.isArray(ids) ? ids : []).filter((x) => typeof x === "string").slice(0, 300));
+  if (pedidos.size === 0) return { success: true, data: { encerradas: 0 } };
+  try {
+    const { conversasQueParecemEncerradas } = await import("./central-comercial.service");
+    const { createClient } = await import("@/lib/supabase/server");
+    const validas = (await conversasQueParecemEncerradas(auth.userId, auth.cargo)).map((c) => c.id).filter((id) => pedidos.has(id));
+    if (validas.length === 0) return { success: true, data: { encerradas: 0 } };
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("whatsapp_conversas").update({ status: "resolvida", nao_lidas: 0 }).in("id", validas).select("id");
+    if (error) throw new Error(error.message);
+    revalidatePath("/central-comercial");
+    revalidatePath("/comunicacao");
+    revalidatePath("/dashboard");
+    return { success: true, data: { encerradas: data?.length ?? 0 } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Não foi possível encerrar as conversas" };
+  }
+}

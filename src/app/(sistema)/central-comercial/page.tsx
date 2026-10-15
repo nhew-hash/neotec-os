@@ -3,12 +3,13 @@ import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { exigirCargo } from "@/lib/auth/exigir-cargo";
-import { conversasAguardandoResposta, garantirTarefasDoDia, listarMinhasTarefas, orcamentosEmAberto, resultadoDoMes, retornosDoDia, tentar, tradeInsPendentes } from "@/services/central-comercial/central-comercial.service";
+import { conversasAguardandoResposta, conversasQueParecemEncerradas, garantirTarefasDoDia, listarMinhasTarefas, orcamentosEmAberto, resultadoDoMes, retornosDoDia, tentar, tradeInsPendentes } from "@/services/central-comercial/central-comercial.service";
 import { RetornosLista } from "@/components/central-comercial/retornos-lista";
 import { listarSugestoes } from "@/services/ia/sugestoes-comerciais.service";
 import { listarAprovacoesPendentes, listarMinhasAprovacoes } from "@/services/vendas/aprovacoes-desconto.service";
 import { SugestoesLista } from "@/components/central-comercial/sugestoes-lista";
 import { ChecklistLista } from "@/components/central-comercial/checklist-lista";
+import { EncerrarFinalizadas } from "@/components/central-comercial/encerrar-finalizadas";
 import { formatCurrency, formatDateTime } from "@/utils/format";
 import { obterDataHoraBrasilia } from "@/utils/data-brasilia";
 import { proximaAcao } from "@/services/central-comercial/rotina";
@@ -46,7 +47,7 @@ export default async function MinhaRotinaPage() {
   const agora = new Date();
 
   await tentar(() => garantirTarefasDoDia(agora)); // idempotente
-  const [tarefas, aguardando, orcamentos, sugestoes, meta, aprovacoes, retornos] = await Promise.all([
+  const [tarefas, aguardando, orcamentos, sugestoes, meta, aprovacoes, retornos, finalizadas] = await Promise.all([
     tentar(() => listarMinhasTarefas(auth.userId, agora)),
     tentar(() => conversasAguardandoResposta(auth.userId, auth.cargo)),
     tentar(() => orcamentosEmAberto(auth.userId, auth.cargo, agora)),
@@ -54,7 +55,14 @@ export default async function MinhaRotinaPage() {
     tentar(() => resultadoDoMes(auth.userId, agora)),
     tentar(() => listarMinhasAprovacoes(auth.userId)),
     tentar(() => retornosDoDia(auth.userId, auth.cargo, agora)),
+    tentar(() => conversasQueParecemEncerradas(auth.userId, auth.cargo)),
   ]);
+
+  // Rotina da loja (checklist): antes ficava no fim da página e ninguém marcava.
+  const pendentesHoje = tarefas.ok ? tarefas.dados.filter((t) => t.status === "pendente").sort((a, b) => a.prazo.localeCompare(b.prazo)) : [];
+  const feitasHoje = tarefas.ok ? tarefas.dados.filter((t) => t.status === "concluida").length : 0;
+  const totalHoje = tarefas.ok ? tarefas.dados.length : 0;
+  const proximaTarefa = pendentesHoje[0] ?? null;
 
   // Rotina de quem gerencia: o que depende da gerência hoje (além da própria fila de atendimento).
   const gerencia = auth.cargo === "admin" || auth.cargo === "gerente";
@@ -103,6 +111,15 @@ export default async function MinhaRotinaPage() {
             </div>
           </div>
         )}
+        {totalHoje > 0 && (
+          <a href="#tarefas" className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-background/70 px-3 py-2 text-sm hover:bg-background">
+            <span className="font-medium">Rotina da loja: <span className="tabular-nums">{feitasHoje}/{totalHoje}</span> feitas</span>
+            <span className="h-1.5 w-24 overflow-hidden rounded-full bg-secondary" aria-hidden><span className="block h-full rounded-full bg-success" style={{ width: `${Math.round((feitasHoje / totalHoje) * 100)}%` }} /></span>
+            {proximaTarefa ? (
+              <span className="text-muted-foreground">Próxima: <span className={new Date(proximaTarefa.prazo).getTime() < agora.getTime() ? "font-medium text-danger" : "text-foreground"}>{proximaTarefa.titulo}</span> até {new Date(proximaTarefa.prazo).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}</span>
+            ) : <span className="text-success-text">Tudo feito hoje</span>}
+          </a>
+        )}
         <div className="mt-5 border-t border-accent-foreground/10 pt-4">
           {!meta.ok ? <p className="text-sm text-muted-foreground">Meta indisponível agora ({meta.motivo}).</p> : meta.dados.meta === null ? (
             <p className="text-sm text-muted-foreground">Vendido no mês: <strong className="tabular-nums text-foreground">{formatCurrency(meta.dados.realizado)}</strong> ({meta.dados.vendas} {meta.dados.vendas === 1 ? "venda" : "vendas"}). Sem meta definida; a gerência define em Gerência.</p>
@@ -133,6 +150,7 @@ export default async function MinhaRotinaPage() {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
         <Secao titulo="Clientes que precisam de resposta" descricao="Conversas com mensagem não lida, as mais recentes primeiro.">
+          {finalizadas.ok && <EncerrarFinalizadas conversas={finalizadas.dados.map((c) => ({ id: c.id, nome: c.cliente_nome ?? c.telefone }))} />}
           {!aguardando.ok ? <Indisponivel motivo={aguardando.motivo} /> : aguardando.dados.length === 0 ? <Card className="p-4 text-sm text-muted-foreground">Ninguém esperando resposta.</Card> : (
             <Card className="px-4"><ul className="divide-y divide-border">
               {aguardando.dados.slice(0, 8).map((c) => (
@@ -167,6 +185,10 @@ export default async function MinhaRotinaPage() {
         </Secao>
       </div>
 
+      <Secao id="tarefas" titulo="Tarefas de hoje" descricao="Rotina da loja (Manual de Rotina). Marque conforme for fazendo — a gerência acompanha.">
+        {!tarefas.ok ? <Indisponivel motivo={tarefas.motivo} /> : <ChecklistLista tarefas={tarefas.dados} />}
+      </Secao>
+
       <Secao id="retornos" titulo="Retornos do CRM" descricao="Follow-ups agendados para hoje ou atrasados — os mesmos da aba Follow-ups do CRM.">
         {!retornos.ok ? <Indisponivel motivo={retornos.motivo} /> : <RetornosLista retornos={retornos.dados} />}
       </Secao>
@@ -175,9 +197,6 @@ export default async function MinhaRotinaPage() {
         {!sugestoes.ok ? <Indisponivel motivo={sugestoes.motivo} /> : <SugestoesLista sugestoes={sugestoes.dados} />}
       </Secao>
 
-      <Secao id="tarefas" titulo="Tarefas de hoje">
-        {!tarefas.ok ? <Indisponivel motivo={tarefas.motivo} /> : <ChecklistLista tarefas={tarefas.dados} />}
-      </Secao>
 
       {aprovacoes.ok && aprovacoes.dados.length > 0 && (
         <Secao titulo="Meus pedidos de desconto">

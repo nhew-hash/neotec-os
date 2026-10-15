@@ -4,6 +4,7 @@ import { obterPricingEnginePublico } from "@/services/precificacao/precificacao-
 import { type RegraDescontoLoja } from "@/services/vendas/desconto";
 import { rotuloAparelho } from "./itens-busca";
 import { precisaResposta } from "./rotina";
+import { conversaPareceEncerrada } from "@/services/comunicacao/encerramento";
 import { calcularProgressoMeta, dataRefBrasilia, diasParado, gerarTarefasDoDia, primeiroDiaDoMes, resumoPorResponsavel, type ModeloChecklist, type ProgressoMeta } from "./regras";
 
 /**
@@ -135,7 +136,12 @@ export async function definirMeta(input: { usuarioId: string | null; valor: numb
 
 export interface ConversaAguardando { id: string; telefone: string; cliente_nome: string | null; nao_lidas: number; ultima_mensagem_em: string | null }
 
-export async function conversasAguardandoResposta(usuarioId: string, cargo: string): Promise<ConversaAguardando[]> {
+/**
+ * Fila de atendimento: separa quem realmente espera resposta das conversas que
+ * só terminaram com "ok", "obrigado", 👍… depois de a loja já ter respondido
+ * (antes elas ficavam pendentes para sempre, porque ninguém clicava em encerrar).
+ */
+async function filaDeConversas(usuarioId: string, cargo: string): Promise<{ aguardando: ConversaAguardando[]; pareceEncerrada: ConversaAguardando[] }> {
   const supabase = await createClient();
   let q = supabase.from("whatsapp_conversas").select("id, telefone, nao_lidas, ultima_mensagem_em, responsavel_id, cliente:clientes(nome)").eq("status", "aberta").gt("nao_lidas", 0);
   if (cargo === "vendedor") q = q.or(`responsavel_id.eq.${usuarioId},responsavel_id.is.null`);
@@ -143,21 +149,42 @@ export async function conversasAguardandoResposta(usuarioId: string, cargo: stri
   if (error) throw new Error(error.message);
   // Muita conversa já foi respondida direto no WhatsApp e continua com "não lidas": só conta se a última mensagem é do cliente.
   const ultimaSaida = new Map<string, string>();
+  const ultimaEntrada = new Map<string, { texto: string | null; em: string }>();
   const ids = (data ?? []).map((c) => c.id);
   if (ids.length > 0) {
-    const { data: saidas, error: erroSaidas } = await supabase.from("whatsapp_mensagens").select("conversa_id, criado_em").eq("direcao", "saida").in("conversa_id", ids).order("criado_em", { ascending: false }).limit(5000);
-    if (erroSaidas) throw new Error(erroSaidas.message);
-    for (const m of saidas ?? []) if (!ultimaSaida.has(m.conversa_id)) ultimaSaida.set(m.conversa_id, m.criado_em);
+    const [saidasR, entradasR] = await Promise.all([
+      supabase.from("whatsapp_mensagens").select("conversa_id, criado_em").eq("direcao", "saida").in("conversa_id", ids).order("criado_em", { ascending: false }).limit(5000),
+      supabase.from("whatsapp_mensagens").select("conversa_id, conteudo, criado_em").eq("direcao", "entrada").in("conversa_id", ids).order("criado_em", { ascending: false }).limit(5000),
+    ]);
+    if (saidasR.error) throw new Error(saidasR.error.message);
+    if (entradasR.error) throw new Error(entradasR.error.message);
+    for (const m of saidasR.data ?? []) if (!ultimaSaida.has(m.conversa_id)) ultimaSaida.set(m.conversa_id, m.criado_em);
+    for (const m of entradasR.data ?? []) if (!ultimaEntrada.has(m.conversa_id)) ultimaEntrada.set(m.conversa_id, { texto: m.conteudo, em: m.criado_em });
   }
   // Um contato pode ter várias conversas abertas: agrupa por telefone (mais recente primeiro), somando as não lidas.
-  const porTelefone = new Map<string, ConversaAguardando>();
-  for (const c of (data ?? []).filter((x) => precisaResposta(x.ultima_mensagem_em, ultimaSaida.get(x.id) ?? null))) {
-    const nome = (c.cliente as unknown as { nome?: string } | null)?.nome ?? null;
-    const atual = porTelefone.get(c.telefone);
-    if (atual) { atual.nao_lidas += c.nao_lidas; if (!atual.cliente_nome && nome) atual.cliente_nome = nome; continue; }
-    porTelefone.set(c.telefone, { id: c.id, telefone: c.telefone, nao_lidas: c.nao_lidas, ultima_mensagem_em: c.ultima_mensagem_em, cliente_nome: nome });
-  }
-  return [...porTelefone.values()];
+  const agrupar = (lista: typeof data) => {
+    const porTelefone = new Map<string, ConversaAguardando>();
+    for (const c of lista ?? []) {
+      const nome = (c.cliente as unknown as { nome?: string } | null)?.nome ?? null;
+      const atual = porTelefone.get(c.telefone);
+      if (atual) { atual.nao_lidas += c.nao_lidas; if (!atual.cliente_nome && nome) atual.cliente_nome = nome; continue; }
+      porTelefone.set(c.telefone, { id: c.id, telefone: c.telefone, nao_lidas: c.nao_lidas, ultima_mensagem_em: c.ultima_mensagem_em, cliente_nome: nome });
+    }
+    return [...porTelefone.values()];
+  };
+  const pendentes = (data ?? []).filter((x) => precisaResposta(x.ultima_mensagem_em, ultimaSaida.get(x.id) ?? null));
+  const encerradas = pendentes.filter((x) => conversaPareceEncerrada(ultimaEntrada.get(x.id) ?? null, ultimaSaida.get(x.id) ?? null));
+  const idsEncerradas = new Set(encerradas.map((x) => x.id));
+  return { aguardando: agrupar(pendentes.filter((x) => !idsEncerradas.has(x.id))), pareceEncerrada: agrupar(encerradas) };
+}
+
+export async function conversasAguardandoResposta(usuarioId: string, cargo: string): Promise<ConversaAguardando[]> {
+  return (await filaDeConversas(usuarioId, cargo)).aguardando;
+}
+
+/** Conversas cuja última mensagem do cliente é só "ok/obrigado" depois da resposta da loja — candidatas a encerrar. */
+export async function conversasQueParecemEncerradas(usuarioId: string, cargo: string): Promise<ConversaAguardando[]> {
+  return (await filaDeConversas(usuarioId, cargo)).pareceEncerrada;
 }
 
 export interface RetornoDoDia {

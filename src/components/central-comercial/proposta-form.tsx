@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Copy, ExternalLink, Minus, Monitor, Plus, Send, Store, Trash2 } from "lucide-react";
+import { Check, Copy, ExternalLink, Minus, Monitor, Plus, Repeat, Send, Store, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -269,6 +269,12 @@ export function PropostaForm({ inicial, ehGerencia, vendedorNome, abrirTroca }: 
                 onAprovada={(t) => { setTradeIns((atual) => [t, ...atual.filter((x) => x.id !== t.id)]); setTradeInId(t.id); marcarSujo(); }}
               />
               {tradeIns.length === 0 && <p className="text-xs text-muted-foreground">Sem troca aprovada para este cliente ainda.</p>}
+            </div>
+          )}
+          {!cliente && (
+            <div className="flex flex-col gap-1.5">
+              <Button type="button" variant="outline" disabled className="h-11 justify-start gap-2"><Repeat className="h-4 w-4" aria-hidden /> Avaliar aparelho do cliente na troca</Button>
+              <p className="text-xs text-muted-foreground">Escolha o cliente acima para avaliar o aparelho dele na troca.</p>
             </div>
           )}
           <label className="flex flex-col gap-1 text-sm"><span className="font-medium">Observação interna <span className="font-normal text-muted-foreground">(não aparece para o cliente)</span></span>
