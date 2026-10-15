@@ -18,7 +18,10 @@ import { formatCurrency } from "@/utils/format";
  * de lá (mesma permissão). Avaliação bloqueada por avaria crítica não é
  * aprovada aqui: vai para revisão na tela da avaliação.
  */
-export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false }: {
+export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false, textoBotao, classeBotao }: {
+  /** Texto e estilo do botão (ex.: chip na Comunicação). */
+  textoBotao?: string;
+  classeBotao?: string;
   cliente: { id: string; nome: string; telefone: string | null };
   /** Vindo do Atendimento guiado com "tem aparelho na troca": já abre o checklist. */
   abrirAoMontar?: boolean;
@@ -29,6 +32,7 @@ export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false }: 
   const [erro, setErro] = useState<string | null>(null);
   const [registrada, setRegistrada] = useState<AvaliacaoRegistrada | null>(null);
   const [pendente, start] = useTransition();
+  const textoAprovar = classeBotao ? "Aprovar avaliação" : "Aprovar e usar nesta proposta";
 
   useEffect(() => {
     if (!aberto || modelos) return;
@@ -53,9 +57,13 @@ export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false }: 
 
   return (
     <>
-      <Button type="button" variant="outline" onClick={() => setAberto(true)} className="h-11 justify-start gap-2">
-        <Repeat className="h-4 w-4" aria-hidden /> Avaliar aparelho do cliente na troca
-      </Button>
+      {classeBotao ? (
+        <button type="button" onClick={() => setAberto(true)} className={classeBotao}><Repeat className="h-3.5 w-3.5" aria-hidden />{textoBotao ?? "Avaliar troca"}</button>
+      ) : (
+        <Button type="button" variant="outline" onClick={() => setAberto(true)} className="h-11 justify-start gap-2">
+          <Repeat className="h-4 w-4" aria-hidden /> {textoBotao ?? "Avaliar aparelho do cliente na troca"}
+        </Button>
+      )}
       <Sheet open={aberto} onOpenChange={fechar}>
         <SheetContent side="right" className="w-full overflow-y-auto p-5 sm:max-w-xl">
           <SheetTitle className="font-display text-lg">Aparelho na troca — {cliente.nome.split(/\s+/)[0]}</SheetTitle>
@@ -77,7 +85,7 @@ export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false }: 
                   <p className="font-display text-3xl font-semibold tabular-nums">{formatCurrency(registrada.valorCalculado)}</p>
                   <p className="text-xs text-muted-foreground">Ao usar, a avaliação é aprovada por este valor (fica registrado quem aprovou). Para mudar o valor, abra a avaliação.</p>
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" onClick={aprovar} disabled={pendente}>{pendente ? "Aprovando…" : "Aprovar e usar nesta proposta"}</Button>
+                    <Button type="button" onClick={aprovar} disabled={pendente}>{pendente ? "Aprovando…" : textoAprovar}</Button>
                     <Link href={`/trade-in/${registrada.id}`} target="_blank" rel="noopener" className="inline-flex h-10 items-center px-2 text-sm font-medium text-primary hover:underline">Ajustar valor</Link>
                   </div>
                 </>

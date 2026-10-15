@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCheck, FileText, LayoutGrid, MessagesSquare, Repeat, Sparkles, X } from "lucide-react";
+import { CheckCheck, FileText, LayoutGrid, MessagesSquare, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { TrocaNaProposta } from "@/components/central-comercial/troca-na-proposta";
+import { CatalogoVenda } from "@/components/central-comercial/catalogo-venda";
+import { listarCatalogoAction } from "@/services/central-comercial/central-comercial.actions";
+import type { ItemCatalogo } from "@/services/central-comercial/catalogo";
+import { formatCurrency } from "@/utils/format";
 import { cn } from "@/lib/utils";
 import { OBJECOES, PEDIDO_ACOMPANHAMENTO, PERGUNTAS_IPHONE, PERGUNTA_FECHAMENTO, mensagensAcompanhamento } from "@/services/central-comercial/roteiro-venda";
 
@@ -16,9 +22,10 @@ type Aba = "perguntas" | "objecoes" | "fechar";
  * Quando o cliente só respondeu "ok/obrigado" depois da nossa resposta,
  * sugere encerrar a conversa (com um clique, nunca automático).
  */
-export function AssistenteConversa({ conversaId, clienteId, nomeCliente, pareceEncerrada, encerrada, onInserir, onEncerrar, encerrando }: {
+export function AssistenteConversa({ conversaId, clienteId, nomeCliente, telefone, pareceEncerrada, encerrada, onInserir, onEncerrar, encerrando }: {
   conversaId: string;
   clienteId: string | null;
+  telefone: string | null;
   nomeCliente: string;
   pareceEncerrada: boolean;
   encerrada: boolean;
@@ -28,6 +35,15 @@ export function AssistenteConversa({ conversaId, clienteId, nomeCliente, pareceE
 }) {
   const [aba, setAba] = useState<Aba | null>(null);
   const [dispensou, setDispensou] = useState(false);
+  // Catálogo e troca abrem AQUI, por cima da conversa (antes iam para a Central comercial).
+  const [catalogoAberto, setCatalogoAberto] = useState(false);
+  const [catalogo, setCatalogo] = useState<ItemCatalogo[] | null>(null);
+  const [erroCatalogo, setErroCatalogo] = useState<string | null>(null);
+  const [trocaAprovada, setTrocaAprovada] = useState<{ modeloNome: string; valor: number } | null>(null);
+  useEffect(() => {
+    if (!catalogoAberto || catalogo) return;
+    listarCatalogoAction().then((r) => (r.success ? setCatalogo(r.data) : setErroCatalogo(r.error)));
+  }, [catalogoAberto, catalogo]);
   const primeiroNome = nomeCliente.trim().split(/\s+/)[0] || "";
   const acompanhamento = mensagensAcompanhamento(primeiroNome || "tudo bem", null);
 
@@ -64,10 +80,35 @@ export function AssistenteConversa({ conversaId, clienteId, nomeCliente, pareceE
         <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
         {clienteId && <Link href={`/central-comercial/atendimento?cliente=${clienteId}`} className={chip}><MessagesSquare className="h-3.5 w-3.5" aria-hidden />Atender</Link>}
         {clienteId && <Link href={`/central-comercial/proposta?conversa=${conversaId}`} className={chip}><FileText className="h-3.5 w-3.5" aria-hidden />Proposta</Link>}
-        {clienteId && <Link href={`/central-comercial/proposta?conversa=${conversaId}&troca=1`} className={chip}><Repeat className="h-3.5 w-3.5" aria-hidden />Avaliar troca</Link>}
-        <Link href={`/central-comercial/catalogo${clienteId ? `?cliente=${clienteId}` : ""}`} className={chip}><LayoutGrid className="h-3.5 w-3.5" aria-hidden />Catálogo</Link>
+        {clienteId && (
+          <TrocaNaProposta
+            cliente={{ id: clienteId, nome: nomeCliente || "Cliente", telefone }}
+            textoBotao="Avaliar troca"
+            classeBotao={chip}
+            onAprovada={(t) => setTrocaAprovada({ modeloNome: t.modeloNome, valor: t.valor })}
+          />
+        )}
+        <button type="button" onClick={() => setCatalogoAberto(true)} className={chip}><LayoutGrid className="h-3.5 w-3.5" aria-hidden />Catálogo</button>
         {!clienteId && <span className="shrink-0 text-[11px] text-muted-foreground">Cadastre o contato para fazer proposta e troca.</span>}
       </div>
+
+      {trocaAprovada && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border bg-success-soft/50 px-3 py-2 text-xs md:px-4" role="status">
+          <span className="flex-1">Troca aprovada: {trocaAprovada.modeloNome} — {formatCurrency(trocaAprovada.valor)} (uso interno; na mensagem a proposta fala só da volta).</span>
+          <Link href={`/central-comercial/proposta?conversa=${conversaId}`} className="font-medium text-primary hover:underline">Montar proposta com a troca →</Link>
+          <button type="button" onClick={() => setTrocaAprovada(null)} aria-label="Fechar aviso" className="text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
+        </div>
+      )}
+
+      <Sheet open={catalogoAberto} onOpenChange={setCatalogoAberto}>
+        <SheetContent side="right" className="w-full overflow-y-auto p-4 sm:max-w-2xl">
+          <SheetTitle className="font-display text-lg">Catálogo — {nomeCliente || "cliente"}</SheetTitle>
+          <p className="mb-3 mt-1 text-sm text-muted-foreground">Selecione e coloque na conversa (você revisa antes de enviar) ou monte a proposta.</p>
+          {erroCatalogo ? <p role="alert" className="text-sm text-danger">{erroCatalogo}</p>
+            : !catalogo ? <p role="status" className="text-sm text-muted-foreground">Carregando o estoque…</p>
+            : <CatalogoVenda itens={catalogo} clienteId={clienteId} conversaId={clienteId ? conversaId : null} compacto onInserir={(t) => { onInserir(t); setCatalogoAberto(false); }} />}
+        </SheetContent>
+      </Sheet>
 
       {aba && (
         <div className="max-h-56 overflow-y-auto border-t border-border bg-secondary/30 px-2 py-2 md:px-3">

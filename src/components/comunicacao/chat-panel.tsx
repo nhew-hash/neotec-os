@@ -409,6 +409,7 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
           conversaId={conversa.id}
           clienteId={conversa.cliente_id}
           nomeCliente={conversa.cliente?.nome ?? ""}
+          telefone={conversa.telefone}
           pareceEncerrada={pareceEncerrada}
           encerrada={encerrada}
           encerrando={isAcaoPending}

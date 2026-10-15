@@ -41,3 +41,11 @@ export function conversaPareceEncerrada(ultimaEntrada: { texto: string | null; e
   if (new Date(ultimaEntrada.em).getTime() < new Date(ultimaSaidaEm).getTime()) return false; // já respondida
   return ehMensagemDeEncerramento(ultimaEntrada.texto);
 }
+
+/** Cliente sem resposta há mais que isso dificilmente volta sozinho: sai da fila e vira "retorno" ou é encerrada. */
+export const DIAS_PARA_PARADA = 4;
+
+export function conversaParada(ultimaEntradaEm: string | null | undefined, agora = new Date(), dias = DIAS_PARA_PARADA): boolean {
+  if (!ultimaEntradaEm) return false;
+  return agora.getTime() - new Date(ultimaEntradaEm).getTime() > dias * 86_400_000;
+}

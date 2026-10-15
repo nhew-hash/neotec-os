@@ -4,7 +4,7 @@ import { obterPricingEnginePublico } from "@/services/precificacao/precificacao-
 import { type RegraDescontoLoja } from "@/services/vendas/desconto";
 import { rotuloAparelho } from "./itens-busca";
 import { precisaResposta } from "./rotina";
-import { conversaPareceEncerrada } from "@/services/comunicacao/encerramento";
+import { conversaParada, conversaPareceEncerrada } from "@/services/comunicacao/encerramento";
 import { calcularProgressoMeta, dataRefBrasilia, diasParado, gerarTarefasDoDia, primeiroDiaDoMes, resumoPorResponsavel, type ModeloChecklist, type ProgressoMeta } from "./regras";
 
 /**
@@ -141,7 +141,7 @@ export interface ConversaAguardando { id: string; telefone: string; cliente_nome
  * só terminaram com "ok", "obrigado", 👍… depois de a loja já ter respondido
  * (antes elas ficavam pendentes para sempre, porque ninguém clicava em encerrar).
  */
-async function filaDeConversas(usuarioId: string, cargo: string): Promise<{ aguardando: ConversaAguardando[]; pareceEncerrada: ConversaAguardando[] }> {
+async function filaDeConversas(usuarioId: string, cargo: string): Promise<{ aguardando: ConversaAguardando[]; pareceEncerrada: ConversaAguardando[]; paradas: ConversaAguardando[] }> {
   const supabase = await createClient();
   let q = supabase.from("whatsapp_conversas").select("id, telefone, nao_lidas, ultima_mensagem_em, responsavel_id, cliente:clientes(nome)").eq("status", "aberta").gt("nao_lidas", 0);
   if (cargo === "vendedor") q = q.or(`responsavel_id.eq.${usuarioId},responsavel_id.is.null`);
@@ -175,11 +175,23 @@ async function filaDeConversas(usuarioId: string, cargo: string): Promise<{ agua
   const pendentes = (data ?? []).filter((x) => precisaResposta(x.ultima_mensagem_em, ultimaSaida.get(x.id) ?? null));
   const encerradas = pendentes.filter((x) => conversaPareceEncerrada(ultimaEntrada.get(x.id) ?? null, ultimaSaida.get(x.id) ?? null));
   const idsEncerradas = new Set(encerradas.map((x) => x.id));
-  return { aguardando: agrupar(pendentes.filter((x) => !idsEncerradas.has(x.id))), pareceEncerrada: agrupar(encerradas) };
+  // Sem resposta há mais de 4 dias: sai da fila "responder agora" (vira retorno ou é encerrada).
+  const paradas = pendentes.filter((x) => !idsEncerradas.has(x.id) && conversaParada(ultimaEntrada.get(x.id)?.em ?? x.ultima_mensagem_em));
+  const idsParadas = new Set(paradas.map((x) => x.id));
+  return {
+    aguardando: agrupar(pendentes.filter((x) => !idsEncerradas.has(x.id) && !idsParadas.has(x.id))),
+    pareceEncerrada: agrupar(encerradas),
+    paradas: agrupar(paradas),
+  };
 }
 
 export async function conversasAguardandoResposta(usuarioId: string, cargo: string): Promise<ConversaAguardando[]> {
   return (await filaDeConversas(usuarioId, cargo)).aguardando;
+}
+
+/** Conversas sem resposta há mais de 4 dias — candidatas a retorno ou a encerrar. */
+export async function conversasParadas(usuarioId: string, cargo: string): Promise<ConversaAguardando[]> {
+  return (await filaDeConversas(usuarioId, cargo)).paradas;
 }
 
 /** Conversas cuja última mensagem do cliente é só "ok/obrigado" depois da resposta da loja — candidatas a encerrar. */

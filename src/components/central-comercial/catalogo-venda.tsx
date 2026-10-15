@@ -20,7 +20,15 @@ function corBateria(b: number) {
  * bateria e preço. Seleciona um ou vários para copiar a mensagem do WhatsApp
  * ou abrir a proposta já com os itens.
  */
-export function CatalogoVenda({ itens, clienteId }: { itens: ItemCatalogo[]; clienteId?: string | null }) {
+export function CatalogoVenda({ itens, clienteId, conversaId, onInserir, compacto = false }: {
+  itens: ItemCatalogo[];
+  clienteId?: string | null;
+  /** Dentro da conversa (Comunicação): a proposta abre ligada a ela. */
+  conversaId?: string | null;
+  /** Dentro da conversa: o texto vai para o campo de mensagem (revisar e enviar) em vez da área de transferência. */
+  onInserir?: (texto: string) => void;
+  compacto?: boolean;
+}) {
   const [texto, setTexto] = useState("");
   const [grupo, setGrupo] = useState<GrupoCatalogo | "todos">("todos");
   const [precoMax, setPrecoMax] = useState("");
@@ -49,6 +57,7 @@ export function CatalogoVenda({ itens, clienteId }: { itens: ItemCatalogo[]; cli
 
   async function copiar(itensTexto: ItemCatalogo[], id: string) {
     setErroCopia(null);
+    if (onInserir) { onInserir(textoDoItem(itensTexto)); setSelecionados(new Map()); return; }
     try {
       await navigator.clipboard.writeText(textoDoItem(itensTexto));
       setCopiado(id);
@@ -60,7 +69,8 @@ export function CatalogoVenda({ itens, clienteId }: { itens: ItemCatalogo[]; cli
 
   const escolhidos = [...selecionados.values()];
   const paraProposta = paramItensProposta(escolhidos);
-  const hrefProposta = `/central-comercial/proposta?itens=${paraProposta}${clienteId ? `&cliente=${clienteId}` : ""}`;
+  const hrefProposta = `/central-comercial/proposta?itens=${paraProposta}${conversaId ? `&conversa=${conversaId}` : clienteId ? `&cliente=${clienteId}` : ""}`;
+  const rotuloCopiar = onInserir ? "Na conversa" : "Copiar";
 
   return (
     <div className="space-y-4 pb-4">
@@ -97,7 +107,7 @@ export function CatalogoVenda({ itens, clienteId }: { itens: ItemCatalogo[]; cli
       {lista.length === 0 ? (
         <p className="py-12 text-center text-sm text-muted-foreground">Nada encontrado com esses filtros.</p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <ul className={cn("grid grid-cols-2 gap-3", !compacto && "sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5")}>
           {lista.map((i) => {
             const sel = selecionados.has(chave(i));
             return (
@@ -125,7 +135,7 @@ export function CatalogoVenda({ itens, clienteId }: { itens: ItemCatalogo[]; cli
                   <p className="mt-auto pt-1 text-base font-semibold tabular-nums">{formatCurrency(i.preco)}</p>
                   <div className="flex items-center gap-1 pt-1">
                     <Button type="button" variant="outline" size="sm" className="h-8 flex-1 px-2 text-xs" onClick={() => copiar([i], chave(i))}>
-                      {copiado === chave(i) ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}{copiado === chave(i) ? "Copiado" : "Copiar"}
+                      {copiado === chave(i) ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}{copiado === chave(i) ? "Copiado" : rotuloCopiar}
                     </Button>
                     {i.linkLoja && (
                       <a href={i.linkLoja} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "ghost", size: "sm", className: "h-8 w-8 p-0" })} aria-label={`Ver ${i.nome} na loja`}>
@@ -141,12 +151,12 @@ export function CatalogoVenda({ itens, clienteId }: { itens: ItemCatalogo[]; cli
       )}
 
       {escolhidos.length > 0 && (
-        <div className="sticky bottom-20 z-30 rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur md:bottom-4">
+        <div className={cn("sticky z-30 rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur", compacto ? "bottom-0" : "bottom-20 md:bottom-4")}>
           <div className="flex items-center gap-2">
             <p className="mr-auto text-sm"><strong className="tabular-nums">{escolhidos.length}</strong><span className="hidden sm:inline"> {escolhidos.length === 1 ? "item selecionado" : "itens selecionados"}</span><span className="sm:hidden"> sel.</span></p>
             <Button type="button" variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={() => setSelecionados(new Map())}>Limpar</Button>
             <Button type="button" variant="outline" size="sm" onClick={() => copiar(escolhidos, "selecao")}>
-              {copiado === "selecao" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}<span className="hidden sm:inline">Copiar para WhatsApp</span><span className="sm:hidden">Copiar</span>
+              {copiado === "selecao" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}<span className="hidden sm:inline">{onInserir ? "Colocar na conversa" : "Copiar para WhatsApp"}</span><span className="sm:hidden">{rotuloCopiar}</span>
             </Button>
             {paraProposta ? (
               <Link href={hrefProposta} className={buttonVariants({ size: "sm" })}><FileText className="h-4 w-4" /><span className="hidden sm:inline">Montar proposta</span><span className="sm:hidden">Proposta</span></Link>

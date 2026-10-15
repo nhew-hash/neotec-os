@@ -3,13 +3,14 @@ import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { exigirCargo } from "@/lib/auth/exigir-cargo";
-import { conversasAguardandoResposta, conversasQueParecemEncerradas, garantirTarefasDoDia, listarMinhasTarefas, orcamentosEmAberto, resultadoDoMes, retornosDoDia, tentar, tradeInsPendentes } from "@/services/central-comercial/central-comercial.service";
+import { conversasAguardandoResposta, conversasParadas, conversasQueParecemEncerradas, garantirTarefasDoDia, listarMinhasTarefas, orcamentosEmAberto, resultadoDoMes, retornosDoDia, tentar, tradeInsPendentes } from "@/services/central-comercial/central-comercial.service";
 import { RetornosLista } from "@/components/central-comercial/retornos-lista";
 import { listarSugestoes } from "@/services/ia/sugestoes-comerciais.service";
 import { listarAprovacoesPendentes, listarMinhasAprovacoes } from "@/services/vendas/aprovacoes-desconto.service";
 import { SugestoesLista } from "@/components/central-comercial/sugestoes-lista";
 import { ChecklistLista } from "@/components/central-comercial/checklist-lista";
 import { EncerrarFinalizadas } from "@/components/central-comercial/encerrar-finalizadas";
+import { ConversasParadas } from "@/components/central-comercial/conversas-paradas";
 import { formatCurrency, formatDateTime } from "@/utils/format";
 import { obterDataHoraBrasilia } from "@/utils/data-brasilia";
 import { proximaAcao } from "@/services/central-comercial/rotina";
@@ -47,7 +48,7 @@ export default async function MinhaRotinaPage() {
   const agora = new Date();
 
   await tentar(() => garantirTarefasDoDia(agora)); // idempotente
-  const [tarefas, aguardando, orcamentos, sugestoes, meta, aprovacoes, retornos, finalizadas] = await Promise.all([
+  const [tarefas, aguardando, orcamentos, sugestoes, meta, aprovacoes, retornos, finalizadas, paradas] = await Promise.all([
     tentar(() => listarMinhasTarefas(auth.userId, agora)),
     tentar(() => conversasAguardandoResposta(auth.userId, auth.cargo)),
     tentar(() => orcamentosEmAberto(auth.userId, auth.cargo, agora)),
@@ -56,6 +57,7 @@ export default async function MinhaRotinaPage() {
     tentar(() => listarMinhasAprovacoes(auth.userId)),
     tentar(() => retornosDoDia(auth.userId, auth.cargo, agora)),
     tentar(() => conversasQueParecemEncerradas(auth.userId, auth.cargo)),
+    tentar(() => conversasParadas(auth.userId, auth.cargo)),
   ]);
 
   // Rotina da loja (checklist): antes ficava no fim da página e ninguém marcava.
@@ -151,6 +153,7 @@ export default async function MinhaRotinaPage() {
       <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
         <Secao titulo="Clientes que precisam de resposta" descricao="Conversas com mensagem não lida, as mais recentes primeiro.">
           {finalizadas.ok && <EncerrarFinalizadas conversas={finalizadas.dados.map((c) => ({ id: c.id, nome: c.cliente_nome ?? c.telefone }))} />}
+          {paradas.ok && <ConversasParadas conversas={paradas.dados.map((c) => ({ id: c.id, nome: c.cliente_nome ?? c.telefone, em: c.ultima_mensagem_em }))} />}
           {!aguardando.ok ? <Indisponivel motivo={aguardando.motivo} /> : aguardando.dados.length === 0 ? <Card className="p-4 text-sm text-muted-foreground">Ninguém esperando resposta.</Card> : (
             <Card className="px-4"><ul className="divide-y divide-border">
               {aguardando.dados.slice(0, 8).map((c) => (

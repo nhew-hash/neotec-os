@@ -192,15 +192,16 @@ export async function agendarAcompanhamentoAction(input: unknown): Promise<Actio
  * com "ok/obrigado" depois da resposta da loja. Ação de quem clicou — nada é
  * encerrado sozinho — e o servidor reconfere quais ainda se encaixam na regra.
  */
-export async function encerrarConversasFinalizadasAction(ids: string[]): Promise<ActionResult<{ encerradas: number }>> {
+export async function encerrarConversasFinalizadasAction(ids: string[], tipo: "finalizadas" | "paradas" = "finalizadas"): Promise<ActionResult<{ encerradas: number }>> {
   const auth = await exigirCargo(EQUIPE);
   if (!auth.permitido) return { success: false, error: auth.erro };
   const pedidos = new Set((Array.isArray(ids) ? ids : []).filter((x) => typeof x === "string").slice(0, 300));
   if (pedidos.size === 0) return { success: true, data: { encerradas: 0 } };
   try {
-    const { conversasQueParecemEncerradas } = await import("./central-comercial.service");
+    const { conversasQueParecemEncerradas, conversasParadas } = await import("./central-comercial.service");
     const { createClient } = await import("@/lib/supabase/server");
-    const validas = (await conversasQueParecemEncerradas(auth.userId, auth.cargo)).map((c) => c.id).filter((id) => pedidos.has(id));
+    const fonte = tipo === "paradas" ? conversasParadas : conversasQueParecemEncerradas;
+    const validas = (await fonte(auth.userId, auth.cargo)).map((c) => c.id).filter((id) => pedidos.has(id));
     if (validas.length === 0) return { success: true, data: { encerradas: 0 } };
     const supabase = await createClient();
     const { data, error } = await supabase.from("whatsapp_conversas").update({ status: "resolvida", nao_lidas: 0 }).in("id", validas).select("id");
@@ -211,5 +212,46 @@ export async function encerrarConversasFinalizadasAction(ids: string[]): Promise
     return { success: true, data: { encerradas: data?.length ?? 0 } };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Não foi possível encerrar as conversas" };
+  }
+}
+
+/**
+ * Conversa parada há mais de 4 dias: vira um retorno no CRM (lembrete para hoje,
+ * nada é enviado) e sai da fila de não lidas. Precisa ter cliente cadastrado.
+ */
+export async function gerarRetornoConversaAction(conversaId: string): Promise<ActionResult<{ jaExistia: boolean }>> {
+  const auth = await exigirCargo(EQUIPE);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  try {
+    const { createClient } = await import("@/lib/supabase/server");
+    const { criarFollowup } = await import("@/services/crm-pipeline/crm-pipeline.service");
+    const supabase = await createClient();
+    const { data: conversa, error } = await supabase.from("whatsapp_conversas").select("id, cliente_id, nao_contatar").eq("id", conversaId).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!conversa) return { success: false, error: "Conversa não encontrada." };
+    if (!conversa.cliente_id) return { success: false, error: "Cadastre o contato como cliente para gerar o retorno." };
+    if (conversa.nao_contatar) return { success: false, error: "Este cliente pediu para não ser contatado." };
+    const { data: pendentes } = await supabase.from("crm_followups").select("id").eq("cliente_id", conversa.cliente_id).eq("status", "pendente").limit(1);
+    const jaExistia = (pendentes ?? []).length > 0;
+    if (!jaExistia) await criarFollowup({ cliente_id: conversa.cliente_id, data_agendada: new Date().toISOString(), motivo: "Retomar conversa parada há mais de 4 dias sem resposta. Responder ou encerrar.", usuario_id: auth.userId });
+    const { error: erroUpd } = await supabase.from("whatsapp_conversas").update({ nao_lidas: 0 }).eq("id", conversaId);
+    if (erroUpd) throw new Error(erroUpd.message);
+    revalidatePath("/central-comercial");
+    revalidatePath("/comunicacao");
+    return { success: true, data: { jaExistia } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Não foi possível gerar o retorno" };
+  }
+}
+
+/** Catálogo de venda para o painel dentro da conversa (Comunicação). */
+export async function listarCatalogoAction(): Promise<ActionResult<import("./catalogo").ItemCatalogo[]>> {
+  const auth = await exigirCargo(EQUIPE);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  try {
+    const { listarCatalogoVenda } = await import("./catalogo.service");
+    return { success: true, data: await listarCatalogoVenda() };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Não foi possível carregar o catálogo" };
   }
 }
