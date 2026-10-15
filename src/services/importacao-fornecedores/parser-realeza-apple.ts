@@ -21,13 +21,16 @@ import type { ItemDescartado, ItemExtraido, ResultadoParser } from "./tipos";
  *  - Cor pode vir ESCRITA depois do preço, numa linha à parte (Apple
  *    Watch SE-3 do fixture 2/3).
  */
-export function parseRealezaAppleLacrados(textoOriginal: string): ResultadoParser {
+/** Mesmo formato serve à lista Apple sem iPhone (Mac/iPad/AirPods) — só muda o escopo (`tipoLista`). */
+type TipoListaAppleLacrado = "apple_lacrados" | "apple_mac_ipad_airpods";
+
+export function parseRealezaAppleLacrados(textoOriginal: string, tipoLista: TipoListaAppleLacrado = "apple_lacrados"): ResultadoParser {
   const blocos = dividirEmBlocos(textoOriginal);
   const itens: ItemExtraido[] = [];
   const descartados: ItemDescartado[] = [];
 
   for (const bloco of blocos) {
-    processarBloco(bloco, itens, descartados);
+    processarBloco(bloco, itens, descartados, tipoLista);
   }
 
   return { itens, descartados };
@@ -100,6 +103,12 @@ function encontrarPrecos(linha: string): PrecoEncontrado[] {
     // "mm" de tamanho: "46mm"
     if (/^\s*mm\b/i.test(depois)) continue;
 
+    // Inteiro de 1–2 dígitos nunca é preço de produto Apple (o mais barato,
+    // Apple Pencil, custa centenas). São números do NOME do modelo: "AirPods 4",
+    // "Pro 2", chip "M4", "iMac 24", "Air 13". Antes viravam preço: "AirPods 4"
+    // a R$ 4 e "iPad Air M3" a R$ 3 (lista Mac/iPad/AirPods, auditoria 2026-10).
+    if (/^\d{1,2}$/.test(valorTexto)) continue;
+
     resultados.push({ valorTexto, index: inicio, fim });
   }
   return resultados;
@@ -109,6 +118,8 @@ function encontrarPrecos(linha: string): PrecoEncontrado[] {
 function corEscritaDoTrecho(trecho: string): string | null {
   let limpo = removerEmojisDeCor(trecho);
   limpo = removerMarcadoresNaoCor(limpo);
+  // Linha compacta "📲 iPad 11 128gb 🔵 2399": sem isto, "iPad gb" virava a cor.
+  limpo = semPalavrasDeModelo(limpo);
   limpo = limpo.replace(/r\$/gi, " ").replace(/\$/g, " ");
   limpo = limpo.replace(/[\d.,*]+/g, " ");
   limpo = limpo.replace(/^[\s.:\-]+|[\s.:\-]+$/g, "").trim();
@@ -135,7 +146,7 @@ function ehTituloDeSecao(linha: string): boolean {
   return /\blacrados?\b/i.test(linha) && encontrarPrecos(linha).length === 0;
 }
 
-function processarBloco(linhasBrutas: string[], itens: ItemExtraido[], descartados: ItemDescartado[]) {
+function processarBloco(linhasBrutas: string[], itens: ItemExtraido[], descartados: ItemDescartado[], tipoLista: TipoListaAppleLacrado) {
   // Quando o título vem colado no 1º produto (sem linha em branco), ele virava
   // "modelo" com o preço da linha seguinte — ex.: "📱Apple lacrados📱" a R$ 4.737
   // no site. Descarta os títulos do início do bloco antes de processar.
@@ -268,7 +279,7 @@ function processarBloco(linhasBrutas: string[], itens: ItemExtraido[], descartad
       quantidade: 1,
       tags: [],
       fornecedor: "realeza",
-      tipoLista: "apple_lacrados",
+      tipoLista,
       precoFornecedor: grupo.preco,
       linhaOrigem: `${linhaModelo} | ${grupo.linhaOrigem}`,
     };
@@ -293,7 +304,21 @@ function processarBloco(linhasBrutas: string[], itens: ItemExtraido[], descartad
 
 const TERMOS_PERMITIDOS = ["5g", "4g", "nfc", "gps", "lançamento", "lancamento", "lacrado", "seminovo", "semi", "cpo", "cellular"];
 
-const PALAVRAS_MODELO_GENERICAS = ["iphone", "ipad", "macbook", "apple", "watch", "pro", "max", "plus", "mini", "se", "neo", "ultra", "series"];
+const PALAVRAS_MODELO_GENERICAS = [
+  "iphone", "ipad", "macbook", "apple", "watch", "pro", "max", "plus", "mini", "se", "neo", "ultra", "series",
+  // Linha Mac/iPad/AirPods/Pencil — sem estas, o nome do modelo sobrava como
+  // "comentário" e o item era descartado (Mac mini, iMac, AirPods Pro, Pencil).
+  "airpods", "airpod", "air", "pods", "imac", "mac", "studio", "pencil", "anc", "usb", "magsafe", "tb",
+];
+
+/** Tira palavras do nome do modelo, chip ("M4") e memória ("gb"/"tb") — o que sobra pode ser cor escrita ou comentário. */
+function semPalavrasDeModelo(texto: string): string {
+  let limpo = texto.replace(/\bm\d{1,2}\b/gi, " ");
+  for (const palavra of PALAVRAS_MODELO_GENERICAS) {
+    limpo = limpo.replace(new RegExp(`\\b${palavra}\\b`, "gi"), " ");
+  }
+  return limpo.replace(/\bgb\b/gi, " ").replace(/\d+\s*(?:g|gb|tb)\b/gi, " ");
+}
 
 /** Extrai texto "sobrando" numa linha depois de remover modelo/spec/cor/preço/emoji/termos permitidos. */
 function extrairComentarioResidual(linha: string): string | null {
@@ -310,9 +335,7 @@ function extrairComentarioResidual(linha: string): string | null {
   for (const termo of TERMOS_PERMITIDOS) {
     limpo = limpo.replace(new RegExp(`\\b${termo}\\b`, "gi"), " ");
   }
-  for (const palavra of PALAVRAS_MODELO_GENERICAS) {
-    limpo = limpo.replace(new RegExp(`\\b${palavra}\\b`, "gi"), " ");
-  }
+  limpo = semPalavrasDeModelo(limpo);
   limpo = limpo
     .replace(/\bgb\b/gi, " ")
     .replace(/\d+\s*g\b/gi, " ")

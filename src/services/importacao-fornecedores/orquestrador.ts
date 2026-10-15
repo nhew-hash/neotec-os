@@ -48,7 +48,8 @@ function executarParser(texto: string, fornecedor: Fornecedor, tipoLista: NonNul
 
   switch (tipoLista) {
     case "apple_lacrados":
-      return parseRealezaAppleLacrados(texto);
+    case "apple_mac_ipad_airpods":
+      return parseRealezaAppleLacrados(texto, tipoLista);
     case "apple_seminovos":
       return parseRealezaAppleSeminovos(texto);
     case "android":

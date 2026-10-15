@@ -91,3 +91,21 @@ describe("validarItens — rede de segurança final", () => {
     expect(resultado.descartados.filter((d) => d.motivo === "ambiguo")).toHaveLength(2);
   });
 });
+
+import { validarItens as validarItensFaixa } from "../validacao";
+import type { ItemExtraido as ItemFaixa } from "../tipos";
+
+describe("faixa de preço — abaixo do mínimo descarta (auditoria 2026-10)", () => {
+  const base = { categoriaSlug: "acessorios_apple", marca: "Apple", modeloCanonico: "AirPods 4", modeloReconhecido: true, condicao: "Lacrado", armazenamentoGb: null, ramGb: null, ramPossivelTypo: false, conectividade: null, nfc: false, tamanhoMm: null, gpsCellular: null, cor: "Branco", corBase: "Branco", corEmojiOrigem: null, bateriaPct: null, cidade: null, garantia: null, quantidade: 1, tags: [], fornecedor: "realeza", tipoLista: "apple_mac_ipad_airpods", linhaOrigem: "x" } as unknown as ItemFaixa;
+  it("número do modelo lido como preço (R$ 4) não vai para o site", () => {
+    const r = validarItensFaixa({ itens: [{ ...base, precoFornecedor: 4 }], descartados: [] });
+    expect(r.itens).toHaveLength(0);
+    expect(r.descartados[0].motivo).toBe("preco_implausivel");
+  });
+  it("preço normal passa; acima do máximo só sinaliza", () => {
+    expect(validarItensFaixa({ itens: [{ ...base, precoFornecedor: 899 }], descartados: [] }).itens).toHaveLength(1);
+    const caro = validarItensFaixa({ itens: [{ ...base, precoFornecedor: 99999 }], descartados: [] });
+    expect(caro.itens).toHaveLength(1);
+    expect(caro.itens[0].flags[0]).toMatch(/preco_fora_da_faixa/);
+  });
+});

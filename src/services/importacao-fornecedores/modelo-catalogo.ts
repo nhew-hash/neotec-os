@@ -152,6 +152,13 @@ function resolverPorFamilia(normalizado: string, textoOriginal: string): Resulta
   // (a emoji/símbolo entre as palavras, ex.: "Macbook 💻 neo", não atrapalha).
   const titulo = (p: string) => p[0].toUpperCase() + p.slice(1);
 
+  // Chip ("M4", "M4 Pro") entra no nome só de Mac mini / iMac / Mac Studio:
+  // sem ele "Mac mini M4" e "Mac mini M4 Pro" (preços bem diferentes) viravam
+  // o mesmo item. iPad e MacBook continuam sem chip no nome (decisão anterior,
+  // coberta por testes — mudar trocaria a identidade de itens já no site).
+  const chipMatch = normalizado.match(/\bm([1-9])(?:\s*(pro|max|ultra))?\b/);
+  const chip = chipMatch ? `M${chipMatch[1]}${chipMatch[2] ? ` ${titulo(chipMatch[2])}` : ""}` : null;
+
   let mp = normalizado.match(/\bipad\b\s*(pro|air|mini)?\s*(\d{1,2}(?:\.\d)?)?/);
   if (mp) {
     const partes = ["iPad", ...(mp[1] ? [titulo(mp[1])] : []), ...(mp[2] ? [mp[2]] : [])];
@@ -163,7 +170,7 @@ function resolverPorFamilia(normalizado: string, textoOriginal: string): Resulta
     const base = mp[1] === "macbook" ? "MacBook" : mp[1] === "imac" ? "iMac" : mp[1].replace(/\s+/g, "") === "macmini" ? "Mac Mini" : "Mac Studio";
     const variante = base === "MacBook" ? normalizado.match(/\b(air|pro|neo)\b/)?.[1] : undefined;
     const tela = base === "MacBook" ? normalizado.match(/(?<![\d/])(13|14|15|16)(?![\d/])/)?.[1] : undefined;
-    const partes = [base, ...(variante ? [titulo(variante)] : []), ...(tela ? [tela] : [])];
+    const partes = [base, ...(variante ? [titulo(variante)] : []), ...(tela ? [tela] : []), ...(base !== "MacBook" && chip ? [chip] : [])];
     return { canonico: partes.join(" "), marca: "Apple", categoriaSlug: "computadores_macbook", reconhecido: true };
   }
 
@@ -175,7 +182,9 @@ function resolverPorFamilia(normalizado: string, textoOriginal: string): Resulta
 
   mp = normalizado.match(/\bair\s*pods?\b\s*(pro|max)?\s*(\d)?/);
   if (mp) {
-    const partes = ["AirPods", ...(mp[1] ? [titulo(mp[1])] : []), ...(mp[2] ? [mp[2]] : [])];
+    // "ANC" (cancelamento de ruído) é outro produto/preço: "AirPods 4" ≠ "AirPods 4 ANC".
+    const anc = /\banc\b|cancelamento/.test(normalizado);
+    const partes = ["AirPods", ...(mp[1] ? [titulo(mp[1])] : []), ...(mp[2] ? [mp[2]] : []), ...(anc ? ["ANC"] : [])];
     return { canonico: partes.join(" "), marca: "Apple", categoriaSlug: "acessorios_apple", reconhecido: true };
   }
 

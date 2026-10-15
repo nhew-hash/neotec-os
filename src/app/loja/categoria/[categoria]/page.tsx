@@ -17,6 +17,11 @@ const FAMILIA_LACRADOS: Record<string, RegExp> = {
   ipad: /\bipad\b/i,
   mac: /macbook|\bimac\b|mac\s*mini|mac\s*studio/i,
   apple_watch: /apple\s*watch/i,
+  // AirPods e Apple Pencil lacrados (lista Mac/iPad/AirPods da Realeza) também
+  // vivem no catálogo de lacrados — sem estas entradas ficavam cadastrados mas
+  // invisíveis na loja (auditoria 2026-10).
+  audio: /\bair\s*pods?\b/i,
+  acessorio: /apple\s*pencil/i,
 };
 
 export default async function LojaCategoriaPage({ params }: { params: Promise<{ categoria: string }> }) {

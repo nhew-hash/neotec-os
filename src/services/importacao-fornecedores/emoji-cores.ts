@@ -57,6 +57,14 @@ export const EMOJIS_NAO_COR = new Set([
   "⌚",
   "🚀", // lançamento
   "🚨", // aviso
+  // Marcadores da lista Mac/iPad/AirPods (não são cor):
+  "🎧", // AirPods
+  "✏️", // Apple Pencil
+  "✏",
+  "🖥️", // iMac / Mac mini
+  "🖥",
+  "⌨️",
+  "🖱️",
 ]);
 
 /** Regex que casa qualquer emoji "candidato a cor" conhecido na tabela. */

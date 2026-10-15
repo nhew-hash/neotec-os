@@ -12,6 +12,8 @@ import { atualizarFonteAction, obterDetalheExecucaoAction, type DetalheExecucao,
 const NOMES_TIPO_LISTA: Record<string, string> = {
   goat_completa: "Lista completa",
   apple_lacrados: "Apple lacrados",
+  apple_mac_ipad_airpods: "Apple Mac/iPad/AirPods",
+  desconhecido: "Não identificada (nada cadastrado)",
   apple_seminovos: "Apple seminovos",
   android: "Android/tablets",
   perfumes: "Perfumes",

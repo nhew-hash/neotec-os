@@ -102,10 +102,31 @@ export async function POST(request: NextRequest) {
         autor: body.autor,
       });
 
+    if (processado.classificacao === "tipo_desconhecido") {
+      // Parece lista (vários preços), mas o tipo não foi reconhecido. Antes
+      // era marcada como processada em silêncio: a lista "sumia" (foi o que
+      // aconteceu com a lista de Mac/AirPods da Realeza). Agora fica no
+      // histórico de importações e o dono é avisado no WhatsApp pessoal.
+      const aviso = `⚠️ ${fornecedor === "goat" ? "Goat" : "Realeza"} — recebi uma lista que NÃO consegui identificar, então NADA foi cadastrado.\n${processado.motivoIncerteza ?? ""}\nConfira em Estoque → Importação automática (histórico).`;
+      await admin.from("import_execucoes").insert({
+        fonte_id: fonte.id,
+        fornecedor,
+        tipo_lista: "desconhecido",
+        mensagem_id_externo: body.idExterno,
+        mensagem_bruta: body.conteudo,
+        aplicado: false,
+        travada_por_seguranca: true,
+        motivo_trava: processado.motivoIncerteza ?? "Tipo de lista não identificado",
+        resumo_whatsapp: aviso,
+      });
+      await marcarMensagemProcessada();
+      await new WhatsAppWebProvider().enviarTexto(paraFormatoInternacionalBR(NUMERO_NOTIFICACAO), aviso);
+      return NextResponse.json({ ok: true, classificacao: processado.classificacao });
+    }
+
     if (processado.classificacao !== "lista" || !processado.resultado || !processado.tipoLista) {
-      // "ignorar" (comentário solto no grupo) ou "tipo_desconhecido" —
-      // não é lista, não faz nada, não precisa responder no grupo. Não
-      // tem nenhuma escrita arriscada aqui, então pode marcar direto.
+      // "ignorar" (comentário solto no grupo) — não é lista, não faz nada,
+      // não precisa responder. Sem escrita arriscada, pode marcar direto.
       await marcarMensagemProcessada();
       return NextResponse.json({ ok: true, classificacao: processado.classificacao });
     }
@@ -123,6 +144,9 @@ export async function POST(request: NextRequest) {
         montarResumoWhatsApp(fornecedor, tipoLista, resultadoAplicacao.plano, descartados) +
         (resultadoAplicacao.itensRetidos.length > 0
           ? `\n⚠️ ${resultadoAplicacao.itensRetidos.length} item(ns) com variação de preço suspeita NÃO atualizados automaticamente (resto da lista aplicado normalmente):\n${resultadoAplicacao.motivosRetencao.map((m) => `• ${m}`).join("\n")}\nRevise manualmente na tela de Importação.`
+          : "") +
+        (resultadoAplicacao.itensSemRegraPreco.length > 0
+          ? `\n⚠️ ${resultadoAplicacao.itensSemRegraPreco.length} item(ns) lacrado(s) SEM regra de lucro — subiram com o preço do fornecedor (margem zero):\n${[...new Set(resultadoAplicacao.itensSemRegraPreco.map((i) => `${i.modeloCanonico} (${i.categoriaSlug})`))].slice(0, 15).map((m) => `• ${m}`).join("\n")}\nCadastre a regra em Estoque → Importação automática → Regras de lucro.`
           : "") +
         (resultadoAplicacao.itensSemCor.length > 0
           ? `\n⚠️ ${resultadoAplicacao.itensSemCor.length} item(ns) sem cor identificada subiram com cor "Não informada" (corrija a cor depois):\n${resultadoAplicacao.motivosSemCor.slice(0, 15).map((m) => `• ${m}`).join("\n")}\nDefina a cor no estoque ou adicione o emoji na tabela de cores.`

@@ -213,3 +213,22 @@ Não houve acesso ao banco de produção: **uso não confirmado** em todos (não
 3. Criar projeto Supabase de staging e testes de RLS/fluxo (webhook → conversa → card → follow-up) no CI.
 4. Levar o mesmo tratamento de fluxo para Vendas/PDV e Assistência (próximos módulos mais usados no balcão).
 5. Versionar o schema base e atualizar o CHANGELOG (258–269).
+
+---
+
+## Rodada 2 (2026-10-15) — lista nova da Realeza (Mac/iPad/AirPods) e vitrine
+
+O site ao vivo (neotecbrasil.com) **não pôde ser aberto** nesta sessão (rede bloqueada pela política do ambiente e extensão do Chrome não conectada). O que segue foi auditado e corrigido pelo código, com testes.
+
+| # | Pri. | Achado | Status |
+|---|---|---|---|
+| L1 | **P1** | Lista da Realeza só com AirPods / iPad / Mac mini / iMac / Pencil caía em `tipo_desconhecido`: **nada era cadastrado** | ✅ tipo próprio `apple_mac_ipad_airpods` |
+| L2 | **P1** | `tipo_desconhecido` era marcado como processado em silêncio (sem histórico, sem aviso) — a lista "sumia" | ✅ registrada em `import_execucoes` (tipo "desconhecido") + aviso ao dono |
+| L3 | **P1** | Lista Apple sem iPhone (ex.: MacBook + AirPods) entrava no escopo `apple_lacrados`: a próxima lista de iPhones **tirava os Macs do site** e uma lista grande de Macs tiraria os iPhones | ✅ escopo separado |
+| L4 | **P0** | Parser de Apple lacrados lia número do modelo como preço: "AirPods 4" a **R$ 4**, "iPad Air M3" a **R$ 3** | ✅ inteiro de 1–2 dígitos nunca é preço + descarte abaixo do mínimo da categoria |
+| L5 | P1 | Mac mini, iMac, MacBook Air, AirPods Pro/Max e Pencil descartados como "comentário" | ✅ |
+| L6 | P2 | Cor lixo ("Ipad Gb"); Mac "16/256" lido como 16 GB; "M4" × "M4 Pro" e "AirPods 4" × "AirPods 4 ANC" viravam o mesmo item | ✅ |
+| L7 | P1 | AirPods e Apple Pencil **lacrados** não apareciam em nenhuma página da loja (só iPad/Mac/Watch tinham família) | ✅ Áudio / Acessórios |
+| L8 | P1 | Lacrado sem regra de lucro na categoria entra com **preço do fornecedor (margem zero)**, em silêncio | ◐ aviso no resumo do WhatsApp; 🔒 a margem é decisão da loja |
+
+**Para a lista nova ter "outra regra de preço"**: cadastre em Estoque → Importação automática → Regras de lucro as categorias `computadores_macbook`, `tablets_ipad` e `acessorios_apple` (condição Lacrado). Sem isso, esses itens sobem pelo preço da Realeza. A lista que já chegou e caiu como "desconhecida" precisa ser **reenviada** no grupo (ou encaminhada) para entrar.

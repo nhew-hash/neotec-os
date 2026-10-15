@@ -464,6 +464,25 @@ export interface ResultadoAplicacaoLista {
   parcial: boolean;
   plano: PlanoAplicacao;
   itensAtivosAnteriores: ItemArmazenado[];
+  /**
+   * Itens LACRADOS sem regra de lucro na categoria (nem na categoria-mãe): o
+   * preço de venda saiu IGUAL ao do fornecedor (margem zero). Não inventamos
+   * margem — só avisamos para cadastrar a regra em Importação automática.
+   */
+  itensSemRegraPreco: ItemExtraido[];
+}
+
+/** Lacrado sem regra de margem = vende pelo preço do fornecedor. Detecta para avisar. */
+async function itensLacradosSemRegra(admin: Admin, itens: ItemExtraido[]): Promise<ItemExtraido[]> {
+  const semRegra: ItemExtraido[] = [];
+  const cache = new Map<string, boolean>();
+  for (const item of itens) {
+    if (item.condicao !== "Lacrado") continue;
+    const chave = `${item.categoriaSlug}|${item.condicao}`;
+    if (!cache.has(chave)) cache.set(chave, (await buscarMargemCategoria(admin, item.categoriaSlug, item.condicao)) !== null);
+    if (!cache.get(chave)) semRegra.push(item);
+  }
+  return semRegra;
 }
 
 export async function aplicarListaFornecedor(
@@ -504,6 +523,7 @@ export async function aplicarListaFornecedor(
       parcial: false,
       plano,
       itensAtivosAnteriores,
+      itensSemRegraPreco: [],
     };
   }
 
@@ -537,6 +557,7 @@ export async function aplicarListaFornecedor(
     parcial,
     plano: { ...plano, atualizarPreco: atualizarPrecoAplicaveis },
     itensAtivosAnteriores,
+    itensSemRegraPreco: await itensLacradosSemRegra(admin, [...plano.inserir, ...atualizarPrecoAplicaveis.map((u) => u.item)]),
   };
 }
 

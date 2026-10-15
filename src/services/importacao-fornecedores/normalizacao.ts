@@ -141,6 +141,12 @@ export function extrairArmazenamentoRam(texto: string): ArmazenamentoRam {
     if (!ARMAZENAMENTOS_VALIDOS.includes(armazenamento) && ARMAZENAMENTOS_VALIDOS.includes(ram) && ram > armazenamento) {
       return { armazenamentoGb: ram, ramGb: armazenamento, possivelTypo: true };
     }
+    // Mac é escrito RAM/SSD ("Mac mini M4 16/256"), Android e MacBook Neo
+    // armazenamento/RAM ("128/4", "256/8"). Armazenamento é sempre maior que a
+    // RAM: com os dois válidos e o 2º maior, o 2º é o armazenamento (sem typo).
+    if (ram > armazenamento && ARMAZENAMENTOS_VALIDOS.includes(ram)) {
+      return { armazenamentoGb: ram, ramGb: armazenamento, possivelTypo: false };
+    }
     const possivelTypo = !ARMAZENAMENTOS_VALIDOS.includes(armazenamento);
     return { armazenamentoGb: armazenamento, ramGb: ram, possivelTypo };
   }

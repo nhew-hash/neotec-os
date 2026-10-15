@@ -3,6 +3,8 @@ export type Fornecedor = "goat" | "realeza";
 export type TipoLista =
   | "goat_completa"
   | "apple_lacrados"
+  /** Realeza · lista Apple SEM iPhone (Mac, iPad, AirPods, Pencil, Watch). Escopo próprio — ver abaixo. */
+  | "apple_mac_ipad_airpods"
   | "apple_seminovos"
   | "android"
   | "perfumes"
@@ -54,11 +56,21 @@ export function classificarMensagem(texto: string, fornecedor: Fornecedor): Resu
   // Realeza: decide o tipo pelo conteúdo/cabeçalho.
   const normalizado = texto.toLowerCase();
 
+  const temIphone = /iphone/.test(normalizado);
+  // Linha Apple fora do iPhone. Antes só "macbook"/"apple watch" contavam:
+  // uma lista só de AirPods, iPad, iMac ou Mac mini caía em
+  // "tipo_desconhecido" e NÃO era cadastrada.
+  const pareceAppleNaoIphone =
+    /macbook|\bimac\b|mac\s*mini|mac\s*studio/.test(normalizado) ||
+    /\bipad\b/.test(normalizado) ||
+    /\bair\s*pods?\b/.test(normalizado) ||
+    /apple\s*pencil/.test(normalizado) ||
+    /apple\s*watch/.test(normalizado);
+
   const pareceApple =
     /apple lacrados/.test(normalizado) ||
     /iphone[-\s]/.test(normalizado) ||
-    /macbook/.test(normalizado) ||
-    /apple watch/.test(normalizado);
+    pareceAppleNaoIphone;
 
   // Fase 244: cabeçalho específico da lista de seminovos da Realeza, ex:
   // "*semi novos 30 dias de garantia*" — formato compacto sem a palavra
@@ -104,12 +116,17 @@ export function classificarMensagem(texto: string, fornecedor: Fornecedor): Resu
   if (pareceAudioExtras && !pareceApple) return { classificacao: "lista", tipoLista: "audio_extras" };
   if (parecePerfume) return { classificacao: "lista", tipoLista: "perfumes" };
   if (pareceAppleSeminovo) return { classificacao: "lista", tipoLista: "apple_seminovos" };
+  // Lista Apple sem nenhum iPhone = lista própria (Mac/iPad/AirPods). Ela NÃO
+  // pode entrar no escopo "apple_lacrados": o diff desativa o que "saiu" da
+  // lista do mesmo escopo, então (a) uma lista grande de Mac/AirPods tiraria
+  // todos os iPhones do site e (b) a próxima lista de iPhones tiraria os Macs.
+  if (pareceApple && !temIphone && pareceAppleNaoIphone) return { classificacao: "lista", tipoLista: "apple_mac_ipad_airpods" };
   if (pareceApple) return { classificacao: "lista", tipoLista: "apple_lacrados" };
   if (pareceAndroid) return { classificacao: "lista", tipoLista: "android" };
 
   return {
     classificacao: "tipo_desconhecido",
     tipoLista: null,
-    motivoIncerteza: "Não consegui identificar o tipo da lista (Apple lacrados, Android, Perfumes ou JBL/extras).",
+    motivoIncerteza: "Não consegui identificar o tipo da lista (Apple lacrados, Apple Mac/iPad/AirPods, Android, Perfumes ou JBL/extras).",
   };
 }

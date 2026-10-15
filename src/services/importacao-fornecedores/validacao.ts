@@ -73,9 +73,20 @@ export function validarItens(resultadoParser: ResultadoParser): ResultadoValidac
       continue;
     }
 
-    // faixa plausível por categoria (sinaliza, não descarta — pode ser produto legítimo fora da faixa "comum")
+    // Faixa plausível por categoria. ABAIXO do mínimo descarta: é quase sempre
+    // número do nome do modelo lido como preço ("AirPods 4" a R$ 4) e iria para
+    // o site assim. ACIMA do máximo só sinaliza (pode ser produto legítimo caro).
     const faixa = FAIXA_PRECO_POR_CATEGORIA[item.categoriaSlug];
-    if (faixa && (item.precoFornecedor < faixa.min || item.precoFornecedor > faixa.max)) {
+    if (faixa && item.precoFornecedor < faixa.min) {
+      descartados.push({
+        linhaOrigem: item.linhaOrigem,
+        descricao: `${item.modeloCanonico} ${item.cor}`,
+        motivo: "preco_implausivel",
+        detalhe: `R$ ${item.precoFornecedor} abaixo do mínimo da categoria (R$ ${faixa.min})`,
+      });
+      continue;
+    }
+    if (faixa && item.precoFornecedor > faixa.max) {
       flags.push(`preco_fora_da_faixa (${item.precoFornecedor})`);
     }
 

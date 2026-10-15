@@ -37,6 +37,7 @@ export type MotivoDescarte =
   | "comentario"
   | "ambiguo"
   | "preco_invalido"
+  | "preco_implausivel"
   | "emoji_cor_desconhecido";
 
 export interface ItemDescartado {

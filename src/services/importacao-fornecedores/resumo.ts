@@ -5,6 +5,7 @@ import type { Fornecedor, TipoLista } from "./classificador";
 const NOMES_TIPO_LISTA: Record<TipoLista, string> = {
   goat_completa: "Lista completa",
   apple_lacrados: "Apple lacrados",
+  apple_mac_ipad_airpods: "Apple Mac/iPad/AirPods",
   apple_seminovos: "Apple seminovos",
   android: "Android/tablets",
   perfumes: "Perfumes",
@@ -70,6 +71,7 @@ function traduzirMotivo(motivo: string): string {
     comentario: "comentário",
     ambiguo: "ambíguo",
     preco_invalido: "preço inválido",
+    preco_implausivel: "preço abaixo do plausível",
     emoji_cor_desconhecido: "cor desconhecida",
   };
   return mapa[motivo] ?? motivo;
