@@ -63,6 +63,8 @@ export async function listarConversas(params?: { busca?: string }): Promise<Conv
   let query = supabase
     .from("whatsapp_conversas")
     .select("*, cliente:clientes(id, nome)")
+    // Canal do WhatsApp (@newsletter), lista de transmissão (@broadcast) e grupo (@g.us) não são atendimento.
+    .or("jid_envio.is.null,and(jid_envio.not.like.*@newsletter,jid_envio.not.like.*@broadcast,jid_envio.not.like.*@g.us)")
     .order("ultima_mensagem_em", { ascending: false, nullsFirst: false })
     .limit(LIMITE_CONVERSAS);
 
@@ -110,6 +112,33 @@ export async function marcarConversaComoLida(conversaId: string): Promise<void> 
   const supabase = await createClient();
   const { error } = await supabase.from("whatsapp_conversas").update({ nao_lidas: 0 }).eq("id", conversaId);
   if (error) throw new Error(`Não foi possível marcar a conversa como lida: ${error.message}`);
+  await avisarLeituraAoWhatsapp(conversaId);
+}
+
+/**
+ * Quem abriu a conversa no Neotec OS leu: avisa o WhatsApp (tiques azuis para o
+ * cliente e o contador some do celular da loja). Só as recebidas ainda não
+ * avisadas (`lida_em` nulo) — e marca `lida_em` só se o WhatsApp aceitou.
+ * Falha aqui nunca derruba a abertura da conversa: só fica no log.
+ */
+async function avisarLeituraAoWhatsapp(conversaId: string): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const { data: conversa } = await supabase.from("whatsapp_conversas").select("jid_envio").eq("id", conversaId).maybeSingle();
+    const jid = conversa?.jid_envio;
+    if (!jid || !/@(s\.whatsapp\.net|lid)$/.test(jid)) return; // só conversa individual
+    const { data: pendentes, error } = await supabase.from("whatsapp_mensagens").select("id, whatsapp_message_id")
+      .eq("conversa_id", conversaId).eq("direcao", "entrada").is("lida_em", null).not("whatsapp_message_id", "is", null)
+      .order("criado_em", { ascending: false }).limit(50);
+    if (error || !pendentes?.length) return;
+    const provider = await getActiveProvider();
+    if (!provider.marcarComoLida) return;
+    const r = await provider.marcarComoLida(jid, pendentes.map((m) => m.whatsapp_message_id as string));
+    if (!r.ok) { console.warn(`Aviso de leitura ao WhatsApp falhou (conversa ${conversaId}): ${r.motivo}`); return; }
+    await supabase.from("whatsapp_mensagens").update({ lida_em: new Date().toISOString() }).in("id", pendentes.map((m) => m.id));
+  } catch (err) {
+    console.warn("Aviso de leitura ao WhatsApp falhou:", err instanceof Error ? err.message : err);
+  }
 }
 
 /**

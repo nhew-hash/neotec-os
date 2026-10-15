@@ -30,6 +30,22 @@ export class WhatsAppWebProvider implements WhatsappProvider {
     };
   }
 
+  async marcarComoLida(jid: string, idsMensagens: string[]): Promise<{ ok: boolean; motivo?: string }> {
+    try {
+      const response = await fetch(`${this.bridgeUrl}/marcar-lida`, {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify({ jid, ids: idsMensagens }),
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (response.ok) return { ok: true };
+      const data = await response.json().catch(() => null);
+      return { ok: false, motivo: data?.erro ?? `Bridge respondeu ${response.status}` };
+    } catch (err) {
+      return { ok: false, motivo: err instanceof Error ? `Bridge inacessível: ${err.message}` : "Bridge inacessível" };
+    }
+  }
+
   async enviarTexto(telefone: string, texto: string, jidDireto?: string): Promise<ResultadoEnvioWhatsapp> {
     try {
       const response = await fetch(`${this.bridgeUrl}/enviar`, {

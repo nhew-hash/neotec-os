@@ -50,6 +50,13 @@ export interface WhatsappProvider {
     variaveis: string[]
   ): Promise<ResultadoEnvioWhatsapp>;
 
+  /**
+   * Avisa o WhatsApp que as mensagens recebidas foram lidas (tiques azuis para o
+   * cliente; some o contador no aparelho da loja). Opcional: só o WhatsApp Web
+   * implementa hoje.
+   */
+  marcarComoLida?(jid: string, idsMensagens: string[]): Promise<{ ok: boolean; motivo?: string }>;
+
   /** Estado atual da conexão — usado pro card do Dashboard e a tela de Configurações. */
   obterStatus(): Promise<Pick<IntegracaoWhatsapp, "status" | "numero" | "ultima_conexao" | "mensagens_hoje">>;
 }
