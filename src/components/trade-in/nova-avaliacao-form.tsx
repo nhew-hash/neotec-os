@@ -15,7 +15,18 @@ import { formatCurrency } from "@/utils";
 
 type Resposta = "ok" | "reprovado";
 
-export function NovaAvaliacaoForm({ modelos }: { modelos: TrocaModeloComAvarias[] }) {
+export interface AvaliacaoRegistrada { id: string; modeloNome: string; valorCalculado: number; bloqueado: boolean; motivos: string[] }
+
+/**
+ * `cliente` + `onRegistrada`: modo embutido (ex.: dentro da proposta da Central
+ * comercial) — o cliente já vem da proposta e, ao registrar, avisa o pai em vez
+ * de navegar para a página da avaliação.
+ */
+export function NovaAvaliacaoForm({ modelos, cliente, onRegistrada }: {
+  modelos: TrocaModeloComAvarias[];
+  cliente?: { id: string; nome: string; telefone: string | null } | null;
+  onRegistrada?: (avaliacao: AvaliacaoRegistrada) => void;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -27,8 +38,8 @@ export function NovaAvaliacaoForm({ modelos }: { modelos: TrocaModeloComAvarias[
   // danos" (nenhuma avaria marcada) até o funcionário escolher outra coisa.
   const [tampaTraseiraId, setTampaTraseiraId] = useState<string>("sem_danos");
   const [bateriaSaude, setBateriaSaude] = useState("");
-  const [clienteNome, setClienteNome] = useState("");
-  const [clienteTelefone, setClienteTelefone] = useState("");
+  const [clienteNome, setClienteNome] = useState(cliente?.nome ?? "");
+  const [clienteTelefone, setClienteTelefone] = useState(cliente?.telefone ?? "");
   const [imei, setImei] = useState("");
   const [observacoes, setObservacoes] = useState("");
 
@@ -86,6 +97,7 @@ export function NovaAvaliacaoForm({ modelos }: { modelos: TrocaModeloComAvarias[
         avariasMarcadas: codigos,
         bateriaSaude: bateriaSaude ? Number(bateriaSaude) : null,
         checklistRespostas: respostas,
+        clienteId: cliente?.id ?? null,
         clienteNome: clienteNome || null,
         clienteTelefone: clienteTelefone || null,
         imei: imei || null,
@@ -93,7 +105,10 @@ export function NovaAvaliacaoForm({ modelos }: { modelos: TrocaModeloComAvarias[
       });
       if (!result.success) return setErro(result.error);
       if ("encontrado" in result.data && result.data.encontrado === false) return setErro(result.data.mensagem);
-      if ("avaliacao" in result.data) router.push(`/trade-in/${result.data.avaliacao.id}`);
+      if (!("avaliacao" in result.data)) return;
+      const av = result.data.avaliacao;
+      if (onRegistrada) onRegistrada({ id: av.id, modeloNome: av.modelo_nome, valorCalculado: Number(av.valor_calculado), bloqueado: av.bloqueado, motivos: av.motivos_bloqueio ?? [] });
+      else router.push(`/trade-in/${av.id}`);
     });
   }
 
@@ -114,11 +129,15 @@ export function NovaAvaliacaoForm({ modelos }: { modelos: TrocaModeloComAvarias[
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Input placeholder="Nome do cliente" value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} />
-            <Input placeholder="Telefone" value={clienteTelefone} onChange={(e) => setClienteTelefone(e.target.value)} />
-            <Input placeholder="IMEI" value={imei} onChange={(e) => setImei(e.target.value)} />
-          </div>
+          {cliente ? (
+            <Input placeholder="IMEI (opcional)" value={imei} onChange={(e) => setImei(e.target.value)} className="sm:w-72" />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Input placeholder="Nome do cliente" value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} />
+              <Input placeholder="Telefone" value={clienteTelefone} onChange={(e) => setClienteTelefone(e.target.value)} />
+              <Input placeholder="IMEI" value={imei} onChange={(e) => setImei(e.target.value)} />
+            </div>
+          )}
           <Input type="number" min={0} max={100} placeholder="Saúde da bateria (%)" value={bateriaSaude} onChange={(e) => setBateriaSaude(e.target.value)} className="sm:w-56" />
         </CardContent>
       </Card>

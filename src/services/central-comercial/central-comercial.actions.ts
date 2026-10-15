@@ -136,3 +136,15 @@ export async function buscarItensAction(q: string, pagina = 0): Promise<ActionRe
     return { success: false, error: err instanceof Error ? err.message : "Erro ao buscar itens" };
   }
 }
+
+/** Modelos ativos da tabela de troca — para avaliar o aparelho do cliente sem sair da proposta. */
+export async function listarModelosTrocaAction(): Promise<ActionResult<import("@/services/trade-in/aplicacao.service").TrocaModeloComAvarias[]>> {
+  const auth = await exigirCargo(EQUIPE);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  try {
+    const { listarModelosTradeIn } = await import("@/services/trade-in/aplicacao.service");
+    return { success: true, data: await listarModelosTradeIn({ somenteAtivos: true }) };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Não foi possível carregar a tabela de troca" };
+  }
+}

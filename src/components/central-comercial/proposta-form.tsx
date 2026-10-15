@@ -19,6 +19,7 @@ import { formatCurrency } from "@/utils/format";
 import { ClienteBusca } from "./cliente-busca";
 import { ItemBuscaCampo } from "./item-busca";
 import { ApresentacaoCliente } from "./apresentacao-cliente";
+import { TrocaNaProposta } from "./troca-na-proposta";
 
 export interface LinhaUI { tipo: "aparelho" | "produto"; id: string; rotulo: string; preco: number; quantidade: number; indisponivel?: boolean }
 export interface PropostaInicial {
@@ -214,7 +215,12 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
         <section aria-labelledby="sec-itens" className="space-y-3">
           <h2 id="sec-itens" className="font-display text-base font-semibold">Itens</h2>
           <ItemBuscaCampo onAdicionar={adicionar} jaNaProposta={new Set(linhas.map(chave))} />
-          {linhas.length === 0 ? <p className="text-sm text-muted-foreground">Busque o aparelho ou o acessório e toque para adicionar.</p> : (
+          {linhas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Busque o aparelho ou o acessório e toque para adicionar, ou{" "}
+              <Link href={`/central-comercial/catalogo${cliente ? `?cliente=${cliente.id}` : ""}`} className="font-medium text-primary hover:underline">escolha no catálogo com fotos</Link>.
+            </p>
+          ) : (
             <ul className="divide-y divide-border rounded-lg border border-border bg-card">
               {linhas.map((l) => (
                 <li key={chave(l)} className="flex items-center gap-3 px-3 py-3">
@@ -250,11 +256,13 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
             )}
           </div>
           {cliente && (
-            <p className="text-xs text-muted-foreground">
-              {tradeIns.length === 0 ? "Sem troca aprovada para este cliente. " : "Cliente com outro aparelho para trocar? "}
-              <Link href="/trade-in/nova" target="_blank" rel="noopener" className="font-medium text-primary hover:underline">Avaliar o aparelho do cliente</Link>
-              {" "}(abre em outra aba; depois de aprovada, a troca aparece aqui — <button type="button" className="font-medium text-primary hover:underline" onClick={() => { const c = cliente; setCliente(null); setTimeout(() => setCliente(c), 0); }}>atualizar</button>).
-            </p>
+            <div className="flex flex-col gap-1.5">
+              <TrocaNaProposta
+                cliente={{ id: cliente.id, nome: cliente.nome, telefone: cliente.whatsapp || null }}
+                onAprovada={(t) => { setTradeIns((atual) => [t, ...atual.filter((x) => x.id !== t.id)]); setTradeInId(t.id); marcarSujo(); }}
+              />
+              {tradeIns.length === 0 && <p className="text-xs text-muted-foreground">Sem troca aprovada para este cliente ainda.</p>}
+            </div>
           )}
           <label className="flex flex-col gap-1 text-sm"><span className="font-medium">Observação interna <span className="font-normal text-muted-foreground">(não aparece para o cliente)</span></span>
             <Textarea value={observacoes} onChange={(e) => { setObservacoes(e.target.value); marcarSujo(); }} maxLength={500} rows={2} /></label>

@@ -6,6 +6,7 @@ import { PropostaForm, type LinhaUI, type PropostaInicial } from "@/components/c
 import { buscarItemParaProposta } from "@/services/central-comercial/central-comercial.service";
 import { obterClienteBasico } from "@/services/central-comercial/clientes-busca.service";
 import { contextoDaConversa, obterPropostaParaRetomar } from "@/services/central-comercial/propostas.service";
+import { lerParamItensProposta } from "@/services/central-comercial/catalogo";
 
 export const metadata = { title: "Proposta" };
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export default async function PropostaPage({ searchParams }: { searchParams: Pro
   const conversa = pegar(sp.conversa);
   const clienteParam = pegar(sp.cliente);
   const modoParam = pegar(sp.modo);
+  const itensParam = lerParamItensProposta(pegar(sp.itens)); // vindos do Catálogo de venda
 
   const vazio: PropostaInicial = { orcamentoId: null, cliente: null, itens: [], desconto: "", tradeInId: null, modo: modoParam === "whatsapp" ? "whatsapp" : "presencial", conversaId: null, naoContatar: false, observacoes: "", aviso: null };
   let inicial: PropostaInicial = vazio;
@@ -54,6 +56,15 @@ export default async function PropostaPage({ searchParams }: { searchParams: Pro
     } else if (clienteParam && uuid.test(clienteParam)) {
       inicial = { ...vazio, cliente: await obterClienteBasico(clienteParam) };
     }
+    if (!inicial.orcamentoId && itensParam.length > 0) {
+      const resolvidos = await Promise.allSettled(itensParam.map((i) => buscarItemParaProposta(i.tipo, i.id)));
+      const itens: LinhaUI[] = itensParam.flatMap((i, idx) => {
+        const r = resolvidos[idx];
+        return r.status === "fulfilled" ? [{ tipo: i.tipo, id: i.id, rotulo: r.value.descricao, preco: r.value.preco, quantidade: 1 }] : [];
+      });
+      const fora = itensParam.length - itens.length;
+      inicial = { ...inicial, itens, aviso: fora > 0 ? `${fora} ${fora === 1 ? "item do catálogo não está mais disponível e ficou" : "itens do catálogo não estão mais disponíveis e ficaram"} de fora.` : inicial.aviso };
+    }
   } catch (e) {
     erro = e instanceof Error ? e.message : "Não foi possível abrir a proposta.";
   }
@@ -62,7 +73,7 @@ export default async function PropostaPage({ searchParams }: { searchParams: Pro
     <div className="space-y-6">
       <PageHeader title={inicial.orcamentoId ? "Retomar proposta" : "Nova proposta"} description="Valores à vista e parcelados pelo mesmo motor de preços da loja virtual." />
       {erro && <Card className="p-4 text-sm text-danger" role="alert">{erro}</Card>}
-      <PropostaForm key={inicial.orcamentoId ?? `${inicial.cliente?.id ?? "novo"}:${inicial.modo}`} inicial={inicial} ehGerencia={auth.cargo === "admin" || auth.cargo === "gerente"} />
+      <PropostaForm key={inicial.orcamentoId ?? `${inicial.cliente?.id ?? "novo"}:${inicial.modo}:${pegar(sp.itens) ?? ""}`} inicial={inicial} ehGerencia={auth.cargo === "admin" || auth.cargo === "gerente"} />
     </div>
   );
 }

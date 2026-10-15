@@ -3,10 +3,10 @@ import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { exigirCargo } from "@/lib/auth/exigir-cargo";
-import { conversasAguardandoResposta, garantirTarefasDoDia, listarMinhasTarefas, orcamentosEmAberto, resultadoDoMes, retornosDoDia, tentar } from "@/services/central-comercial/central-comercial.service";
+import { conversasAguardandoResposta, garantirTarefasDoDia, listarMinhasTarefas, orcamentosEmAberto, resultadoDoMes, retornosDoDia, tentar, tradeInsPendentes } from "@/services/central-comercial/central-comercial.service";
 import { RetornosLista } from "@/components/central-comercial/retornos-lista";
 import { listarSugestoes } from "@/services/ia/sugestoes-comerciais.service";
-import { listarMinhasAprovacoes } from "@/services/vendas/aprovacoes-desconto.service";
+import { listarAprovacoesPendentes, listarMinhasAprovacoes } from "@/services/vendas/aprovacoes-desconto.service";
 import { SugestoesLista } from "@/components/central-comercial/sugestoes-lista";
 import { ChecklistLista } from "@/components/central-comercial/checklist-lista";
 import { formatCurrency, formatDateTime } from "@/utils/format";
@@ -29,6 +29,17 @@ function Secao({ titulo, descricao, id, children }: { titulo: string; descricao?
   );
 }
 
+function PainelGerencia({ titulo, valor, valorTexto, detalhe, href, alerta }: { titulo: string; valor?: number | null; valorTexto?: string | null; detalhe?: string; href: string; alerta?: boolean }) {
+  const mostrado = valorTexto !== undefined ? valorTexto : valor;
+  return (
+    <Link href={href} className="group rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40">
+      <p className="text-xs text-muted-foreground">{titulo}</p>
+      <p className={`mt-1 font-display text-2xl font-semibold tabular-nums ${alerta ? "text-warning-text" : ""}`}>{mostrado === null || mostrado === undefined ? "—" : mostrado}</p>
+      {mostrado === null ? <p className="text-xs text-muted-foreground">Indisponível agora</p> : detalhe && <p className="text-xs text-muted-foreground">{detalhe}</p>}
+    </Link>
+  );
+}
+
 export default async function MinhaRotinaPage() {
   const auth = (await exigirCargo(["admin", "gerente", "vendedor"]));
   if (!auth.permitido) return null;
@@ -44,6 +55,17 @@ export default async function MinhaRotinaPage() {
     tentar(() => listarMinhasAprovacoes(auth.userId)),
     tentar(() => retornosDoDia(auth.userId, auth.cargo, agora)),
   ]);
+
+  // Rotina de quem gerencia: o que depende da gerência hoje (além da própria fila de atendimento).
+  const gerencia = auth.cargo === "admin" || auth.cargo === "gerente";
+  const [descontosPendentes, trocasPendentes, propostasEquipe, metaLoja] = gerencia
+    ? await Promise.all([
+        tentar(() => listarAprovacoesPendentes()),
+        tentar(() => tradeInsPendentes()),
+        tentar(() => orcamentosEmAberto(auth.userId, "gerente", agora)),
+        tentar(() => resultadoDoMes(null, agora)),
+      ])
+    : [null, null, null, null];
 
   const hora = obterDataHoraBrasilia(agora).hora;
   const saudacao = hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite";
@@ -96,6 +118,17 @@ export default async function MinhaRotinaPage() {
           )}
         </div>
       </section>
+
+      {gerencia && (
+        <Secao titulo="Para a gerência hoje" descricao="O que só você destrava — cada número abre a lista.">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <PainelGerencia titulo="Descontos para aprovar" valor={descontosPendentes?.ok ? descontosPendentes.dados.length : null} href="/central-comercial/gerente" alerta={(descontosPendentes?.ok ? descontosPendentes.dados.length : 0) > 0} />
+            <PainelGerencia titulo="Trocas para avaliar" valor={trocasPendentes?.ok ? trocasPendentes.dados.length : null} href="/trade-in" alerta={(trocasPendentes?.ok ? trocasPendentes.dados.length : 0) > 0} />
+            <PainelGerencia titulo="Propostas paradas da equipe" detalhe="3 dias ou mais" valor={propostasEquipe?.ok ? propostasEquipe.dados.filter((o) => o.dias_parado >= 3).length : null} href="/central-comercial/propostas" alerta={(propostasEquipe?.ok ? propostasEquipe.dados.filter((o) => o.dias_parado >= 3).length : 0) > 0} />
+            <PainelGerencia titulo="Vendas da loja no mês" valorTexto={metaLoja?.ok ? formatCurrency(metaLoja.dados.realizado) : null} detalhe={metaLoja?.ok && metaLoja.dados.meta !== null ? `${metaLoja.dados.percentual}% da meta` : metaLoja?.ok ? "Sem meta definida" : undefined} href="/central-comercial/gerente" />
+          </div>
+        </Secao>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
         <Secao titulo="Clientes que precisam de resposta" descricao="Conversas com mensagem não lida, as mais recentes primeiro.">
