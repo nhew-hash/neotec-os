@@ -18,6 +18,7 @@ const composicaoSchema = z.object({
   modo: z.enum(["whatsapp", "presencial"]).default("presencial"),
   observacoes: z.string().max(500).nullish(),
   conversaId: uuid.nullish(),
+  incluirAVista: z.boolean().default(false),
 });
 export type ComposicaoInput = z.input<typeof composicaoSchema>;
 

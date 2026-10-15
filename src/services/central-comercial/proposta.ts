@@ -24,6 +24,8 @@ export interface PropostaCalculada {
   desconto: number;
   tradeInValor: number;
   baseLiquida: number;
+  /** Primeiro valor falado ao cliente: preço cheio já abatido de troca/desconto, SEM a condição de Pix. Com troca, é a "volta". */
+  valorCheio: number;
   aVista: number;
   opcoes: OpcaoPagamento[];
 }
@@ -34,13 +36,14 @@ export function calcularProposta(engine: PricingEngine, entrada: EntradaProposta
   if (entrada.desconto < 0 || entrada.tradeInValor < 0 || entrada.precoTabela < 0) throw new Error("Valores negativos não são permitidos na proposta.");
   if (entrada.desconto > entrada.precoTabela) throw new Error("O desconto não pode ser maior que o preço do item.");
   const base = Math.max(0, r2(entrada.precoTabela - entrada.desconto - entrada.tradeInValor));
-  if (base === 0) return { precoTabela: entrada.precoTabela, desconto: entrada.desconto, tradeInValor: entrada.tradeInValor, baseLiquida: 0, aVista: 0, opcoes: [] };
+  if (base === 0) return { precoTabela: entrada.precoTabela, desconto: entrada.desconto, tradeInValor: entrada.tradeInValor, baseLiquida: 0, valorCheio: 0, aVista: 0, opcoes: [] };
   const r = engine.calcular(base);
   return {
     precoTabela: entrada.precoTabela,
     desconto: entrada.desconto,
     tradeInValor: entrada.tradeInValor,
     baseLiquida: base,
+    valorCheio: r2(r.precoVitrine),
     aVista: r2(r.precoPix),
     opcoes: r.parcelas.map((p) => ({ parcelas: p.numero, valorParcela: r2(p.valorParcela), valorTotal: r2(p.valorTotal), comJuros: p.temJuros })),
   };
@@ -101,23 +104,21 @@ export type ModoAtendimento = "whatsapp" | "presencial";
  * Mensagem comercial para revisão e edição. Só usa valores calculados; não promete reserva, garantia
  * nem "sem juros" que o motor não tenha confirmado, e deixa explícito que a disponibilidade vale até o fechamento.
  */
-export function mensagemComercial(params: { linhas: LinhaProposta[]; proposta: PropostaCalculada; nomeCliente?: string | null; vendedor?: string | null; validadeAte?: string | null; modo: ModoAtendimento }): string {
-  const { linhas, proposta: p, nomeCliente, vendedor, validadeAte, modo } = params;
+export function mensagemComercial(params: { linhas: LinhaProposta[]; proposta: PropostaCalculada; nomeCliente?: string | null; vendedor?: string | null; validadeAte?: string | null; modo: ModoAtendimento; incluirAVista?: boolean }): string {
+  const { linhas, proposta: p, nomeCliente, vendedor, validadeAte, modo, incluirAVista = false } = params;
   const primeiro = nomeCliente?.trim().split(/\s+/)[0];
   const out: string[] = [];
   out.push(modo === "whatsapp" ? `Olá${primeiro ? `, ${primeiro}` : ""}! Segue a proposta da Neotec 👇` : `Proposta Neotec${primeiro ? ` para ${primeiro}` : ""}:`);
   out.push("");
   for (const l of linhas) out.push(`📱 ${l.quantidade > 1 ? `${l.quantidade}x ` : ""}${l.descricao}`);
   out.push("");
-  if (p.desconto > 0 || p.tradeInValor > 0) {
-    out.push(`Valor: ${brl(p.precoTabela)}`);
-    if (p.desconto > 0) out.push(`Desconto: -${brl(p.desconto)}`);
-    if (p.tradeInValor > 0) out.push(`Seu aparelho na troca: -${brl(p.tradeInValor)}`);
-  }
-  out.push(`✅ À vista (Pix): *${brl(p.aVista)}*`);
+  // Técnica de venda: primeiro o valor cheio (sem desconto, sem Pix). Com troca, fala só a "volta", sem expor o valor da troca.
+  if (p.tradeInValor > 0) out.push(p.valorCheio > 0 ? `🔄 Com a troca do seu aparelho, a volta fica em *${brl(p.valorCheio)}*` : "🔄 Com a troca do seu aparelho, não há volta a pagar");
+  else out.push(`💰 Valor: *${brl(p.valorCheio)}*`);
   for (const o of escolherParcelasParaMensagem(p.opcoes)) {
     out.push(`💳 ${o.parcelas}x de ${brl(o.valorParcela)}${o.comJuros ? "" : " sem juros"} (total ${brl(o.valorTotal)})`);
   }
+  if (incluirAVista && p.aVista > 0) out.push(`✅ À vista (Pix): *${brl(p.aVista)}*`);
   out.push("");
   if (validadeAte) out.push(`Proposta válida até ${new Date(validadeAte + "T12:00:00").toLocaleDateString("pt-BR")}. Disponibilidade confirmada no fechamento.`);
   else out.push("Valores e disponibilidade confirmados no fechamento.");

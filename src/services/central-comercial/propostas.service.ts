@@ -26,6 +26,8 @@ export interface ComposicaoEntrada {
   modo: ModoAtendimento;
   observacoes?: string | null;
   conversaId?: string | null;
+  /** Segundo passo da negociação: só entra na mensagem quando a vendedora libera o valor à vista. */
+  incluirAVista?: boolean;
 }
 export interface LinhaResultado extends LinhaProposta { tipo: "aparelho" | "produto"; id: string }
 export interface ResultadoComposicao {
@@ -115,7 +117,7 @@ export async function simularComposicao(params: ComposicaoEntrada & { cargo: str
   return {
     linhas, proposta, avaliacaoDesconto, tradeIn, resultadoEstimado,
     parcelamentoConfigurado: parcelamentoDisponivel(proposta),
-    texto: mensagemComercial({ linhas, proposta, nomeCliente: params.clienteNome, vendedor, validadeAte: params.validadeAte, modo: params.modo }),
+    texto: mensagemComercial({ linhas, proposta, nomeCliente: params.clienteNome, vendedor, validadeAte: params.validadeAte, modo: params.modo, incluirAVista: params.incluirAVista === true }),
   };
 }
 

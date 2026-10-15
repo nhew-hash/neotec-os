@@ -63,7 +63,7 @@ import { escolherParcelasParaMensagem, mensagemComercial, parcelamentoDisponivel
 
 describe("proposta com vários itens e mensagem", () => {
   const opcoes = [1, 2, 3, 6, 10, 12].map((n) => ({ parcelas: n, valorParcela: 100, valorTotal: 100 * n, comJuros: n > 3 }));
-  const base = { precoTabela: 5000, desconto: 0, tradeInValor: 0, baseLiquida: 5000, aVista: 4800, opcoes };
+  const base = { precoTabela: 5000, desconto: 0, tradeInValor: 0, baseLiquida: 5000, valorCheio: 5200, aVista: 4800, opcoes };
 
   it("soma as linhas com quantidade", () => {
     expect(totalDasLinhas([{ descricao: "a", quantidade: 1, precoUnitario: 4000 }, { descricao: "b", quantidade: 2, precoUnitario: 49.9 }])).toBe(4099.8);
@@ -82,19 +82,32 @@ describe("proposta com vários itens e mensagem", () => {
     const m = mensagemComercial({ linhas: [{ descricao: "iPhone 13 · 128 GB · Roxo · Seminovo", quantidade: 1, precoUnitario: 5000 }], proposta: base, nomeCliente: "Ana Souza", vendedor: "Bia Lima", modo: "whatsapp" });
     expect(m).toContain("Olá, Ana!");
     expect(m).toContain("iPhone 13 · 128 GB · Roxo · Seminovo");
-    expect(m).toContain("À vista (Pix)");
+    expect(m).toContain("Valor: *R$");
+    expect(m).toContain("5.200,00");
+    expect(m).not.toContain("À vista (Pix)"); // Pix é o 2º passo
+    expect(m).not.toContain("4.800,00");
     expect(m).toContain("3x de");
     expect(m).toContain("3x de R$") ;
     expect(m).not.toMatch(/reserv|garantia/i);
     expect(m).toContain("confirmados no fechamento");
     expect(m).toContain("— Bia, Neotec");
   });
-  it("presencial não começa com saudação de conversa e mostra desconto/troca quando há", () => {
-    const m = mensagemComercial({ linhas: [{ descricao: "Capa", quantidade: 2, precoUnitario: 50 }], proposta: { ...base, desconto: 100, tradeInValor: 800 }, modo: "presencial" });
+  it("presencial: sem troca/desconto no texto; com troca fala só a volta", () => {
+    const m = mensagemComercial({ linhas: [{ descricao: "Capa", quantidade: 2, precoUnitario: 50 }], proposta: { ...base, desconto: 100, tradeInValor: 800, valorCheio: 4100 }, modo: "presencial" });
     expect(m.startsWith("Proposta Neotec")).toBe(true);
     expect(m).toContain("2x Capa");
-    expect(m).toContain("Desconto: -");
-    expect(m).toContain("na troca: -");
+    expect(m).toContain("a volta fica em *R$");
+    expect(m).toContain("4.100,00");
+    expect(m).not.toMatch(/Desconto|800,00|Valor:/);
+  });
+  it("troca que cobre tudo: não há volta", () => {
+    const m = mensagemComercial({ linhas: [{ descricao: "X", quantidade: 1, precoUnitario: 500 }], proposta: { ...base, tradeInValor: 900, valorCheio: 0, opcoes: [] }, modo: "presencial" });
+    expect(m).toContain("não há volta a pagar");
+  });
+  it("à vista só entra quando liberado pela vendedora", () => {
+    const l = [{ descricao: "X", quantidade: 1, precoUnitario: 5000 }];
+    expect(mensagemComercial({ linhas: l, proposta: base, modo: "whatsapp" })).not.toContain("Pix");
+    expect(mensagemComercial({ linhas: l, proposta: base, modo: "whatsapp", incluirAVista: true })).toContain("À vista (Pix): *R$");
   });
   it("sem parcelas do motor, não inventa parcelamento", () => {
     const m = mensagemComercial({ linhas: [{ descricao: "X", quantidade: 1, precoUnitario: 5000 }], proposta: { ...base, opcoes: [] }, modo: "whatsapp" });

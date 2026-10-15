@@ -42,6 +42,8 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
   const [linhas, setLinhas] = useState<LinhaUI[]>(inicial.itens);
   const [desconto, setDesconto] = useState(inicial.desconto);
   const [tradeInId, setTradeInId] = useState<string | null>(inicial.tradeInId);
+  // Técnica de venda: o Pix é o 2º passo. Começa desligado e só entra na mensagem/tela do cliente quando a vendedora libera.
+  const [incluirAVista, setIncluirAVista] = useState(false);
   const [tradeIns, setTradeIns] = useState<{ id: string; modeloNome: string; valor: number }[]>([]);
   const [observacoes, setObservacoes] = useState(inicial.observacoes);
   const [conversa, setConversa] = useState<{ id: string; naoContatar: boolean } | null>(inicial.conversaId ? { id: inicial.conversaId, naoContatar: inicial.naoContatar } : null);
@@ -88,8 +90,8 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
   const entradaCalculo = useMemo(() => ({
     itens: linhas.filter((l) => !l.indisponivel).map((l) => ({ tipo: l.tipo, id: l.id, quantidade: l.quantidade })),
     desconto: Number(desconto.replace(",", ".")) || 0,
-    tradeInId, clienteId: cliente?.id ?? null, clienteNome: cliente?.nome ?? null, modo, conversaId: conversa?.id ?? null,
-  }), [linhas, desconto, tradeInId, cliente, modo, conversa]);
+    tradeInId, clienteId: cliente?.id ?? null, clienteNome: cliente?.nome ?? null, modo, conversaId: conversa?.id ?? null, incluirAVista,
+  }), [linhas, desconto, tradeInId, cliente, modo, conversa, incluirAVista]);
 
   useEffect(() => {
     if (entradaCalculo.itens.length === 0) { setResultado(null); setErroCalculo(null); return; }
@@ -178,7 +180,7 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
     });
   }
 
-  const dadosApresentacao = resultado ? { linhas: resultado.linhas, proposta: resultado.proposta, nomeCliente: cliente?.nome ?? null } : null;
+  const dadosApresentacao = resultado ? { linhas: resultado.linhas, proposta: resultado.proposta, nomeCliente: cliente?.nome ?? null, mostrarAVista: incluirAVista } : null;
   const total = resultado?.proposta.aVista;
 
   return (
@@ -247,7 +249,13 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
                 </select></label>
             )}
           </div>
-          {cliente && tradeIns.length === 0 && <p className="text-xs text-muted-foreground">Sem troca aprovada para este cliente. A avaliação é feita em <Link href="/trade-in" className="font-medium text-primary hover:underline">Trade-in</Link>.</p>}
+          {cliente && (
+            <p className="text-xs text-muted-foreground">
+              {tradeIns.length === 0 ? "Sem troca aprovada para este cliente. " : "Cliente com outro aparelho para trocar? "}
+              <Link href="/trade-in/nova" target="_blank" rel="noopener" className="font-medium text-primary hover:underline">Avaliar o aparelho do cliente</Link>
+              {" "}(abre em outra aba; depois de aprovada, a troca aparece aqui — <button type="button" className="font-medium text-primary hover:underline" onClick={() => { const c = cliente; setCliente(null); setTimeout(() => setCliente(c), 0); }}>atualizar</button>).
+            </p>
+          )}
           <label className="flex flex-col gap-1 text-sm"><span className="font-medium">Observação interna <span className="font-normal text-muted-foreground">(não aparece para o cliente)</span></span>
             <Textarea value={observacoes} onChange={(e) => { setObservacoes(e.target.value); marcarSujo(); }} maxLength={500} rows={2} /></label>
         </section>
@@ -266,8 +274,9 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
           ) : (
             <>
               <div className={cn("transition-opacity", calculando && "opacity-60")}>
-                <p className="text-sm text-muted-foreground">À vista no Pix</p>
-                <p className="font-display text-4xl font-semibold tabular-nums tracking-tight" aria-live="polite">{formatCurrency(resultado.proposta.aVista)}</p>
+                <p className="text-sm text-muted-foreground">{resultado.proposta.tradeInValor > 0 ? "A volta, com a troca (1º valor a falar)" : "Valor (1º valor a falar)"}</p>
+                <p className="font-display text-4xl font-semibold tabular-nums tracking-tight" aria-live="polite">{resultado.proposta.valorCheio > 0 ? formatCurrency(resultado.proposta.valorCheio) : "Sem volta a pagar"}</p>
+                <p className="mt-1 text-sm text-muted-foreground">À vista no Pix (2º passo, se o cliente pedir): <span className="font-medium tabular-nums text-foreground">{formatCurrency(resultado.proposta.aVista)}</span></p>
                 {(resultado.proposta.desconto > 0 || resultado.proposta.tradeInValor > 0) && (
                   <dl className="mt-2 space-y-0.5 text-xs text-muted-foreground">
                     <div className="flex justify-between"><dt>Valor dos itens</dt><dd className="tabular-nums">{formatCurrency(resultado.proposta.precoTabela)}</dd></div>
@@ -275,6 +284,7 @@ export function PropostaForm({ inicial, ehGerencia }: { inicial: PropostaInicial
                     {resultado.proposta.tradeInValor > 0 && <div className="flex justify-between"><dt>{resultado.tradeIn?.modeloNome ?? "Troca"}</dt><dd className="tabular-nums">- {formatCurrency(resultado.proposta.tradeInValor)}</dd></div>}
                   </dl>
                 )}
+                <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1 h-4 w-4" checked={incluirAVista} onChange={(e) => { setIncluirAVista(e.target.checked); setTextoEditado(false); }} /><span>Liberar o valor à vista (Pix) na mensagem e na tela do cliente</span></label>
               </div>
 
               {bloqueioAprovacao && resultado.avaliacaoDesconto.situacao === "requer_aprovacao" && (

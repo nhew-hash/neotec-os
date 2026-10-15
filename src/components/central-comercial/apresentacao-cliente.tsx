@@ -10,7 +10,7 @@ import { formatCurrency } from "@/utils/format";
  * Tela para mostrar ao cliente na loja. Só recebe o que o cliente pode ver: itens, valores e parcelas.
  * NÃO recebe custo, margem, limites de desconto nem observações internas — nem como prop.
  */
-export type DadosApresentacao = Pick<ResultadoComposicao, "linhas" | "proposta"> & { nomeCliente: string | null; validadeAte?: string | null };
+export type DadosApresentacao = Pick<ResultadoComposicao, "linhas" | "proposta"> & { nomeCliente: string | null; validadeAte?: string | null; mostrarAVista?: boolean };
 
 export function ApresentacaoCliente({ dados, onFechar }: { dados: DadosApresentacao; onFechar: () => void }) {
   const fechar = useRef<HTMLButtonElement>(null);
@@ -27,7 +27,8 @@ export function ApresentacaoCliente({ dados, onFechar }: { dados: DadosApresenta
   const primeiro = dados.nomeCliente?.trim().split(/\s+/)[0];
   const opcoes = p.opcoes.filter((o) => o.parcelas > 1);
   // Com um único item e sem desconto/troca, o preço do item é o líquido da loja e destoaria do Pix mostrado logo abaixo: só o Pix e as parcelas valem.
-  const mostrarPrecoDosItens = linhas.length > 1 || p.desconto > 0 || p.tradeInValor > 0;
+  const mostrarPrecoDosItens = linhas.length > 1 && p.desconto === 0 && p.tradeInValor === 0;
+  const comTroca = p.tradeInValor > 0;
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Proposta para o cliente" className="fixed inset-0 z-[60] overflow-y-auto bg-white text-slate-900">
@@ -49,17 +50,10 @@ export function ApresentacaoCliente({ dados, onFechar }: { dados: DadosApresenta
           ))}
         </ul>
 
-        {(p.desconto > 0 || p.tradeInValor > 0) && (
-          <dl className="mt-4 space-y-1 text-sm text-slate-600">
-            <div className="flex justify-between"><dt>Valor dos itens</dt><dd className="tabular-nums">{formatCurrency(p.precoTabela)}</dd></div>
-            {p.desconto > 0 && <div className="flex justify-between"><dt>Desconto</dt><dd className="tabular-nums">- {formatCurrency(p.desconto)}</dd></div>}
-            {p.tradeInValor > 0 && <div className="flex justify-between"><dt>Seu aparelho na troca</dt><dd className="tabular-nums">- {formatCurrency(p.tradeInValor)}</dd></div>}
-          </dl>
-        )}
-
+        {/* Técnica de venda: primeiro o valor cheio (ou só a volta, com troca). O Pix é o segundo passo, liberado pela vendedora. */}
         <div className="mt-8 rounded-2xl bg-slate-50 p-6">
-          <p className="text-sm text-slate-600">À vista no Pix</p>
-          <p className="mt-1 font-display text-5xl font-semibold tabular-nums tracking-tight">{formatCurrency(p.aVista)}</p>
+          <p className="text-sm text-slate-600">{comTroca ? "A volta, com a troca do seu aparelho" : "Valor"}</p>
+          <p className="mt-1 font-display text-5xl font-semibold tabular-nums tracking-tight">{p.valorCheio > 0 ? formatCurrency(p.valorCheio) : "Sem volta a pagar"}</p>
         </div>
 
         {opcoes.length > 0 && (
@@ -77,6 +71,13 @@ export function ApresentacaoCliente({ dados, onFechar }: { dados: DadosApresenta
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {dados.mostrarAVista && p.aVista > 0 && (
+          <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+            <p className="text-sm text-emerald-800">À vista no Pix</p>
+            <p className="mt-1 font-display text-4xl font-semibold tabular-nums tracking-tight text-emerald-950">{formatCurrency(p.aVista)}</p>
           </div>
         )}
 
