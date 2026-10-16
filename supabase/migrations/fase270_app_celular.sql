@@ -88,3 +88,9 @@ revoke all on table configuracoes_push from anon, authenticated;
 --    Reverter: alter table crm_followups drop column if exists push_enviado_em;
 alter table crm_followups add column if not exists push_enviado_em timestamptz;
 alter table configuracoes_push add column if not exists retornos_verificados_em timestamptz not null default now();
+
+-- 6) Pedido de foto/IMEI para o celular de OUTRA pessoa da equipe (quem está no
+--    computador nem sempre é quem está com o celular). usuario_id = dono do celular
+--    que vai tirar; solicitante_id = quem pediu (pode acompanhar e cancelar).
+--    Reverter: alter table capturas_celular drop column if exists solicitante_id;
+alter table capturas_celular add column if not exists solicitante_id uuid references usuarios(id) on delete set null default auth.uid();

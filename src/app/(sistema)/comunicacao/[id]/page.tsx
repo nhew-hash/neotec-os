@@ -28,6 +28,7 @@ export default async function ConversaPage({ params }: { params: Promise<{ id: s
           temMaisAntigas={temMais}
           usuarioId={user?.id ?? ""}
           etapa={resumoCliente.etapaFunil ? { nome: resumoCliente.etapaFunil.nome, cor: resumoCliente.etapaFunil.cor } : null}
+          resumo={resumoCliente}
         />
       </div>
       <ClienteInfoPanel resumo={resumoCliente} conversaId={conversa.id} />

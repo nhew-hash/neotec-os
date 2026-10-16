@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Send, Mic, Square, Check, CheckCheck, Clock, AlertCircle, Bot, BotOff, ChevronDown, ArrowLeft,
-  FileText, UserCheck, UserX, MoreHorizontal, Ban, Loader2,
+  UserCheck, UserX, MoreHorizontal, Ban, Loader2, Plus, UserRound, RotateCcw,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -21,9 +22,10 @@ import { SeletorEmoji } from "@/components/comunicacao/seletor-emoji";
 import { SeletorFotoCatalogo } from "@/components/comunicacao/seletor-foto-catalogo";
 import { AssistenteConversa } from "./assistente-conversa";
 import { conversaPareceEncerrada } from "@/services/comunicacao/encerramento";
-import { AcoesRapidas } from "@/components/comunicacao/acoes-rapidas";
+import { ClienteInfoConteudo } from "@/components/comunicacao/cliente-info-panel";
+import type { ResumoClienteAtendimento } from "@/services/comunicacao/comunicacao-cliente-resumo.service";
 import { nomeDaConversa } from "@/components/comunicacao/conversas-filtro";
-import { formatDiaRelativo, formatHora } from "@/utils";
+import { formatDiaRelativo, formatHora, getInitials } from "@/utils";
 import { formatarTelefone } from "@/lib/telefone";
 import type { WhatsappMensagem, StatusEntregaMensagem, StatusConversaWhatsapp } from "@/types";
 import type { ConversaComCliente } from "@/services/whatsapp/whatsapp.service";
@@ -49,6 +51,8 @@ interface ChatPanelProps {
   temMaisAntigas?: boolean;
   usuarioId: string;
   etapa?: { nome: string; cor: string } | null;
+  /** Painel do cliente: ao lado no computador; no celular abre pelo cabeçalho. */
+  resumo: ResumoClienteAtendimento;
 }
 
 /** Agrupa mensagens por dia (no fuso de Brasília — ver formatDiaRelativo). */
@@ -81,7 +85,10 @@ function MidiaMensagem({ msg }: { msg: WhatsappMensagem }) {
   return null;
 }
 
-export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntigas = false, usuarioId, etapa }: ChatPanelProps) {
+export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntigas = false, usuarioId, etapa, resumo }: ChatPanelProps) {
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [fotoAberta, setFotoAberta] = useState(false);
+  const [clienteAberto, setClienteAberto] = useState(false);
   const router = useRouter();
   const [texto, setTexto] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -278,12 +285,17 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
         <Link href="/comunicacao" className="-ml-1 flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary md:hidden" aria-label="Voltar às conversas">
           <ArrowLeft className="h-5 w-5" />
         </Link>
+        {/* No celular, tocar no nome/foto abre o painel do cliente (como "dados do contato" no WhatsApp). */}
+        <button type="button" onClick={() => setClienteAberto(true)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-foreground lg:pointer-events-none" aria-label="Ver dados do cliente" tabIndex={-1}>
+          {conversa.cliente?.nome ? getInitials(conversa.cliente.nome) : "#"}
+        </button>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
+            <button type="button" onClick={() => setClienteAberto(true)} className="truncate text-left text-[15px] font-semibold text-foreground lg:hidden">{nome}</button>
             {conversa.cliente_id ? (
-              <Link href={`/clientes/${conversa.cliente_id}`} className="truncate text-[15px] font-semibold text-foreground hover:underline">{nome}</Link>
+              <Link href={`/clientes/${conversa.cliente_id}`} className="hidden truncate text-[15px] font-semibold text-foreground hover:underline lg:inline">{nome}</Link>
             ) : (
-              <span className="truncate text-[15px] font-semibold text-foreground">{nome}</span>
+              <span className="hidden truncate text-[15px] font-semibold text-foreground lg:inline">{nome}</span>
             )}
             {etapa && (
               <Link href="/crm" className="hidden shrink-0 items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-secondary/70 sm:inline-flex" title="Etapa no CRM">
@@ -300,11 +312,6 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
           </p>
         </div>
 
-        {conversa.cliente_id && (
-          <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">
-            <Link href={`/central-comercial/proposta?conversa=${conversa.id}`}><FileText aria-hidden />Proposta</Link>
-          </Button>
-        )}
         {!souResponsavel && !encerrada && (
           <Button variant="outline" size="sm" onClick={() => executar(() => definirResponsavelConversaAction(conversa.id, true))} disabled={isAcaoPending} className="hidden sm:inline-flex">
             <UserCheck aria-hidden />Assumir
@@ -327,11 +334,7 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
             <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Mais ações da conversa"><MoreHorizontal className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            {conversa.cliente_id && (
-              <DropdownMenuItem asChild className="lg:hidden">
-                <Link href={`/central-comercial/proposta?conversa=${conversa.id}`}><FileText className="h-4 w-4" />Fazer proposta</Link>
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem className="lg:hidden" onClick={() => setClienteAberto(true)}><UserRound className="h-4 w-4" />Dados do cliente</DropdownMenuItem>
             {souResponsavel ? (
               <DropdownMenuItem onClick={() => executar(() => definirResponsavelConversaAction(conversa.id, false))}><UserX className="h-4 w-4" />Liberar conversa</DropdownMenuItem>
             ) : (
@@ -396,8 +399,13 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
                       </span>
                     </div>
                     {falhou && (
-                      <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-danger">
-                        <AlertCircle className="h-3 w-3" aria-hidden />Não enviada — o cliente não recebeu esta mensagem
+                      <span className="mt-1 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-[11px] font-medium text-danger">
+                        <span className="flex items-center gap-1"><AlertCircle className="h-3 w-3" aria-hidden />Não enviada — o cliente não recebeu esta mensagem</span>
+                        {msg.conteudo && (
+                          <button type="button" onClick={() => { setTexto(msg.conteudo ?? ""); requestAnimationFrame(() => textareaRef.current?.focus()); }} className="flex items-center gap-1 rounded-full bg-card px-2 py-0.5 text-foreground shadow-card">
+                            <RotateCcw className="h-3 w-3" aria-hidden />Tentar de novo
+                          </button>
+                        )}
                       </span>
                     )}
                   </div>
@@ -434,15 +442,24 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
           encerrando={isAcaoPending}
           onEncerrar={() => executar(() => alterarStatusConversaAction(conversa.id, "resolvida"))}
           onInserir={(t) => { setTexto((atual) => (atual.trim() ? `${atual.trimEnd()} ${t}` : t)); requestAnimationFrame(() => textareaRef.current?.focus()); }}
+          menuAberto={menuAberto}
+          onMenuAberto={setMenuAberto}
+          onFotoCatalogo={() => setFotoAberta(true)}
+          onAbrirCliente={() => setClienteAberto(true)}
         />
 
         <div className="flex items-end gap-1 p-2 md:gap-2 md:p-3">
-          <SeletorEmoji onSelecionar={(emoji) => setTexto((t) => t + emoji)} />
-          <SeletorFotoCatalogo conversaId={conversa.id} telefone={conversa.telefone} />
+          {/* Celular: "+" abre as ferramentas (como o anexo do WhatsApp); emoji fica no teclado do aparelho. */}
+          <Button type="button" variant="ghost" size="icon" className="md:hidden" onClick={() => setMenuAberto(true)} aria-label="Ferramentas: atender, proposta, troca, catálogo, respostas">
+            <Plus className="h-5 w-5 text-muted-foreground" />
+          </Button>
+          <div className="hidden md:block"><SeletorEmoji onSelecionar={(emoji) => setTexto((t) => t + emoji)} /></div>
+          <SeletorFotoCatalogo conversaId={conversa.id} telefone={conversa.telefone} aberto={fotoAberta} onAbertoChange={setFotoAberta} classeBotao="hidden md:inline-flex" />
           <Button
             type="button"
             variant={gravando ? "destructive" : "ghost"}
             size="icon"
+            className={cn(texto.trim() && !gravando && "max-md:hidden", "md:order-none")}
             onClick={gravando ? handlePararGravacao : handleIniciarGravacao}
             disabled={enviandoAudio}
             aria-label={gravando ? "Parar e enviar áudio" : "Gravar áudio"}
@@ -466,13 +483,18 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
             rows={1}
             className="max-h-40 min-h-10 flex-1 resize-none rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm leading-snug outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <Button type="button" size="icon" className="rounded-full" onClick={handleEnviar} disabled={isPending || !texto.trim()} aria-label="Enviar mensagem">
+          <Button type="button" size="icon" className={cn("rounded-full", !texto.trim() && "max-md:hidden")} onClick={handleEnviar} disabled={isPending || !texto.trim()} aria-label="Enviar mensagem">
             {isPending && !enviandoAudio ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
-
-        <AcoesRapidas clienteId={conversa.cliente_id} cardId={conversa.card_id} />
       </div>
+
+      <Sheet open={clienteAberto} onOpenChange={setClienteAberto}>
+        <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-sm">
+          <SheetTitle className="border-b border-border px-4 py-3 text-[15px] font-semibold">Dados do cliente</SheetTitle>
+          <ClienteInfoConteudo resumo={resumo} conversaId={conversa.id} />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

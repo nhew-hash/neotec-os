@@ -19,7 +19,9 @@ import { FotosPeloCelular } from "@/components/celular/fotos-pelo-celular";
  * de lá (mesma permissão). Avaliação bloqueada por avaria crítica não é
  * aprovada aqui: vai para revisão na tela da avaliação.
  */
-export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false, textoBotao, classeBotao }: {
+export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false, textoBotao, classeBotao, controle }: {
+  /** Aberto por fora (ex.: menu de ferramentas da conversa no celular): sem botão próprio. */
+  controle?: { aberto: boolean; onChange: (v: boolean) => void };
   /** Texto e estilo do botão (ex.: chip na Comunicação). */
   textoBotao?: string;
   classeBotao?: string;
@@ -28,7 +30,9 @@ export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false, te
   abrirAoMontar?: boolean;
   onAprovada: (troca: { id: string; modeloNome: string; valor: number }) => void;
 }) {
-  const [aberto, setAberto] = useState(abrirAoMontar);
+  const [abertoInterno, setAbertoInterno] = useState(abrirAoMontar);
+  const aberto = controle ? controle.aberto : abertoInterno;
+  const setAberto = controle ? controle.onChange : setAbertoInterno;
   const [modelos, setModelos] = useState<TrocaModeloComAvarias[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [registrada, setRegistrada] = useState<AvaliacaoRegistrada | null>(null);
@@ -58,7 +62,7 @@ export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false, te
 
   return (
     <>
-      {classeBotao ? (
+      {controle ? null : classeBotao ? (
         <button type="button" onClick={() => setAberto(true)} className={classeBotao}><Repeat className="h-3.5 w-3.5" aria-hidden />{textoBotao ?? "Avaliar troca"}</button>
       ) : (
         <Button type="button" variant="outline" onClick={() => setAberto(true)} className="h-11 justify-start gap-2">

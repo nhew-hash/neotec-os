@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDateTime } from "@/utils";
 import { formatarTelefone } from "@/lib/telefone";
 import { diasNaEtapa } from "@/services/dashboard/painel-regras";
+import { AcoesRapidas } from "./acoes-rapidas";
 import { cn } from "@/lib/utils";
 import type { ResumoClienteAtendimento } from "@/services/comunicacao/comunicacao-cliente-resumo.service";
 
@@ -51,6 +52,15 @@ export function ClienteInfoPanel({ resumo, conversaId }: { resumo: ResumoCliente
         </Button>
       </div>
 
+      <ClienteInfoConteudo resumo={resumo} conversaId={conversaId} />
+    </aside>
+  );
+}
+
+/** Conteúdo do painel do cliente — no computador fica ao lado da conversa; no celular abre por cima. */
+export function ClienteInfoConteudo({ resumo, conversaId }: { resumo: ResumoClienteAtendimento; conversaId: string }) {
+  return (
+    <>
       {!resumo.cliente ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
           <UserPlus className="h-6 w-6 text-muted-foreground" aria-hidden />
@@ -102,7 +112,7 @@ export function ClienteInfoPanel({ resumo, conversaId }: { resumo: ResumoCliente
             {resumo.followupsPendentes === null ? (
               <p className="text-xs text-muted-foreground">Não foi possível carregar os follow-ups agora.</p>
             ) : resumo.followupsPendentes.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhum. Use “Ações rápidas” abaixo da conversa para agendar.</p>
+              <p className="text-xs text-muted-foreground">Nenhum.</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {resumo.followupsPendentes.map((f) => {
@@ -141,6 +151,10 @@ export function ClienteInfoPanel({ resumo, conversaId }: { resumo: ResumoCliente
             )}
           </Bloco>
 
+          <Bloco titulo="Ações">
+            <AcoesRapidas clienteId={resumo.cliente.id} cardId={resumo.oportunidade?.id ?? null} sempreAberto />
+          </Bloco>
+
           <Bloco titulo="Histórico">
             <dl className="grid grid-cols-2 gap-2">
               <Numero icon={ShoppingBag} label="Compras" valor={String(resumo.totalVendas)} />
@@ -151,7 +165,7 @@ export function ClienteInfoPanel({ resumo, conversaId }: { resumo: ResumoCliente
           </Bloco>
         </div>
       )}
-    </aside>
+    </>
   );
 }
 

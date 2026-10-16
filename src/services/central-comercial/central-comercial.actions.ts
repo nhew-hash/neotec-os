@@ -255,3 +255,45 @@ export async function listarCatalogoAction(): Promise<ActionResult<import("./cat
     return { success: false, error: err instanceof Error ? err.message : "Não foi possível carregar o catálogo" };
   }
 }
+
+export type PropostaNaConversa = {
+  inicial: import("@/components/central-comercial/proposta-form").PropostaInicial;
+  erro: string | null;
+  ehGerencia: boolean;
+  vendedorNome: string | null;
+};
+
+/** Proposta aberta por cima da conversa (sem sair dela): mesmos dados da página da proposta. */
+export async function prepararPropostaNaConversaAction(input: { conversaId: string; itens?: string; nota?: string; retomar?: string }): Promise<ActionResult<PropostaNaConversa>> {
+  const auth = await exigirCargo(EQUIPE);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  const parsed = z.object({ conversaId: z.string().uuid(), itens: z.string().max(4000).optional(), nota: z.string().max(500).optional(), retomar: z.string().uuid().optional() }).safeParse(input);
+  if (!parsed.success) return { success: false, error: "Conversa inválida." };
+  try {
+    const { montarPropostaInicial } = await import("./proposta-inicial.service");
+    const { lerParamItensProposta } = await import("./catalogo");
+    const { createClient } = await import("@/lib/supabase/server");
+    const [{ inicial, erro }, eu] = await Promise.all([
+      montarPropostaInicial({ retomar: parsed.data.retomar, conversa: parsed.data.conversaId, modo: "whatsapp", itens: lerParamItensProposta(parsed.data.itens), nota: parsed.data.nota ?? "" }, auth),
+      createClient().then((s) => s.from("usuarios").select("nome").eq("id", auth.userId).maybeSingle()),
+    ]);
+    return { success: true, data: { inicial, erro, ehGerencia: auth.cargo === "admin" || auth.cargo === "gerente", vendedorNome: eu.data?.nome ?? null } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Não foi possível abrir a proposta" };
+  }
+}
+
+/** Atendimento guiado dentro da conversa: estoque para indicar + cliente já escolhido. */
+export async function dadosAtendimentoAction(clienteId: string | null): Promise<ActionResult<{ itens: import("./catalogo").ItemCatalogo[]; cliente: ClienteResultado | null }>> {
+  const auth = await exigirCargo(EQUIPE);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  if (clienteId && !z.string().uuid().safeParse(clienteId).success) return { success: false, error: "Cliente inválido." };
+  try {
+    const { listarCatalogoVenda } = await import("./catalogo.service");
+    const { obterClienteBasico } = await import("./clientes-busca.service");
+    const [itens, cliente] = await Promise.all([listarCatalogoVenda(), clienteId ? obterClienteBasico(clienteId) : Promise.resolve(null)]);
+    return { success: true, data: { itens, cliente } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Não foi possível carregar o estoque" };
+  }
+}

@@ -6,13 +6,14 @@ import { Camera, ImagePlus, Loader2, ScanLine, Smartphone, X } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
-  adicionarFotosAction, cancelarCapturaAction, criarCapturaAction, listarFotosContextoAction, type FotosDoContexto,
+  adicionarFotosAction, cancelarCapturaAction, criarCapturaAction, listarCelularesEquipeAction, listarFotosContextoAction,
+  type CelularEquipe, type FotosDoContexto,
 } from "@/services/celular/celular.actions";
 import type { ContextoCaptura, TipoCaptura } from "@/services/celular/captura";
 import { formatDateTime } from "@/utils";
 import { subirFotos } from "./fotos-upload";
 
-type Aguardando = { id: string; tipo: TipoCaptura; avisado: boolean };
+type Aguardando = { id: string; tipo: TipoCaptura; avisado: boolean; destinoNome?: string | null };
 
 /**
  * Fotos (e IMEI) do aparelho num registro (OS, troca, aparelho):
@@ -36,6 +37,16 @@ export function FotosPeloCelular({ contextoTipo, contextoId, rotulo, lerImei = f
   const [pendente, start] = useTransition();
   const input = useRef<HTMLInputElement>(null);
   const imeisConhecidos = useRef<Set<string> | null>(null);
+  // De quem é o celular que vai tirar (quem está no computador nem sempre está com o celular).
+  const [celulares, setCelulares] = useState<CelularEquipe[] | null>(null);
+  const [destinoId, setDestinoId] = useState<string>("");
+  useEffect(() => {
+    listarCelularesEquipeAction().then((r) => {
+      if (!r.success) return setErro(r.error);
+      setCelulares(r.data);
+      setDestinoId((atual) => atual || r.data[0]?.id || "");
+    });
+  }, []);
 
   const carregar = useCallback(async () => {
     const r = await listarFotosContextoAction({ contextoTipo, contextoId });
@@ -72,9 +83,9 @@ export function FotosPeloCelular({ contextoTipo, contextoId, rotulo, lerImei = f
   function pedir(tipo: TipoCaptura) {
     setErro(null);
     start(async () => {
-      const r = await criarCapturaAction({ tipo, contextoTipo, contextoId, rotulo });
+      const r = await criarCapturaAction({ tipo, contextoTipo, contextoId, rotulo, destinoId: destinoId || undefined });
       if (!r.success) return setErro(r.error);
-      setAguardando({ id: r.data.id, tipo, avisado: r.data.avisado });
+      setAguardando({ id: r.data.id, tipo, avisado: r.data.avisado, destinoNome: r.data.destinoNome });
     });
   }
 
@@ -117,18 +128,34 @@ export function FotosPeloCelular({ contextoTipo, contextoId, rotulo, lerImei = f
             {aguardando.tipo === "fotos" ? "Aguardando as fotos do celular…" : "Aguardando o IMEI do celular…"}
           </p>
           {aguardando.avisado ? (
-            <p className="text-xs text-muted-foreground">Notificação enviada para o seu celular. Toque nela para abrir a câmera.</p>
+            <p className="text-xs text-muted-foreground">Notificação enviada para o celular {aguardando.destinoNome ? `de ${aguardando.destinoNome}` : "da sua conta"}. É só tocar nela para abrir a câmera.</p>
           ) : (
-            <p className="text-xs text-muted-foreground">Nenhum celular seu com notificação ativa. No celular, abra o Neotec OS → <strong>App no celular</strong> → o pedido aparece lá (e ative as notificações para a próxima vez).</p>
+            <p className="text-xs text-muted-foreground">O aviso não chegou a nenhum celular {aguardando.destinoNome ? `de ${aguardando.destinoNome}` : "da sua conta"}. No celular, entre com {aguardando.destinoNome ? "a conta dessa pessoa" : "a mesma conta deste computador"}, abra <strong>App no celular</strong>: o pedido aparece lá.</p>
           )}
           <button type="button" onClick={cancelar} disabled={pendente} className="flex w-fit items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" aria-hidden />Cancelar pedido</button>
         </div>
       ) : (
+        <div className="flex flex-col gap-2">
+        {celulares && celulares.length > 1 && (
+          <label className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            Mandar para o celular de
+            <select value={destinoId} onChange={(e) => setDestinoId(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground">
+              {celulares.map((c) => <option key={c.id} value={c.id}>{c.souEu ? `${c.nome} (você)` : c.nome}</option>)}
+            </select>
+          </label>
+        )}
+        {celulares && celulares.length === 1 && !celulares[0].souEu && (
+          <p className="text-xs text-muted-foreground">Vai para o celular de <strong className="text-foreground">{celulares[0].nome}</strong> (o único com notificação ativa).</p>
+        )}
+        {celulares && celulares.length === 0 && (
+          <p className="text-xs text-muted-foreground">Nenhum celular da equipe com notificação ativa. No celular: Neotec OS → seu nome → <strong>App no celular</strong> → Ativar notificações.</p>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => pedir("fotos")} disabled={pendente}><Smartphone className="h-4 w-4" />Tirar fotos pelo celular</Button>
           {lerImei && <Button type="button" variant="outline" size="sm" onClick={() => pedir("imei")} disabled={pendente}><ScanLine className="h-4 w-4" />Ler IMEI pelo celular</Button>}
           <input ref={input} type="file" accept="image/*" capture="environment" multiple className="sr-only" onChange={(e) => tirarAqui(e.target.files)} aria-label="Tirar foto neste aparelho" />
           <Button type="button" variant="ghost" size="sm" onClick={() => input.current?.click()} disabled={pendente}><ImagePlus className="h-4 w-4" />{enviando ?? "Tirar/enviar aqui"}</Button>
+        </div>
         </div>
       )}
 

@@ -148,9 +148,34 @@ async function contextoExiste(supabase: Awaited<ReturnType<typeof createClient>>
 const criarSchema = contextoSchema.extend({
   tipo: z.enum(["fotos", "imei"]),
   rotulo: z.string().trim().max(120).optional(),
+  /** Celular de quem vai tirar (padrão: o próprio). Quem está no computador nem sempre está com o celular. */
+  destinoId: z.string().uuid().optional(),
 });
 
-export type CapturaCriada = { id: string; avisado: boolean };
+export type CapturaCriada = { id: string; avisado: boolean; destinoNome: string | null };
+
+export type CelularEquipe = { id: string; nome: string; souEu: boolean };
+
+/** Pessoas da equipe com notificação ativa em algum celular — para escolher para quem mandar o pedido. */
+export async function listarCelularesEquipeAction(): Promise<ActionResult<CelularEquipe[]>> {
+  const auth = await exigirCargo(STAFF);
+  if (!auth.permitido) return { success: false, error: auth.erro };
+  try {
+    // Admin: a RLS só deixa cada um ver as próprias inscrições; aqui sai só o nome, nunca o aparelho.
+    const admin = createAdminClient();
+    const { data, error } = await admin.from("push_inscricoes").select("usuario_id, usuario:usuarios!inner(nome, cargo, status)").eq("ativo", true);
+    if (error) throw new Error(error.message);
+    const mapa = new Map<string, CelularEquipe>();
+    for (const r of data ?? []) {
+      const u = r.usuario as unknown as { nome: string; cargo: string; status: string } | null;
+      if (!u || u.status !== "ativo" || !(STAFF as readonly string[]).includes(u.cargo)) continue;
+      mapa.set(r.usuario_id, { id: r.usuario_id, nome: u.nome, souEu: r.usuario_id === auth.userId });
+    }
+    return { success: true, data: [...mapa.values()].sort((a, b) => Number(b.souEu) - Number(a.souEu) || a.nome.localeCompare(b.nome)) };
+  } catch (err) {
+    return erro(err, "Não foi possível listar os celulares da equipe.");
+  }
+}
 
 export async function criarCapturaAction(input: unknown): Promise<ActionResult<CapturaCriada>> {
   const auth = await exigirCargo(STAFF);
@@ -158,22 +183,36 @@ export async function criarCapturaAction(input: unknown): Promise<ActionResult<C
   const parsed = criarSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Pedido inválido." };
   const { tipo, contextoTipo, contextoId, rotulo } = parsed.data;
+  const destinoId = parsed.data.destinoId ?? auth.userId;
   try {
     const supabase = await createClient();
+    // O registro tem de existir para QUEM PEDIU (RLS de quem está no computador).
     if (!(await contextoExiste(supabase, contextoTipo, contextoId))) return { success: false, error: "Registro não encontrado." };
-    // Um pedido aberto por vez para o mesmo registro/tipo: cancela o anterior.
-    const { error: erroCancelar } = await supabase.from("capturas_celular").update({ status: "cancelada" }).eq("usuario_id", auth.userId).eq("contexto_tipo", contextoTipo).eq("contexto_id", contextoId).eq("tipo", tipo).eq("status", "pendente");
+    // Admin a partir daqui: o pedido fica no nome do dono do celular (é ele que conclui),
+    // com quem pediu em solicitante_id. O destino precisa ser da equipe e estar ativo.
+    const admin = createAdminClient();
+    const [{ data: destino, error: erroDestino }, { data: eu }] = await Promise.all([
+      admin.from("usuarios").select("id, nome, cargo, status").eq("id", destinoId).maybeSingle(),
+      admin.from("usuarios").select("nome").eq("id", auth.userId).maybeSingle(),
+    ]);
+    if (erroDestino) throw new Error(erroDestino.message);
+    if (!destino || destino.status !== "ativo" || !(STAFF as readonly string[]).includes(destino.cargo)) return { success: false, error: "Essa pessoa não pode receber o pedido." };
+    // Um pedido aberto por vez para o mesmo registro/tipo feito por mim: cancela o anterior.
+    const { error: erroCancelar } = await admin.from("capturas_celular").update({ status: "cancelada" })
+      .or(`usuario_id.eq.${auth.userId},solicitante_id.eq.${auth.userId}`)
+      .eq("contexto_tipo", contextoTipo).eq("contexto_id", contextoId).eq("tipo", tipo).eq("status", "pendente");
     if (erroCancelar) throw new Error(erroCancelar.message);
-    const { data, error } = await supabase.from("capturas_celular")
-      .insert({ usuario_id: auth.userId, tipo, contexto_tipo: contextoTipo, contexto_id: contextoId, rotulo: rotulo || null })
+    const { data, error } = await admin.from("capturas_celular")
+      .insert({ usuario_id: destino.id, solicitante_id: auth.userId, tipo, contexto_tipo: contextoTipo, contexto_id: contextoId, rotulo: rotulo || null })
       .select("id").single();
     if (error || !data) throw new Error(error?.message ?? "sem retorno");
 
     let avisado = false;
+    const deOutraPessoa = destino.id !== auth.userId;
     try {
-      const r = await enviarPush([auth.userId], "capturas", {
+      const r = await enviarPush([destino.id], "capturas", {
         titulo: tipo === "fotos" ? "Tirar fotos do aparelho" : "Ler o IMEI",
-        corpo: `${ROTULO_CONTEXTO[contextoTipo]}${rotulo ? ` — ${rotulo}` : ""}. Toque para abrir a câmera.`,
+        corpo: `${deOutraPessoa ? `${eu?.nome ?? "Alguém da equipe"} pediu · ` : ""}${ROTULO_CONTEXTO[contextoTipo]}${rotulo ? ` — ${rotulo}` : ""}. Toque para abrir a câmera.`,
         url: `/celular/captura/${data.id}`,
         tag: `captura-${data.id}`,
       });
@@ -181,7 +220,7 @@ export async function criarCapturaAction(input: unknown): Promise<ActionResult<C
     } catch (err) {
       console.error("Falha ao avisar o celular da captura:", err instanceof Error ? err.message : err);
     }
-    return { success: true, data: { id: data.id, avisado } };
+    return { success: true, data: { id: data.id, avisado, destinoNome: deOutraPessoa ? destino.nome : null } };
   } catch (err) {
     return erro(err, "Não foi possível pedir ao celular.");
   }
@@ -288,8 +327,10 @@ export async function cancelarCapturaAction(id: string): Promise<ActionResult> {
   const auth = await exigirCargo(STAFF);
   if (!auth.permitido) return { success: false, error: auth.erro };
   try {
-    const supabase = await createClient();
-    const { error } = await supabase.from("capturas_celular").update({ status: "cancelada" }).eq("id", id).eq("usuario_id", auth.userId).eq("status", "pendente");
+    if (!z.string().uuid().safeParse(id).success) return { success: false, error: "Pedido inválido." };
+    // Cancela quem vai tirar (celular) ou quem pediu (computador).
+    const { error } = await createAdminClient().from("capturas_celular").update({ status: "cancelada" })
+      .eq("id", id).or(`usuario_id.eq.${auth.userId},solicitante_id.eq.${auth.userId}`).eq("status", "pendente");
     if (error) throw new Error(error.message);
     return { success: true, data: undefined };
   } catch (err) {
@@ -350,7 +391,7 @@ export async function listarFotosContextoAction(input: unknown): Promise<ActionR
   if (!parsed.success) return { success: false, error: "Dados inválidos." };
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.from("capturas_celular").select("id, tipo, status, fotos, imei, rotulo, concluida_em, usuario_id, expira_em")
+    const { data, error } = await supabase.from("capturas_celular").select("id, tipo, status, fotos, imei, rotulo, concluida_em, usuario_id, solicitante_id, expira_em")
       .eq("contexto_tipo", parsed.data.contextoTipo).eq("contexto_id", parsed.data.contextoId).in("status", ["concluida", "pendente"])
       .order("criado_em", { ascending: false }).limit(50);
     if (error) throw new Error(error.message);
@@ -362,7 +403,7 @@ export async function listarFotosContextoAction(input: unknown): Promise<ActionR
       data: {
         fotos: concluidas.flatMap((c) => (c.fotos ?? []).map((p: string) => ({ caminho: p, url: urls.get(p) ?? null, em: c.concluida_em, rotulo: c.rotulo }))),
         imeis: concluidas.filter((c) => c.imei).map((c) => ({ imei: c.imei as string, em: c.concluida_em })),
-        pendentes: (data ?? []).filter((c) => c.status === "pendente" && c.usuario_id === auth.userId && new Date(c.expira_em).getTime() > Date.now()).map((c) => ({ id: c.id, tipo: c.tipo })),
+        pendentes: (data ?? []).filter((c) => c.status === "pendente" && (c.usuario_id === auth.userId || c.solicitante_id === auth.userId) && new Date(c.expira_em).getTime() > Date.now()).map((c) => ({ id: c.id, tipo: c.tipo })),
       },
     };
   } catch (err) {

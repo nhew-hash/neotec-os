@@ -30,6 +30,8 @@ const sheetVariants = cva(
       side: {
         left: "inset-y-0 left-0 h-full w-80 border-r border-border slide-in-from-left",
         right: "inset-y-0 right-0 h-full w-80 border-l border-border slide-in-from-right",
+        // Menu de baixo para cima (estilo "anexar" do WhatsApp no celular).
+        bottom: "inset-x-0 bottom-0 w-full border-t border-border slide-in-from-bottom",
       },
     },
     defaultVariants: { side: "left" },

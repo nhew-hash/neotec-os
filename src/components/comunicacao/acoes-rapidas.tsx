@@ -12,6 +12,8 @@ import type { CrmEtapa } from "@/types";
 interface AcoesRapidasProps {
   clienteId: string | null;
   cardId: string | null;
+  /** Dentro do painel do cliente: já aberto, sem o botão de expandir. */
+  sempreAberto?: boolean;
 }
 
 /**
@@ -20,9 +22,10 @@ interface AcoesRapidasProps {
  * catálogo, coordenadas fixas da loja). Adicionar o botão sem ter o que
  * enviar seria pior do que não ter o botão.
  */
-export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
+export function AcoesRapidas({ clienteId, cardId, sempreAberto = false }: AcoesRapidasProps) {
   const router = useRouter();
-  const [expandido, setExpandido] = useState(false);
+  const [expandidoInterno, setExpandido] = useState(false);
+  const expandido = sempreAberto || expandidoInterno;
   const [mostrarObservacao, setMostrarObservacao] = useState(false);
   const [observacao, setObservacao] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -66,8 +69,8 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
   }
 
   return (
-    <div className="border-t border-border">
-      <button
+    <div className={sempreAberto ? undefined : "border-t border-border"}>
+      {!sempreAberto && <button
         type="button"
         onClick={() => setExpandido((v) => !v)}
         className="flex w-full items-center justify-between px-4 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -75,10 +78,10 @@ export function AcoesRapidas({ clienteId, cardId }: AcoesRapidasProps) {
       >
         Ações rápidas
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandido ? "rotate-180" : ""}`} />
-      </button>
+      </button>}
 
       {expandido && (
-        <div className="flex flex-col gap-2 px-3 pb-3">
+        <div className={sempreAberto ? "flex flex-col gap-2" : "flex flex-col gap-2 px-3 pb-3"}>
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline" size="sm"

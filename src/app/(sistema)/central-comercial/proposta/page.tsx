@@ -3,16 +3,13 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { exigirCargo } from "@/lib/auth/exigir-cargo";
 import { createClient } from "@/lib/supabase/server";
-import { PropostaForm, type LinhaUI, type PropostaInicial } from "@/components/central-comercial/proposta-form";
-import { buscarItemParaProposta } from "@/services/central-comercial/central-comercial.service";
-import { obterClienteBasico } from "@/services/central-comercial/clientes-busca.service";
-import { contextoDaConversa, obterPropostaParaRetomar } from "@/services/central-comercial/propostas.service";
+import { PropostaForm } from "@/components/central-comercial/proposta-form";
+import { montarPropostaInicial } from "@/services/central-comercial/proposta-inicial.service";
 import { lerParamItensProposta } from "@/services/central-comercial/catalogo";
 
 export const metadata = { title: "Proposta" };
 export const dynamic = "force-dynamic";
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const pegar = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function PropostaPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -27,51 +24,7 @@ export default async function PropostaPage({ searchParams }: { searchParams: Pro
   const nota = (pegar(sp.nota) ?? "").slice(0, 500); // necessidade registrada no Atendimento guiado
   const abrirTroca = pegar(sp.troca) === "1";
 
-  const vazio: PropostaInicial = { orcamentoId: null, cliente: null, itens: [], desconto: "", tradeInId: null, modo: modoParam === "whatsapp" ? "whatsapp" : "presencial", conversaId: null, naoContatar: false, observacoes: "", aviso: null };
-  let inicial: PropostaInicial = vazio;
-  let erro: string | null = null;
-
-  try {
-    if (retomar && uuid.test(retomar)) {
-      const p = await obterPropostaParaRetomar(retomar, auth.userId, auth.cargo);
-      const cliente = await obterClienteBasico(p.clienteId);
-      const resolvidos = await Promise.allSettled(p.itens.map((i) => buscarItemParaProposta(i.tipo, i.id)));
-      const itens: LinhaUI[] = p.itens.map((i, idx) => {
-        const r = resolvidos[idx];
-        return r.status === "fulfilled"
-          ? { tipo: i.tipo, id: i.id, rotulo: r.value.descricao, preco: r.value.preco, quantidade: i.quantidade }
-          : { tipo: i.tipo, id: i.id, rotulo: "Item", preco: 0, quantidade: i.quantidade, indisponivel: true };
-      });
-      const algumIndisponivel = itens.some((i) => i.indisponivel);
-      inicial = {
-        orcamentoId: p.orcamentoId, cliente: cliente ?? { id: p.clienteId, nome: p.clienteNome, whatsapp: p.clienteWhatsapp ?? "", cidade: null, clienteDesde: null, orcamentosAbertos: 0 },
-        itens, desconto: p.desconto > 0 ? String(p.desconto).replace(".", ",") : "", tradeInId: p.tradeInId, modo: p.modo,
-        conversaId: p.conversaId, naoContatar: false, observacoes: p.observacoes ?? "",
-        aviso: algumIndisponivel ? "Algum item desta proposta não está mais disponível. Remova-o e atualize. Os valores foram recalculados com os preços de hoje." : "Valores recalculados com os preços de hoje.",
-      };
-    } else if (conversa && uuid.test(conversa)) {
-      const ctx = await contextoDaConversa(conversa);
-      if (!ctx) erro = "Não encontrei essa conversa, ou ela ainda não está ligada a um cliente cadastrado. Busque o cliente abaixo.";
-      else {
-        const cliente = await obterClienteBasico(ctx.clienteId);
-        inicial = { ...vazio, cliente, modo: "whatsapp", conversaId: ctx.conversaId, naoContatar: ctx.naoContatar };
-      }
-    } else if (clienteParam && uuid.test(clienteParam)) {
-      inicial = { ...vazio, cliente: await obterClienteBasico(clienteParam) };
-    }
-    if (!inicial.orcamentoId && itensParam.length > 0) {
-      const resolvidos = await Promise.allSettled(itensParam.map((i) => buscarItemParaProposta(i.tipo, i.id)));
-      const itens: LinhaUI[] = itensParam.flatMap((i, idx) => {
-        const r = resolvidos[idx];
-        return r.status === "fulfilled" ? [{ tipo: i.tipo, id: i.id, rotulo: r.value.descricao, preco: r.value.preco, quantidade: 1 }] : [];
-      });
-      const fora = itensParam.length - itens.length;
-      inicial = { ...inicial, itens, observacoes: inicial.observacoes || nota, aviso: fora > 0 ? `${fora} ${fora === 1 ? "item do catálogo não está mais disponível e ficou" : "itens do catálogo não estão mais disponíveis e ficaram"} de fora.` : inicial.aviso };
-    }
-    if (!inicial.orcamentoId && nota && !inicial.observacoes) inicial = { ...inicial, observacoes: nota };
-  } catch (e) {
-    erro = e instanceof Error ? e.message : "Não foi possível abrir a proposta.";
-  }
+  const { inicial, erro } = await montarPropostaInicial({ retomar, conversa, cliente: clienteParam, modo: modoParam, itens: itensParam, nota }, auth);
   const supabase = await createClient();
   const { data: eu } = await supabase.from("usuarios").select("nome").eq("id", auth.userId).maybeSingle();
 

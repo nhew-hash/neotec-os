@@ -47,7 +47,12 @@ const TIPOS = [
  * As falas aparecem em cada etapa; a necessidade vira a observação interna da
  * proposta e a indicação segue a regra "uma principal + uma alternativa".
  */
-export function AtendimentoGuiado({ itens, clienteInicial }: { itens: ItemCatalogo[]; clienteInicial: ClienteResultado | null }) {
+export function AtendimentoGuiado({ itens, clienteInicial, onMontarProposta }: {
+  itens: ItemCatalogo[];
+  clienteInicial: ClienteResultado | null;
+  /** Dentro da conversa: a proposta abre ali mesmo em vez de ir para outra tela. */
+  onMontarProposta?: (p: { itens: string; nota: string; troca: boolean }) => void;
+}) {
   const router = useRouter();
   const [etapa, setEtapa] = useState<0 | 1>(0);
   const [cliente, setCliente] = useState<ClienteResultado | null>(clienteInicial);
@@ -83,6 +88,7 @@ export function AtendimentoGuiado({ itens, clienteInicial }: { itens: ItemCatalo
     const nota = resumoNecessidade(necessidade);
     if (nota) params.set("nota", nota);
     if (necessidade.troca) params.set("troca", "1");
+    if (onMontarProposta) return onMontarProposta({ itens: lista ?? "", nota: nota ?? "", troca: !!necessidade.troca });
     router.push(`/central-comercial/proposta?${params.toString()}`);
   }
 

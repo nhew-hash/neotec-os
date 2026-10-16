@@ -14,8 +14,21 @@ interface FotoResultado {
   url: string;
 }
 
-export function SeletorFotoCatalogo({ conversaId, telefone }: { conversaId: string; telefone: string }) {
-  const [aberto, setAberto] = useState(false);
+export function SeletorFotoCatalogo({ conversaId, telefone, aberto: abertoFora, onAbertoChange, classeBotao }: {
+  conversaId: string;
+  telefone: string;
+  /** Aberto por fora (menu "+" do celular). */
+  aberto?: boolean;
+  onAbertoChange?: (v: boolean) => void;
+  classeBotao?: string;
+}) {
+  const [abertoInterno, setAbertoInterno] = useState(false);
+  const aberto = abertoFora ?? abertoInterno;
+  const setAberto = (v: boolean | ((x: boolean) => boolean)) => {
+    const novo = typeof v === "function" ? v(aberto) : v;
+    if (onAbertoChange) onAbertoChange(novo); else setAbertoInterno(novo);
+  };
+  const [erroEnvio, setErroEnvio] = useState<string | null>(null);
   const [termo, setTermo] = useState("");
   const [resultados, setResultados] = useState<FotoResultado[]>([]);
   const [isPending, startTransition] = useTransition();
@@ -44,9 +57,12 @@ export function SeletorFotoCatalogo({ conversaId, telefone }: { conversaId: stri
 
   function handleEnviar(foto: FotoResultado) {
     setEnviando(foto.id);
+    setErroEnvio(null);
     startTransition(async () => {
-      await enviarFotoCatalogoAction(conversaId, telefone, foto.url);
+      const r = await enviarFotoCatalogoAction(conversaId, telefone, foto.url);
       setEnviando(null);
+      // Antes o resultado era ignorado: a janela fechava como se tivesse enviado.
+      if (!r.success) return setErroEnvio(r.error);
       setAberto(false);
       setTermo("");
     });
@@ -54,7 +70,7 @@ export function SeletorFotoCatalogo({ conversaId, telefone }: { conversaId: stri
 
   return (
     <div ref={containerRef} className="relative">
-      <Button type="button" variant="ghost" size="icon" onClick={() => setAberto((v) => !v)} title="Enviar foto do catálogo">
+      <Button type="button" variant="ghost" size="icon" className={classeBotao} onClick={() => setAberto((v) => !v)} title="Enviar foto do catálogo" aria-label="Enviar foto do catálogo">
         <ImageIcon className="h-4 w-4 text-muted-foreground" />
       </Button>
 
@@ -71,6 +87,7 @@ export function SeletorFotoCatalogo({ conversaId, telefone }: { conversaId: stri
             />
           </div>
 
+          {erroEnvio && <p role="alert" className="mb-2 rounded bg-danger-soft px-2 py-1.5 text-xs text-danger">{erroEnvio}</p>}
           <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
             {isPending && <p className="py-4 text-center text-xs text-muted-foreground">Buscando...</p>}
             {!isPending && termo.trim() && resultados.length === 0 && (
