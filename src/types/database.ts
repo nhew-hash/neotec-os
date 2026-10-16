@@ -564,6 +564,9 @@ export interface WhatsappMensagem {
   enviado_por_ia: boolean;
   lida_em: string | null;
   criado_em: string;
+  /** Resposta citando outra mensagem: resumo do texto citado e o id dela no WhatsApp. */
+  citacao_texto?: string | null;
+  citacao_whatsapp_id?: string | null;
 }
 
 export interface WhatsappTemplate {

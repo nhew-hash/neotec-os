@@ -6,7 +6,7 @@ import { pastaDoContexto, type ContextoCaptura } from "@/services/celular/captur
 const LADO_MAXIMO = 1600;
 
 /** Reduz a foto da câmera (12 MP vira ~300 KB) antes de subir — economiza dados do celular. */
-async function reduzir(arquivo: File): Promise<Blob> {
+export async function reduzir(arquivo: File): Promise<Blob> {
   if (!arquivo.type.startsWith("image/")) throw new Error("O arquivo não é uma imagem.");
   const bitmap = await createImageBitmap(arquivo).catch(() => null);
   if (!bitmap) return arquivo; // formato que o navegador não decodifica (ex.: HEIC no Android): sobe como veio

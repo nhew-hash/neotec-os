@@ -5,8 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Send, Mic, Square, Check, CheckCheck, Clock, AlertCircle, Bot, BotOff, ChevronDown, ArrowLeft,
-  UserCheck, UserX, MoreHorizontal, Ban, Loader2, Plus, UserRound, RotateCcw,
+  UserCheck, UserX, MoreHorizontal, Ban, Loader2, Plus, UserRound, RotateCcw, Camera, Paperclip,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { reduzir } from "@/components/celular/fotos-upload";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
-  enviarMensagemAction, alternarIAPausadaAction, enviarAudioAction, carregarMensagensAnterioresAction,
+  enviarMensagemAction, enviarFotoAction, alternarIAPausadaAction, enviarAudioAction, carregarMensagensAnterioresAction,
   definirResponsavelConversaAction, alterarStatusConversaAction,
 } from "@/services/whatsapp/whatsapp.actions";
 import { useMensagensRealtime } from "@/hooks/use-mensagens-realtime";
@@ -34,7 +37,7 @@ const STATUS_ICON: Record<StatusEntregaMensagem, { icon: ReactNode; label: strin
   enviando: { icon: <Clock className="h-3 w-3" />, label: "Enviando" },
   enviado: { icon: <Check className="h-3 w-3" />, label: "Enviada" },
   entregue: { icon: <CheckCheck className="h-3 w-3" />, label: "Entregue" },
-  lido: { icon: <CheckCheck className="h-3 w-3 text-sky-200" />, label: "Lida" },
+  lido: { icon: <CheckCheck className="h-3 w-3 text-sky-500" />, label: "Lida" },
   erro: { icon: <AlertCircle className="h-3 w-3" />, label: "Não enviada" },
 };
 
@@ -67,6 +70,16 @@ function agruparPorDia(mensagens: WhatsappMensagem[]): { dia: string; itens: Wha
   return grupos;
 }
 
+/** Só emoji (até 3), como "😭": aparece grande e sem balão, igual no WhatsApp. */
+function soEmoji(texto: string | null): boolean {
+  if (!texto) return false;
+  const t = texto.trim();
+  if (!t || t.length > 24) return false;
+  const semEmoji = t.replace(/\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\u200d|\ufe0f|\s/gu, "");
+  if (semEmoji.length > 0) return false;
+  return (t.match(/\p{Extended_Pictographic}|\p{Regional_Indicator}{2}/gu) ?? []).length <= 3;
+}
+
 /** URL da mídia sempre passa por aqui — nunca um link fixo salvo no banco (ver rota /api/whatsapp-midia). */
 function urlMidia(caminho: string): string {
   return `/api/whatsapp-midia?path=${encodeURIComponent(caminho)}`;
@@ -89,6 +102,48 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
   const [menuAberto, setMenuAberto] = useState(false);
   const [fotoAberta, setFotoAberta] = useState(false);
   const [clienteAberto, setClienteAberto] = useState(false);
+  // Foto do aparelho (câmera ou galeria/computador).
+  const inputFotoRef = useRef<HTMLInputElement>(null);
+  const inputCameraRef = useRef<HTMLInputElement>(null);
+  const [fotoParaEnviar, setFotoParaEnviar] = useState<{ arquivo: File; previa: string } | null>(null);
+  const [legendaFoto, setLegendaFoto] = useState("");
+  const [erroFoto, setErroFoto] = useState<string | null>(null);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  function escolherFoto(lista: FileList | null) {
+    const arquivo = lista?.[0];
+    if (inputFotoRef.current) inputFotoRef.current.value = "";
+    if (inputCameraRef.current) inputCameraRef.current.value = "";
+    if (!arquivo || !arquivo.type.startsWith("image/")) return;
+    setErroFoto(null);
+    setLegendaFoto("");
+    setFotoParaEnviar({ arquivo, previa: URL.createObjectURL(arquivo) });
+  }
+  function fecharFoto() {
+    if (fotoParaEnviar) URL.revokeObjectURL(fotoParaEnviar.previa);
+    setFotoParaEnviar(null);
+  }
+  async function enviarFoto() {
+    if (!fotoParaEnviar) return;
+    setEnviandoFoto(true);
+    setErroFoto(null);
+    try {
+      const reduzida = await reduzir(fotoParaEnviar.arquivo);
+      const formData = new FormData();
+      formData.set("conversaId", conversa.id);
+      formData.set("telefone", conversa.telefone);
+      formData.set("legenda", legendaFoto);
+      formData.set("foto", new File([reduzida], "foto.jpg", { type: reduzida.type || "image/jpeg" }));
+      const r = await enviarFotoAction(formData);
+      setIaPausada(true);
+      router.refresh();
+      if (!r.success) return setErroFoto(r.error);
+      fecharFoto();
+    } catch (err) {
+      setErroFoto(err instanceof Error ? err.message : "Não foi possível preparar a foto.");
+    } finally {
+      setEnviandoFoto(false);
+    }
+  }
   const router = useRouter();
   const [texto, setTexto] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -369,35 +424,68 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
           )}
           {mensagens.length === 0 && <p className="py-12 text-center text-sm text-muted-foreground">Nenhuma mensagem ainda.</p>}
           {grupos.map((grupo) => (
-            <div key={grupo.dia + grupo.itens[0].id} className="flex flex-col gap-1.5">
-              <div className="sticky top-0 z-10 mx-auto my-2 w-fit rounded-full bg-card/90 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-card backdrop-blur">
+            <div key={grupo.dia + grupo.itens[0].id} className="flex flex-col gap-1">
+              {/* Separador de dia fixo no lugar (antes ficava grudado no topo, por cima do texto das mensagens). */}
+              <div className="mx-auto my-2 w-fit rounded-lg bg-card/90 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-card">
                 {grupo.dia}
               </div>
-              {grupo.itens.map((msg) => {
+              {grupo.itens.map((msg, idx) => {
                 const saida = msg.direcao === "saida";
                 const falhou = saida && msg.status_entrega === "erro";
                 const st = STATUS_ICON[msg.status_entrega];
+                const anterior = grupo.itens[idx - 1];
+                const continuacao = anterior && anterior.direcao === msg.direcao;
+                const emoji = !msg.url_midia && !msg.citacao_texto && soEmoji(msg.conteudo);
+                const citada = msg.citacao_whatsapp_id ? mensagens.find((m) => m.whatsapp_message_id === msg.citacao_whatsapp_id) : undefined;
+                // Sem a mensagem original carregada não dá para saber quem escreveu: não chuta.
+                const autorCitacao = citada ? (citada.direcao === "saida" ? "Você" : nome) : "Mensagem citada";
+                const hora = (
+                  <>
+                    <time dateTime={msg.criado_em}>{formatHora(msg.criado_em)}</time>
+                    {saida && <span className="flex items-center" title={st.label} aria-label={st.label}>{st.icon}</span>}
+                  </>
+                );
                 return (
-                  <div key={msg.id} className={cn("flex max-w-[82%] flex-col md:max-w-[68%]", saida ? "items-end self-end" : "items-start self-start")}>
+                  <div key={msg.id} className={cn("flex max-w-[85%] flex-col md:max-w-[68%]", saida ? "items-end self-end" : "items-start self-start", !continuacao && "mt-1.5")}>
+                    {emoji ? (
+                      <div className="flex flex-col items-end">
+                        <span className="text-5xl leading-tight" role="img" aria-label={msg.conteudo ?? ""}>{msg.conteudo}</span>
+                        <span className="mt-0.5 flex items-center gap-1 rounded-full bg-card/90 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground shadow-card">{hora}</span>
+                      </div>
+                    ) : (
                     <div
                       className={cn(
-                        "flex flex-col gap-1 rounded-2xl px-3.5 py-2 text-[14px] leading-snug",
-                        saida ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-card text-foreground shadow-card",
-                        falhou && "bg-danger-soft text-foreground ring-1 ring-danger/30"
+                        // Balão claro com texto escuro (mais confortável de ler o dia todo, como no WhatsApp).
+                        "relative flex flex-col gap-1 rounded-2xl px-3 py-1.5 text-[15px] leading-snug text-foreground shadow-card",
+                        saida ? "bg-[#dce6ff] dark:bg-primary/30" : "bg-card",
+                        !continuacao && (saida ? "rounded-tr-md" : "rounded-tl-md"),
+                        falhou && "bg-danger-soft ring-1 ring-danger/30"
                       )}
                     >
                       {msg.enviado_por_ia && (
-                        <span className={cn("flex w-fit items-center gap-1 text-[10px] font-medium uppercase tracking-wide", saida && !falhou ? "text-primary-foreground/75" : "text-muted-foreground")}>
+                        <span className="flex w-fit items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                           <Bot className="h-3 w-3" aria-hidden />Enviada pela IA
                         </span>
                       )}
+                      {msg.citacao_texto && (
+                        <div className={cn("rounded-lg border-l-4 px-2.5 py-1.5 text-[13px]", saida ? "border-primary/60 bg-white/50" : "border-primary bg-secondary/70")}>
+                          <span className="block text-[12px] font-semibold text-primary">{autorCitacao}</span>
+                          <span className="line-clamp-3 whitespace-pre-wrap break-words text-muted-foreground">{msg.citacao_texto}</span>
+                        </div>
+                      )}
                       <MidiaMensagem msg={msg} />
-                      {msg.conteudo && <span className="whitespace-pre-wrap break-words">{msg.conteudo}</span>}
-                      <span className={cn("flex items-center gap-1 self-end text-[10px] tabular-nums", saida && !falhou ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                        <time dateTime={msg.criado_em}>{formatHora(msg.criado_em)}</time>
-                        {saida && <span className="flex items-center" title={st.label} aria-label={st.label}>{st.icon}</span>}
+                      {msg.conteudo ? (
+                        <span className="whitespace-pre-wrap break-words">
+                          {msg.conteudo}
+                          {/* Espaço reservado para a hora caber na última linha, como no WhatsApp. */}
+                          <span className={cn("inline-block", saida ? "w-[4.25rem]" : "w-11")} aria-hidden />
+                        </span>
+                      ) : null}
+                      <span className={cn("flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground", msg.conteudo ? "absolute bottom-1 right-2.5" : "self-end")}>
+                        {hora}
                       </span>
                     </div>
+                    )}
                     {falhou && (
                       <span className="mt-1 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-[11px] font-medium text-danger">
                         <span className="flex items-center gap-1"><AlertCircle className="h-3 w-3" aria-hidden />Não enviada — o cliente não recebeu esta mensagem</span>
@@ -455,17 +543,10 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
           </Button>
           <div className="hidden md:block"><SeletorEmoji onSelecionar={(emoji) => setTexto((t) => t + emoji)} /></div>
           <SeletorFotoCatalogo conversaId={conversa.id} telefone={conversa.telefone} aberto={fotoAberta} onAbertoChange={setFotoAberta} classeBotao="hidden md:inline-flex" />
-          <Button
-            type="button"
-            variant={gravando ? "destructive" : "ghost"}
-            size="icon"
-            className={cn(texto.trim() && !gravando && "max-md:hidden", "md:order-none")}
-            onClick={gravando ? handlePararGravacao : handleIniciarGravacao}
-            disabled={enviandoAudio}
-            aria-label={gravando ? "Parar e enviar áudio" : "Gravar áudio"}
-            title={gravando ? "Parar e enviar" : "Gravar áudio"}
-          >
-            {gravando ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4 text-muted-foreground" />}
+          <input ref={inputFotoRef} type="file" accept="image/*" className="sr-only" onChange={(e) => escolherFoto(e.target.files)} aria-label="Escolher foto para enviar" />
+          <input ref={inputCameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => escolherFoto(e.target.files)} aria-label="Tirar foto para enviar" />
+          <Button type="button" variant="ghost" size="icon" className="hidden md:inline-flex" onClick={() => inputFotoRef.current?.click()} aria-label="Enviar foto do computador" title="Enviar foto do computador">
+            <Paperclip className="h-4 w-4 text-muted-foreground" />
           </Button>
           <textarea
             ref={textareaRef}
@@ -481,13 +562,46 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
             title="Enter envia · Shift+Enter quebra a linha"
             aria-label="Mensagem"
             rows={1}
-            className="max-h-40 min-h-10 flex-1 resize-none rounded-2xl border border-input bg-background px-3.5 py-2.5 text-sm leading-snug outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="max-h-40 min-h-10 flex-1 resize-none rounded-3xl border border-input bg-background px-4 py-2.5 text-sm leading-snug outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
           />
+          {/* Como no WhatsApp: câmera e microfone à direita; ao digitar, o microfone vira "enviar". */}
+          <Button type="button" variant="ghost" size="icon" className={cn("md:hidden", texto.trim() && "hidden")} onClick={() => inputCameraRef.current?.click()} aria-label="Tirar foto e enviar">
+            <Camera className="h-5 w-5 text-muted-foreground" />
+          </Button>
+          <Button
+            type="button"
+            variant={gravando ? "destructive" : "default"}
+            size="icon"
+            className={cn("rounded-full", texto.trim() && !gravando && "max-md:hidden", !gravando && "md:bg-transparent md:text-muted-foreground md:hover:bg-secondary")}
+            onClick={gravando ? handlePararGravacao : handleIniciarGravacao}
+            disabled={enviandoAudio}
+            aria-label={gravando ? "Parar e enviar áudio" : "Gravar áudio"}
+            title={gravando ? "Parar e enviar" : "Gravar áudio"}
+          >
+            {gravando ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </Button>
           <Button type="button" size="icon" className={cn("rounded-full", !texto.trim() && "max-md:hidden")} onClick={handleEnviar} disabled={isPending || !texto.trim()} aria-label="Enviar mensagem">
             {isPending && !enviandoAudio ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
       </div>
+
+      {/* Foto escolhida: confere e põe legenda antes de mandar (nada sai sem confirmar). */}
+      <Dialog open={!!fotoParaEnviar} onOpenChange={(v) => { if (!v && !enviandoFoto) fecharFoto(); }}>
+        <DialogContent className="max-w-md p-4">
+          <DialogTitle className="text-base font-semibold">Enviar foto para {nome}</DialogTitle>
+          {fotoParaEnviar && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fotoParaEnviar.previa} alt="Foto que será enviada" className="max-h-[50dvh] w-full rounded-lg bg-secondary object-contain" />
+          )}
+          <Input value={legendaFoto} onChange={(e) => setLegendaFoto(e.target.value)} placeholder="Legenda (opcional)" aria-label="Legenda da foto" />
+          {erroFoto && <p role="alert" className="text-sm text-danger">{erroFoto}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={fecharFoto} disabled={enviandoFoto}>Cancelar</Button>
+            <Button type="button" onClick={enviarFoto} disabled={enviandoFoto}>{enviandoFoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{enviandoFoto ? "Enviando…" : "Enviar"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Sheet open={clienteAberto} onOpenChange={setClienteAberto}>
         <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-sm">

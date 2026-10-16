@@ -312,7 +312,11 @@ export async function enviarMensagemComMidia(input: {
   caminhoMidia: string;
   mimeType: string;
   usuarioId: string;
+  /** Padrão: áudio (gravado no campo). Foto tirada/escolhida no aparelho: "imagem". */
+  tipo?: "audio" | "imagem";
+  legenda?: string | null;
 }): Promise<MensagemEnviada> {
+  const tipoMidia = input.tipo ?? "audio";
   const supabase = await createClient();
 
   const { data: conversa } = await supabase
@@ -333,10 +337,11 @@ export async function enviarMensagemComMidia(input: {
   const provider = await getActiveProvider();
   const resultado = await provider.enviarMidia(
     paraFormatoInternacionalBR(input.telefone),
-    "audio",
+    tipoMidia,
     assinada.signedUrl,
     input.mimeType,
-    conversa?.jid_envio ?? undefined
+    conversa?.jid_envio ?? undefined,
+    input.legenda?.trim() || undefined
   );
 
   await registrarLog({
@@ -352,8 +357,8 @@ export async function enviarMensagemComMidia(input: {
     .insert({
       conversa_id: input.conversaId,
       direcao: "saida",
-      tipo: "audio",
-      conteudo: null,
+      tipo: tipoMidia,
+      conteudo: input.legenda?.trim() || null,
       url_midia: input.caminhoMidia,
       status_entrega: resultado.enviado ? "enviado" : "erro",
       whatsapp_message_id: resultado.whatsappMessageId ?? null,
@@ -569,6 +574,8 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
     whatsapp_message_id: msg.idExterno,
     status_entrega: "entregue",
     url_midia: urlMidia,
+    citacao_texto: msg.citacao?.texto?.slice(0, 300) || null,
+    citacao_whatsapp_id: msg.citacao?.idExterno ?? null,
   });
   if (erroInsercao) {
     // 23505 = a mesma mensagem acabou de ser gravada por um retry

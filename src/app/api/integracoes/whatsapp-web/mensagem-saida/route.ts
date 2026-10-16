@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { telefone, tipo, conteudo, idExterno } = body as {
-    telefone: string; tipo: string; conteudo: string; idExterno: string;
+  const { telefone, tipo, conteudo, idExterno, citacao } = body as {
+    telefone: string; tipo: string; conteudo: string; idExterno: string; citacao?: { idExterno: string | null; texto: string };
   };
 
   const supabase = createAdminClient();
@@ -65,6 +65,8 @@ export async function POST(request: NextRequest) {
     status_entrega: "entregue",
     whatsapp_message_id: idExterno,
     enviado_por_ia: false,
+    citacao_texto: citacao?.texto?.slice(0, 300) || null,
+    citacao_whatsapp_id: citacao?.idExterno ?? null,
   });
 
   await supabase

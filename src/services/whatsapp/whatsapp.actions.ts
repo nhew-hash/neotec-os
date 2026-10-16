@@ -92,6 +92,38 @@ export async function enviarAudioAction(formData: FormData): Promise<ActionResul
   }
 }
 
+/** Foto tirada na hora (câmera) ou escolhida no aparelho — vai para o cliente pela conversa. */
+export async function enviarFotoAction(formData: FormData): Promise<ActionResult> {
+  const conversaId = String(formData.get("conversaId") ?? "");
+  const telefone = String(formData.get("telefone") ?? "");
+  const legenda = String(formData.get("legenda") ?? "").slice(0, 1000);
+  const arquivo = formData.get("foto") as File | null;
+
+  if (!arquivo) return { success: false, error: "Nenhuma foto recebida" };
+  if (!/^image\/(jpeg|png|webp)$/.test(arquivo.type)) return { success: false, error: "Formato de foto não aceito (use JPG, PNG ou WebP)" };
+  if (arquivo.size > 5 * 1024 * 1024) return { success: false, error: "Foto grande demais (máx. 5 MB)" };
+
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Sessão expirada" };
+
+    const bytes = Buffer.from(await arquivo.arrayBuffer());
+    const extensao = arquivo.type === "image/png" ? "png" : arquivo.type === "image/webp" ? "webp" : "jpg";
+    const caminho = await uploadMidiaWhatsapp(conversaId, bytes, extensao);
+
+    const msg = await enviarMensagemComMidia({
+      conversaId, telefone, caminhoMidia: caminho, mimeType: arquivo.type, usuarioId: user.id, tipo: "imagem", legenda,
+    });
+
+    revalidatePath("/comunicacao");
+    exigirEnvioConfirmado(msg);
+    return { success: true, data: undefined };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro ao enviar foto" };
+  }
+}
+
 export async function enviarFotoCatalogoAction(conversaId: string, telefone: string, urlFoto: string, legenda?: string): Promise<ActionResult> {
   try {
     const supabase = await createClient();

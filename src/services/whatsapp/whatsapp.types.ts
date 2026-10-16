@@ -197,4 +197,6 @@ export interface MensagemRecebidaNormalizada {
   /** Bytes da mídia em base64 — só presente quando tipo é imagem/audio/documento e o provedor conseguiu baixar o arquivo. */
   midiaBase64?: string;
   midiaMimeType?: string;
+  /** O cliente respondeu citando uma mensagem (só o WhatsApp Web preenche). */
+  citacao?: { idExterno: string | null; texto: string };
 }
