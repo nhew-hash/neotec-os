@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCheck, FileText, ImageIcon, LayoutGrid, MessageCircleQuestion, MessagesSquare, Repeat, ShieldQuestion, Target, UserRound, X } from "lucide-react";
+import { CheckCheck, FileText, ImageIcon, Kanban, LayoutGrid, MessageCircleQuestion, MessagesSquare, Repeat, ShieldQuestion, Target, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { TrocaNaProposta } from "@/components/central-comercial/troca-na-proposta";
 import { CatalogoVenda } from "@/components/central-comercial/catalogo-venda";
 import { AtendimentoGuiado } from "@/components/central-comercial/atendimento-guiado";
 import { PropostaForm } from "@/components/central-comercial/proposta-form";
+import { AcoesRapidas } from "./acoes-rapidas";
 import { dadosAtendimentoAction, listarCatalogoAction, prepararPropostaNaConversaAction, type PropostaNaConversa } from "@/services/central-comercial/central-comercial.actions";
 import type { ItemCatalogo } from "@/services/central-comercial/catalogo";
 import type { ClienteResultado } from "@/services/central-comercial/clientes-busca.service";
@@ -16,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { OBJECOES, PEDIDO_ACOMPANHAMENTO, PERGUNTAS_IPHONE, PERGUNTA_FECHAMENTO, mensagensAcompanhamento } from "@/services/central-comercial/roteiro-venda";
 
 type Aba = "perguntas" | "objecoes" | "fechar";
-type Folha = "atender" | "proposta" | "catalogo" | null;
+type Folha = "atender" | "proposta" | "catalogo" | "crm" | null;
 
 const ROTULO_ABA: Record<Aba, string> = { perguntas: "Perguntas", objecoes: "Objeções", fechar: "Fechamento" };
 
@@ -31,7 +32,8 @@ const ROTULO_ABA: Record<Aba, string> = { perguntas: "Perguntas", objecoes: "Obj
  * Quando o cliente só respondeu "ok/obrigado" depois da nossa resposta,
  * sugere encerrar (com um clique, nunca automático).
  */
-export function AssistenteConversa({ conversaId, clienteId, nomeCliente, telefone, pareceEncerrada, encerrada, onInserir, onEncerrar, encerrando, menuAberto, onMenuAberto, onFotoCatalogo, onAbrirCliente }: {
+export function AssistenteConversa({ conversaId, clienteId, cardId, nomeCliente, telefone, pareceEncerrada, encerrada, onInserir, onEncerrar, encerrando, menuAberto, onMenuAberto, onFotoCatalogo, onAbrirCliente }: {
+  cardId: string | null;
   conversaId: string;
   clienteId: string | null;
   telefone: string | null;
@@ -97,6 +99,7 @@ export function AssistenteConversa({ conversaId, clienteId, nomeCliente, telefon
     { id: "proposta", rotulo: "Proposta", icone: FileText, acao: () => abrirProposta(), precisaCadastro: true },
     { id: "troca", rotulo: "Avaliar troca", icone: Repeat, acao: () => setTrocaAberta(true), precisaCadastro: true },
     { id: "catalogo", rotulo: "Catálogo", icone: LayoutGrid, acao: () => setFolha("catalogo"), precisaCadastro: false },
+    { id: "crm", rotulo: "CRM", icone: Kanban, acao: () => setFolha("crm"), precisaCadastro: false },
   ];
 
   function escolherNoMenu(fn: () => void) {
@@ -153,7 +156,7 @@ export function AssistenteConversa({ conversaId, clienteId, nomeCliente, telefon
 
       {/* Celular: menu do "+" */}
       <Sheet open={menuAberto} onOpenChange={onMenuAberto}>
-        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-2xl p-4">
           <SheetTitle className="sr-only">Ferramentas da conversa</SheetTitle>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Vender</p>
           <div className="grid grid-cols-4 gap-2">
@@ -183,6 +186,13 @@ export function AssistenteConversa({ conversaId, clienteId, nomeCliente, telefon
 
       <Sheet open={folha !== null} onOpenChange={(v) => !v && setFolha(null)}>
         <SheetContent side="right" className="w-full overflow-y-auto p-4 sm:max-w-3xl">
+          {folha === "crm" && (
+            <>
+              <SheetTitle className="font-display text-lg">Ações rápidas — {nomeCliente || "contato"}</SheetTitle>
+              <p className="mb-4 mt-1 text-sm text-muted-foreground">Criar OS ou orçamento, anotar no CRM e mudar a etapa sem sair da conversa.</p>
+              <AcoesRapidas clienteId={clienteId} cardId={cardId} sempreAberto />
+            </>
+          )}
           {folha === "catalogo" && (
             <>
               <SheetTitle className="font-display text-lg">Catálogo — {nomeCliente || "cliente"}</SheetTitle>

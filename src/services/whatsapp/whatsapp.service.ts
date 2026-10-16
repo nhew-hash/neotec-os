@@ -90,7 +90,8 @@ export async function obterConversa(id: string): Promise<ConversaComCliente | nu
 }
 
 /** Histórico carregado por página: as últimas N mensagens (antes, a conversa inteira de uma vez). */
-export const LIMITE_MENSAGENS = 200;
+// 80 abre rápido (como o WhatsApp, o resto vem em "Carregar mensagens anteriores").
+export const LIMITE_MENSAGENS = 80;
 
 export async function listarMensagens(conversaId: string, params?: { antesDe?: string; limite?: number }): Promise<{ mensagens: WhatsappMensagem[]; temMais: boolean }> {
   const limite = Math.min(Math.max(params?.limite ?? LIMITE_MENSAGENS, 1), 500);

@@ -21,6 +21,7 @@ import {
   definirResponsavelConversaAction, alterarStatusConversaAction,
 } from "@/services/whatsapp/whatsapp.actions";
 import { useMensagensRealtime } from "@/hooks/use-mensagens-realtime";
+import { useGravadorAudio } from "./use-gravador-audio";
 import { SeletorEmoji } from "@/components/comunicacao/seletor-emoji";
 import { SeletorFotoCatalogo } from "@/components/comunicacao/seletor-foto-catalogo";
 import { AssistenteConversa } from "./assistente-conversa";
@@ -135,8 +136,8 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
       formData.set("foto", new File([reduzida], "foto.jpg", { type: reduzida.type || "image/jpeg" }));
       const r = await enviarFotoAction(formData);
       setIaPausada(true);
-      router.refresh();
       if (!r.success) return setErroFoto(r.error);
+      setLocais((l) => [...l, r.data]);
       fecharFoto();
     } catch (err) {
       setErroFoto(err instanceof Error ? err.message : "Não foi possível preparar a foto.");
@@ -151,15 +152,22 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
   const [erro, setErro] = useState<string | null>(null);
   const [iaPausada, setIaPausada] = useState(conversa.ia_pausada);
   const [mostrarBotaoDescer, setMostrarBotaoDescer] = useState(false);
-  const [gravando, setGravando] = useState(false);
   const [enviandoAudio, setEnviandoAudio] = useState(false);
   const [antigas, setAntigas] = useState<WhatsappMensagem[]>([]);
   const [temMais, setTemMais] = useState(temMaisAntigas);
   const [carregandoAntigas, setCarregandoAntigas] = useState(false);
   const recentes = useMensagensRealtime(conversa.id, mensagensIniciais);
-  // Junta página antiga + recentes + realtime, sem duplicar, sempre em ordem cronológica.
-  const mensagens = [...antigas.filter((a) => !recentes.some((r) => r.id === a.id)), ...recentes]
-    .sort((a, b) => a.criado_em.localeCompare(b.criado_em));
+  // Mensagens que acabamos de mandar (aparecem na hora, sem esperar o tempo real
+  // nem recarregar a tela). "local-*" = ainda enviando (relógio no balão).
+  const [locais, setLocais] = useState<WhatsappMensagem[]>([]);
+  useEffect(() => { setLocais([]); }, [conversa.id]);
+  // Junta página antiga + recentes + realtime + locais, sem duplicar, sempre em ordem cronológica.
+  const idsRecentes = new Set(recentes.map((r) => r.id));
+  const mensagens = [
+    ...antigas.filter((a) => !idsRecentes.has(a.id)),
+    ...recentes,
+    ...locais.filter((l) => !idsRecentes.has(l.id)),
+  ].sort((a, b) => a.criado_em.localeCompare(b.criado_em));
   const grupos = agruparPorDia(mensagens);
   const naoContatar = conversa.nao_contatar === true;
   const encerrada = conversa.status === "resolvida" || conversa.status === "perdida";
@@ -174,8 +182,31 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const totalAnterior = useRef(recentes.length);
   const alturaAntesDeCarregar = useRef<number | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  // Mensagem de voz: no celular segura e solta (como no WhatsApp); deslizar para a esquerda cancela.
+  // No computador, clique para começar e clique para enviar.
+  const gravador = useGravadorAudio(({ blob, mimeType }) => handleEnviarAudioGravado(blob, mimeType));
+  const gravando = gravador.gravando;
+  const [cancelarAoSoltar, setCancelarAoSoltar] = useState(false);
+  const [dicaAudio, setDicaAudio] = useState<string | null>(null);
+  const toqueInicioX = useRef<number | null>(null);
+  const ultimoPonteiro = useRef<string>("mouse");
+  async function comecarGravacao() {
+    setErro(null); setDicaAudio(null); setCancelarAoSoltar(false);
+    try {
+      const r = await gravador.iniciar();
+      if (r === "descartado") setDicaAudio("Microfone liberado. Agora segure o botão enquanto fala.");
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Não foi possível gravar.");
+    }
+  }
+  function soltarGravacao() {
+    const curto = gravador.duracaoAtual() < 0.8;
+    const cancelar = cancelarAoSoltar || curto;
+    gravador.parar(!cancelar);
+    if (curto && !cancelarAoSoltar && gravando) setDicaAudio("Segure o botão enquanto fala e solte para enviar.");
+    setCancelarAoSoltar(false);
+    toqueInicioX.current = null;
+  }
 
   useEffect(() => { setIaPausada(conversa.ia_pausada); }, [conversa.ia_pausada]);
 
@@ -258,17 +289,23 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
     formData.set("telefone", conversa.telefone);
     formData.set("texto", texto);
     const enviado = texto;
+    // Como no WhatsApp: o campo limpa e o balão aparece na hora (com relógio)
+    // enquanto o servidor confirma. Se falhar, o texto volta para o campo.
+    const idLocal = `local-${Date.now()}`;
+    setLocais((l) => [...l, { id: idLocal, conversa_id: conversa.id, direcao: "saida", tipo: "texto", conteudo: enviado, url_midia: null, template_id: null, status_entrega: "enviando", whatsapp_message_id: null, enviado_por: usuarioId, enviado_por_ia: false, lida_em: null, criado_em: new Date().toISOString() }]);
+    setTexto("");
     startTransition(async () => {
       const result = await enviarMensagemAction(formData);
       // Mandar mensagem manual pausa a IA (regra do backend) — mesmo se o
       // provedor recusou, a tentativa ficou registrada no histórico.
       setIaPausada(true);
-      router.refresh();
       if (!result.success) {
+        setLocais((l) => l.filter((m) => m.id !== idLocal));
         setErro(result.error);
-        return; // mantém o texto no campo para tentar de novo
+        setTexto((atual) => atual || enviado); // devolve o texto para tentar de novo
+        return;
       }
-      setTexto((atual) => (atual === enviado ? "" : atual));
+      setLocais((l) => [...l.filter((m) => m.id !== idLocal), result.data]);
     });
   }
 
@@ -290,43 +327,18 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
     });
   }
 
-  async function handleIniciarGravacao() {
-    setErro(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType });
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        handleEnviarAudioGravado(new Blob(chunksRef.current, { type: mimeType }));
-      };
-      mediaRecorderRef.current = recorder;
-      recorder.start();
-      setGravando(true);
-    } catch {
-      setErro("Não foi possível acessar o microfone — confira a permissão do navegador.");
-    }
-  }
-
-  function handlePararGravacao() {
-    mediaRecorderRef.current?.stop();
-    setGravando(false);
-  }
-
-  function handleEnviarAudioGravado(blob: Blob) {
+  function handleEnviarAudioGravado(blob: Blob, mimeType: string) {
     setEnviandoAudio(true);
     const formData = new FormData();
     formData.set("conversaId", conversa.id);
     formData.set("telefone", conversa.telefone);
-    formData.set("audio", blob, "audio.webm");
+    formData.set("audio", blob, /mp4|m4a/.test(mimeType) ? "audio.m4a" : /ogg/.test(mimeType) ? "audio.ogg" : "audio.webm");
     startTransition(async () => {
       const result = await enviarAudioAction(formData);
       setEnviandoAudio(false);
       setIaPausada(true);
-      router.refresh();
-      if (!result.success) setErro(result.error);
+      if (!result.success) return setErro(result.error);
+      setLocais((l) => [...l, result.data]);
     });
   }
 
@@ -517,12 +529,13 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
 
       <div className="border-t border-border bg-card">
         {erro && <p className="flex items-start gap-1.5 px-4 pt-2 text-xs text-danger" role="alert"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{erro}</p>}
-        {gravando && <p className="flex items-center gap-1.5 px-4 pt-2 text-xs text-danger"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger" />Gravando áudio… toque em parar para enviar</p>}
+        {dicaAudio && !gravando && <p className="px-4 pt-2 text-xs text-muted-foreground" role="status">{dicaAudio}</p>}
         {enviandoAudio && <p className="px-4 pt-2 text-xs text-muted-foreground">Enviando áudio…</p>}
 
         <AssistenteConversa
           conversaId={conversa.id}
           clienteId={conversa.cliente_id}
+          cardId={conversa.card_id}
           nomeCliente={conversa.cliente?.nome ?? ""}
           telefone={conversa.telefone}
           pareceEncerrada={pareceEncerrada}
@@ -548,6 +561,15 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
           <Button type="button" variant="ghost" size="icon" className="hidden md:inline-flex" onClick={() => inputFotoRef.current?.click()} aria-label="Enviar foto do computador" title="Enviar foto do computador">
             <Paperclip className="h-4 w-4 text-muted-foreground" />
           </Button>
+          {gravando && (
+            <div className={cn("flex min-h-10 flex-1 items-center gap-2 rounded-3xl border px-4 py-2 text-sm", cancelarAoSoltar ? "border-danger/40 bg-danger-soft text-danger" : "border-input bg-background")} role="status">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-danger" aria-hidden />
+              <span className="tabular-nums">{String(Math.floor(gravador.segundos / 60))}:{String(gravador.segundos % 60).padStart(2, "0")}</span>
+              <span className="flex-1 truncate text-xs text-muted-foreground md:hidden">{cancelarAoSoltar ? "Solte para cancelar" : "‹ deslize para cancelar · solte para enviar"}</span>
+              <button type="button" onClick={() => gravador.parar(false)} className="hidden text-xs font-medium text-muted-foreground hover:text-foreground md:inline">Cancelar</button>
+              <span className="hidden flex-1 md:block" />
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             value={texto}
@@ -562,23 +584,47 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
             title="Enter envia · Shift+Enter quebra a linha"
             aria-label="Mensagem"
             rows={1}
-            className="max-h-40 min-h-10 flex-1 resize-none rounded-3xl border border-input bg-background px-4 py-2.5 text-sm leading-snug outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className={cn("max-h-40 min-h-10 flex-1 resize-none rounded-3xl border border-input bg-background px-4 py-2.5 text-sm leading-snug outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring", gravando && "hidden")}
           />
           {/* Como no WhatsApp: câmera e microfone à direita; ao digitar, o microfone vira "enviar". */}
-          <Button type="button" variant="ghost" size="icon" className={cn("md:hidden", texto.trim() && "hidden")} onClick={() => inputCameraRef.current?.click()} aria-label="Tirar foto e enviar">
+          <Button type="button" variant="ghost" size="icon" className={cn("md:hidden", (texto.trim() || gravando) && "hidden")} onClick={() => inputCameraRef.current?.click()} aria-label="Tirar foto e enviar">
             <Camera className="h-5 w-5 text-muted-foreground" />
           </Button>
           <Button
             type="button"
             variant={gravando ? "destructive" : "default"}
             size="icon"
-            className={cn("rounded-full", texto.trim() && !gravando && "max-md:hidden", !gravando && "md:bg-transparent md:text-muted-foreground md:hover:bg-secondary")}
-            onClick={gravando ? handlePararGravacao : handleIniciarGravacao}
+            className={cn(
+              "touch-none select-none rounded-full [-webkit-touch-callout:none]",
+              texto.trim() && !gravando && "max-md:hidden",
+              !gravando && "md:bg-transparent md:text-muted-foreground md:hover:bg-secondary",
+            )}
+            onContextMenu={(e) => e.preventDefault()}
+            onPointerDown={(e) => {
+              ultimoPonteiro.current = e.pointerType;
+              if (e.pointerType === "mouse" || enviandoAudio) return;
+              e.preventDefault();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              toqueInicioX.current = e.clientX;
+              void comecarGravacao();
+            }}
+            onPointerMove={(e) => {
+              if (e.pointerType === "mouse" || toqueInicioX.current === null) return;
+              setCancelarAoSoltar(toqueInicioX.current - e.clientX > 80);
+            }}
+            onPointerUp={(e) => { if (e.pointerType !== "mouse") soltarGravacao(); }}
+            onPointerCancel={(e) => { if (e.pointerType !== "mouse") { gravador.parar(false); setCancelarAoSoltar(false); toqueInicioX.current = null; } }}
+            onClick={(e) => {
+              // Mouse: clique começa, clique de novo envia. Toque é tratado nos eventos acima.
+              // (o Safari nem sempre diz o tipo no clique: usa o que veio no pointerdown)
+              if (ultimoPonteiro.current !== "mouse") return;
+              if (gravando) gravador.parar(true); else void comecarGravacao();
+            }}
             disabled={enviandoAudio}
-            aria-label={gravando ? "Parar e enviar áudio" : "Gravar áudio"}
-            title={gravando ? "Parar e enviar" : "Gravar áudio"}
+            aria-label={gravando ? "Solte (ou clique) para enviar o áudio" : "Segure para gravar áudio"}
+            title={gravando ? "Enviar áudio" : "Segure para gravar (no computador: clique)"}
           >
-            {gravando ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            {gravando ? <Send className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </Button>
           <Button type="button" size="icon" className={cn("rounded-full", !texto.trim() && "max-md:hidden")} onClick={handleEnviar} disabled={isPending || !texto.trim()} aria-label="Enviar mensagem">
             {isPending && !enviandoAudio ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

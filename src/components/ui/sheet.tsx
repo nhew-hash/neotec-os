@@ -49,8 +49,12 @@ const SheetContent = React.forwardRef<
   <SheetPortal>
     <SheetOverlay />
     <DialogPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+      {/* App instalado no iPhone ocupa a tela toda: painel lateral começa abaixo do relógio
+          (antes o título ficava embaixo da barra de status e aparecia embaçado). */}
+      {side !== "bottom" && <div aria-hidden className="h-[env(safe-area-inset-top)] shrink-0" />}
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100">
+      {side === "bottom" && <div aria-hidden className="h-[env(safe-area-inset-bottom)] shrink-0" />}
+      <DialogPrimitive.Close className={cn("absolute right-4 rounded-sm opacity-70 transition-opacity hover:opacity-100", side === "bottom" ? "top-4" : "top-[calc(1rem+env(safe-area-inset-top))]")}>
         <X className="h-4 w-4" />
         <span className="sr-only">Fechar</span>
       </DialogPrimitive.Close>

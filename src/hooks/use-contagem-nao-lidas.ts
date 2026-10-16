@@ -29,14 +29,19 @@ export function useContagemNaoLidas(inicial: number) {
       if (!error && count != null) setContagem(count);
     }
 
+    // Uma mensagem nova mexe na conversa várias vezes seguidas (não lidas,
+    // última mensagem, responsável…): reconta uma vez só, 400 ms depois.
+    let espera: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel(`badge-nao-lidas-${idCanal}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_conversas" }, () => {
-        void recontar();
+        if (espera) clearTimeout(espera);
+        espera = setTimeout(() => void recontar(), 400);
       })
       .subscribe();
 
     return () => {
+      if (espera) clearTimeout(espera);
       supabase.removeChannel(channel);
     };
   }, [idCanal]);

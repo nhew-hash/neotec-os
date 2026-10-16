@@ -110,7 +110,12 @@ export async function middleware(request: NextRequest) {
   // TELA vazia/quebrada é confusa — aqui já barra antes).
   // ======================================================
 
-  if (session && !isPublicRoute) {
+  // O redirecionamento por cargo só faz sentido ao ABRIR uma página. Ações do
+  // servidor (ex.: enviar mensagem, POST) não precisam dele — pular economiza
+  // uma ida ao banco em série em cada envio (cada ação já confere o cargo por
+  // conta própria e a RLS continua valendo). Pré-carregamento continua checando.
+  const abrindoPagina = request.method === "GET" && !request.headers.get("next-action");
+  if (session && !isPublicRoute && abrindoPagina) {
     const { data: perfil } = await supabase
       .from("usuarios")
       .select("cargo")

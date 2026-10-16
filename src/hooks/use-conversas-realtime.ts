@@ -38,6 +38,9 @@ export function useConversasRealtime(iniciais: ConversaComCliente[]) {
         (payload) => {
           if (payload.eventType === "DELETE") return;
           const atualizada = payload.new as WhatsappConversa;
+          // Grupo, canal e lista de transmissão não entram na lista (igual ao carregamento inicial).
+          const jid = (atualizada as { jid_envio?: string | null }).jid_envio ?? "";
+          if (/@(g\.us|newsletter|broadcast)$/.test(jid)) return;
 
           // A automação vincula o cliente DEPOIS de criar a conversa: sem buscar
           // o nome aqui, a conversa ficava mostrando só o telefone até um F5.

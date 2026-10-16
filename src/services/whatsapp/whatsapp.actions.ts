@@ -2,11 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { enviarMensagem, marcarConversaComoLida, enviarMensagemComMidia, exigirEnvioConfirmado, listarMensagens, listarConversas, type ConversaComCliente } from "./whatsapp.service";
+import { enviarMensagem, marcarConversaComoLida, enviarMensagemComMidia, exigirEnvioConfirmado, listarMensagens, listarConversas, type ConversaComCliente, type MensagemEnviada } from "./whatsapp.service";
 import { uploadMidiaWhatsapp } from "./whatsapp-midia.service";
 import type { ActionResult, StatusConversaWhatsapp, WhatsappMensagem } from "@/types";
 
-export async function enviarMensagemAction(formData: FormData): Promise<ActionResult> {
+/** A tela recebe a mensagem gravada (sem o campo interno de falha). */
+function semMotivo(msg: MensagemEnviada): WhatsappMensagem {
+  const { motivoFalha: _ignorado, ...mensagem } = msg;
+  void _ignorado;
+  return mensagem;
+}
+
+export async function enviarMensagemAction(formData: FormData): Promise<ActionResult<WhatsappMensagem>> {
   const conversaId = String(formData.get("conversaId") ?? "");
   const telefone = String(formData.get("telefone") ?? "");
   const texto = String(formData.get("texto") ?? "").trim();
@@ -19,12 +26,14 @@ export async function enviarMensagemAction(formData: FormData): Promise<ActionRe
     if (!user) return { success: false, error: "Sessão expirada" };
 
     const msg = await enviarMensagem({ conversaId, telefone, texto, usuarioId: user.id });
-    revalidatePath("/comunicacao");
+    // Sem revalidatePath: recarregar /comunicacao refazia a lista inteira de
+    // conversas e o painel do cliente a cada mensagem (lento). A mensagem volta
+    // aqui e entra na tela na hora; o resto chega pelo tempo real.
     // A mensagem fica no histórico de qualquer jeito, mas a tela só diz
     // "enviado" quando o provedor confirmou (antes retornava sucesso mesmo
     // com o provedor recusando — a pessoa achava que o cliente recebeu).
     exigirEnvioConfirmado(msg);
-    return { success: true, data: undefined };
+    return { success: true, data: semMotivo(msg) };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao enviar mensagem" };
   }
@@ -54,14 +63,13 @@ export async function alternarIAPausadaAction(conversaId: string, pausar: boolea
     const supabase = await createClient();
     const { error } = await supabase.from("whatsapp_conversas").update({ ia_pausada: pausar }).eq("id", conversaId);
     if (error) throw new Error(error.message);
-    revalidatePath("/comunicacao");
     return { success: true, data: undefined };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao atualizar a IA" };
   }
 }
 
-export async function enviarAudioAction(formData: FormData): Promise<ActionResult> {
+export async function enviarAudioAction(formData: FormData): Promise<ActionResult<WhatsappMensagem>> {
   const conversaId = String(formData.get("conversaId") ?? "");
   const telefone = String(formData.get("telefone") ?? "");
   const arquivo = formData.get("audio") as File | null;
@@ -84,16 +92,15 @@ export async function enviarAudioAction(formData: FormData): Promise<ActionResul
       conversaId, telefone, caminhoMidia: caminho, mimeType: arquivo.type || "audio/ogg", usuarioId: user.id,
     });
 
-    revalidatePath("/comunicacao");
     exigirEnvioConfirmado(msg);
-    return { success: true, data: undefined };
+    return { success: true, data: semMotivo(msg) };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao enviar áudio" };
   }
 }
 
 /** Foto tirada na hora (câmera) ou escolhida no aparelho — vai para o cliente pela conversa. */
-export async function enviarFotoAction(formData: FormData): Promise<ActionResult> {
+export async function enviarFotoAction(formData: FormData): Promise<ActionResult<WhatsappMensagem>> {
   const conversaId = String(formData.get("conversaId") ?? "");
   const telefone = String(formData.get("telefone") ?? "");
   const legenda = String(formData.get("legenda") ?? "").slice(0, 1000);
@@ -116,15 +123,14 @@ export async function enviarFotoAction(formData: FormData): Promise<ActionResult
       conversaId, telefone, caminhoMidia: caminho, mimeType: arquivo.type, usuarioId: user.id, tipo: "imagem", legenda,
     });
 
-    revalidatePath("/comunicacao");
     exigirEnvioConfirmado(msg);
-    return { success: true, data: undefined };
+    return { success: true, data: semMotivo(msg) };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao enviar foto" };
   }
 }
 
-export async function enviarFotoCatalogoAction(conversaId: string, telefone: string, urlFoto: string, legenda?: string): Promise<ActionResult> {
+export async function enviarFotoCatalogoAction(conversaId: string, telefone: string, urlFoto: string, legenda?: string): Promise<ActionResult<WhatsappMensagem>> {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -133,9 +139,8 @@ export async function enviarFotoCatalogoAction(conversaId: string, telefone: str
     const { enviarFotoCatalogo } = await import("./whatsapp.service");
     const msg = await enviarFotoCatalogo({ conversaId, telefone, urlFoto, legenda, usuarioId: user.id });
 
-    revalidatePath("/comunicacao");
     exigirEnvioConfirmado(msg);
-    return { success: true, data: undefined };
+    return { success: true, data: semMotivo(msg) };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao enviar foto" };
   }
