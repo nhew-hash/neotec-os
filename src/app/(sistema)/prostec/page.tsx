@@ -22,7 +22,7 @@ export default async function ProstecPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Rocket className="h-5 w-5 text-primary" />
           <div>
@@ -30,7 +30,7 @@ export default async function ProstecPage() {
             <p className="text-sm text-muted-foreground">Prospecção B2B — vendas de site</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/prostec/captacao" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Radar className="h-3.5 w-3.5" />Captação</Link>
           <Link href="/prostec/empresas" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Building2 className="h-3.5 w-3.5" />Empresas</Link>
           <Link href="/prostec/inbox" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><MessageCircle className="h-3.5 w-3.5" />Inbox</Link>

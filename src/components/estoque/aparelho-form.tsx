@@ -202,7 +202,7 @@ export function AparelhoForm({ produtos: produtosIniciais, investidores }: { pro
             <FormField control={form.control} name="pecas_substituidas" render={({ field }) => (
               <FormItem>
                 <FormLabel>Peças substituídas</FormLabel>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
                   {[
                     { valor: "tela", label: "Tela" },
                     { valor: "bateria", label: "Bateria" },

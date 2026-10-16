@@ -106,7 +106,7 @@ export default async function MinhaRotinaPage() {
               <h1 id="agora" className="font-display text-2xl font-semibold tracking-tight md:text-3xl">{acao.titulo}</h1>
               <p className="mt-1 text-sm text-muted-foreground">{acao.detalhe}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Link href={acao.href} className={buttonVariants({ size: "lg" })}>{acao.rotulo}<ArrowRight className="ml-2 h-4 w-4" aria-hidden /></Link>
               <Link href="/central-comercial/atendimento" className={buttonVariants({ variant: "outline", size: "lg" })}>Atender cliente</Link>
               {acao.tipo !== "em_dia" && <Link href="/vendas/pdv" className={buttonVariants({ variant: "outline", size: "lg" })}>PDV</Link>}

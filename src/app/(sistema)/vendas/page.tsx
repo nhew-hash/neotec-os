@@ -20,12 +20,12 @@ export default async function VendasPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold text-foreground">Vendas</h1>
           <p className="text-sm text-muted-foreground">{vendas.length} venda(s) · {orcamentos.length} orçamento(s)</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
             <Link href="/vendas/orcamentos/novo"><Plus className="h-4 w-4" />Novo orçamento</Link>
           </Button>

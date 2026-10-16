@@ -20,7 +20,7 @@ export default async function IndicacoesPage() {
             <Link key={ind.id} href={`/indicacoes/${ind.id}`}>
               <Card className="transition-shadow hover:shadow-card-hover">
                 <CardContent className="flex flex-col gap-2 p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="font-medium text-foreground">{ind.nome}</span>
                     {!ind.ativo && <span className="text-xs text-muted-foreground">Inativo</span>}
                   </div>

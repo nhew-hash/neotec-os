@@ -28,7 +28,7 @@ export default async function AutomacaoPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold text-foreground">Automation Engine</h1>
           <p className="text-sm text-muted-foreground">Regras SE/E/ENTÃO, nível de autonomia, kill switch e auditoria de decisões.</p>
@@ -38,7 +38,7 @@ export default async function AutomacaoPage() {
 
       <Card className={pausado ? "border-warning" : "border-success"}>
         <CardContent className="flex flex-col gap-3 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-foreground">{pausado ? "Automações PARADAS (kill switch ativo)" : "Automações ativas"}</p>
               <p className="text-xs text-muted-foreground">A análise continua funcionando mesmo com o kill switch ativo — só ações automáticas ficam bloqueadas.</p>
@@ -86,7 +86,7 @@ export default async function AutomacaoPage() {
         <CardContent className="flex flex-col gap-2">
           {decisoes.slice(0, 20).map((d) => (
             <div key={d.id} className="border-b border-border py-2 text-sm last:border-0">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="font-medium text-foreground">{d.tipo_decisao}</p>
                 <StatusBadge label={d.status} tone={d.status === "avaliado" ? "success" : d.status === "aguardando_avaliacao" ? "warning" : "neutral"} />
               </div>

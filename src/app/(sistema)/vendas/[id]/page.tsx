@@ -13,7 +13,7 @@ export default async function VendaDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold text-foreground">
             {venda.cliente?.nome ? `Venda para ${venda.cliente.nome}` : "Venda avulsa (balcão)"}

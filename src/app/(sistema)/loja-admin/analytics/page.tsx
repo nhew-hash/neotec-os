@@ -61,7 +61,7 @@ export default async function LojaAnalyticsPage() {
       </div>
 
       {/* 1. Resumo principal */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6 [&>*]:min-w-0">
         <OnlineAgoraCard valorInicial={resumo.onlineAgora} />
         <MetricaCard titulo="Visitantes" icon={Users} metrica={resumo.visitantes} />
         <MetricaCard titulo="Visualizações" icon={Eye} metrica={resumo.visualizacoes} />

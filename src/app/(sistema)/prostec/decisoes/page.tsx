@@ -29,7 +29,7 @@ export default async function DecisoesIaraPage() {
         <CardMetrica label="Escaladas p/ humano" valor={String(metricas.escaladasParaHumano)} />
       </div>
 
-      <div className="rounded-2xl border border-black/[0.06] bg-white shadow-sm">
+      <div className="rounded-2xl border border-black/[0.06] bg-white shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-black/[0.06] text-left text-[11px] uppercase tracking-wide text-muted-foreground">

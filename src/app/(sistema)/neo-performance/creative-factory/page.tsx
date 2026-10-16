@@ -26,7 +26,7 @@ export default async function CreativeFactoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold text-foreground">Creative Factory + Test Lab</h1>
           <p className="text-sm text-muted-foreground">Objetivo → Produto → Público → Hipótese → Hook → Roteiro → Copy → Teste → Resultado.</p>
@@ -44,7 +44,7 @@ export default async function CreativeFactoryPage() {
         <CardContent className="flex flex-col gap-3">
           {briefs.map((b) => (
             <div key={b.id} className="rounded-md border border-border p-3 text-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="font-medium text-foreground">{b.objetivo}</p>
                 <StatusBadge label={b.status} tone={b.status === "pronto" ? "success" : b.status === "em_teste" ? "info" : "neutral"} />
               </div>
@@ -68,7 +68,7 @@ export default async function CreativeFactoryPage() {
         <CardContent className="flex flex-col gap-3">
           {testes.map((t) => (
             <div key={t.id} className="rounded-md border border-border p-3 text-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="font-medium text-foreground">{t.hipotese}</p>
                 <StatusBadge
                   label={t.status}

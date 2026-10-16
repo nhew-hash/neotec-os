@@ -17,7 +17,7 @@ export function RodarDiagnosticoButton() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {mensagem && <span className="text-xs text-muted-foreground">{mensagem}</span>}
       <Button variant="outline" size="sm" onClick={handleClick} disabled={isPending}>
         {isPending ? "Analisando..." : "Rodar diagnóstico"}

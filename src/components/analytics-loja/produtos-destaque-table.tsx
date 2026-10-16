@@ -8,7 +8,7 @@ export function ProdutosDestaqueTable({ produtos }: { produtos: ProdutoDestaque[
       {produtos.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">Ainda sem dados suficientes — vai aparecer aqui conforme a loja recebe acessos.</p>
       ) : (
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead>
             <tr className="border-b border-black/[0.06] text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <th className="pb-2 font-medium">Produto</th>
@@ -27,7 +27,7 @@ export function ProdutosDestaqueTable({ produtos }: { produtos: ProdutoDestaque[
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
     </div>
   );

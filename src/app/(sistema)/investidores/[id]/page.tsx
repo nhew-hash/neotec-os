@@ -23,7 +23,7 @@ export default async function InvestidorDetailPage({ params }: { params: Promise
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-xl font-semibold text-foreground">{investidor.nome}</h1>
         <CriarAcessoButton tipo="investidor" registroId={id} temAcesso={!!acessoExistente} />
       </div>

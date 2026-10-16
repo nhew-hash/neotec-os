@@ -24,7 +24,7 @@ export default async function ContratoDetalhePage({ params }: { params: Promise<
         <ArrowLeft className="h-3.5 w-3.5" />Voltar pros contratos
       </Link>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold text-foreground">Contrato {contrato.numero}</h1>
           <p className="text-sm text-muted-foreground">{contrato.cliente?.nome} · {LABEL_STATUS[contrato.status] ?? contrato.status}</p>

@@ -20,9 +20,9 @@ export default async function LojaAdminLayout({ children }: { children: ReactNod
   if (!perfil || !["admin", "gerente"].includes(perfil.cargo)) redirect("/dashboard");
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] gap-6">
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col gap-4 md:flex-row md:gap-6">
       <CentralLojaSidebar />
-      <div className="flex-1 pb-8">{children}</div>
+      <div className="min-w-0 flex-1 pb-8">{children}</div>
     </div>
   );
 }

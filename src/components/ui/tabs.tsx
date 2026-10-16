@@ -13,7 +13,8 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center gap-1 rounded-md bg-secondary p-1 text-secondary-foreground",
+      // max-w-full + rolagem: no celular as abas rolam dentro da barra em vez de empurrar a tela para o lado.
+      "neotec-scroll-x inline-flex h-10 max-w-full items-center justify-start gap-1 overflow-x-auto rounded-md bg-secondary p-1 text-secondary-foreground",
       className
     )}
     {...props}
@@ -28,7 +29,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+      "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
       className
     )}
     {...props}

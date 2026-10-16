@@ -23,7 +23,7 @@ export default async function OportunidadesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold text-foreground">Central de Oportunidades</h1>
           <p className="text-sm text-muted-foreground">Cruza diagnósticos, estoque e margem pra sugerir onde investir.</p>
@@ -39,7 +39,7 @@ export default async function OportunidadesPage() {
         <CardContent className="flex flex-col gap-3">
           {oportunidades.map((o) => (
             <div key={o.id} className="rounded-md border border-border p-3 text-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="font-medium text-foreground">{o.titulo}</p>
                 <StatusBadge label={o.status} tone={TONE_POR_STATUS[o.status]} />
               </div>

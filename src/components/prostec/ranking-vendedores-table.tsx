@@ -16,7 +16,7 @@ interface RankingVendedor {
 
 export function RankingVendedoresTable({ ranking }: { ranking: RankingVendedor[] }) {
   return (
-    <div className="rounded-2xl border border-black/[0.06] bg-white shadow-sm">
+    <div className="rounded-2xl border border-black/[0.06] bg-white shadow-sm overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-black/[0.06] text-left text-[11px] uppercase tracking-wide text-muted-foreground">

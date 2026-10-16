@@ -59,7 +59,7 @@ export default async function DispositivoNeoLocPage({ params }: { params: Promis
           <div className="flex flex-col divide-y divide-black/[0.04]">
             {comandos.map((c) => (
               <div key={c.id} className="p-3 text-sm">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <span className="font-medium text-foreground">{c.tipo}</span>
                   <span className="text-xs text-muted-foreground">{LABEL_STATUS_COMANDO[c.status] ?? c.status}</span>
                 </div>
@@ -78,7 +78,7 @@ export default async function DispositivoNeoLocPage({ params }: { params: Promis
               const usuario = e.usuario as unknown as { nome: string } | null;
               return (
                 <div key={e.id} className="p-3 text-sm">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="font-medium text-foreground">{e.tipo}</span>
                     <span className="text-xs text-muted-foreground">{formatDateTime(e.created_at)}</span>
                   </div>

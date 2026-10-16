@@ -12,7 +12,7 @@ export default async function CrediarioDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <CreditCard className="h-5 w-5 text-primary" />
           <div>
@@ -20,7 +20,7 @@ export default async function CrediarioDashboardPage() {
             <p className="text-sm text-muted-foreground">Locação de aparelhos com opção de aquisição</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/crediario/fiadores" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><Users className="h-3.5 w-3.5" />Fiadores</Link>
           <Link href="/crediario/pre-analises" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><ClipboardList className="h-3.5 w-3.5" />Pré-análises</Link>
           <Link href="/crediario/risco" className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"><TrendingUp className="h-3.5 w-3.5" />Risco</Link>
@@ -43,7 +43,7 @@ export default async function CrediarioDashboardPage() {
         <div className="border-b border-black/[0.06] p-3">
           <h2 className="text-sm font-semibold text-foreground">Propostas recentes</h2>
         </div>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead>
             <tr className="border-b border-black/[0.06] text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <th className="p-3 font-medium">Cliente</th>
@@ -64,7 +64,7 @@ export default async function CrediarioDashboardPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         {propostas.length === 0 && <p className="py-10 text-center text-xs text-muted-foreground">Nenhuma proposta criada ainda.</p>}
       </div>
     </div>

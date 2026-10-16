@@ -44,7 +44,21 @@ export function CentralLojaSidebar() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex w-64 shrink-0 flex-col gap-4 border-r border-border p-3">
+    <>
+    {/* Celular: o menu vira uma faixa de atalhos que rola para o lado (antes a coluna de 256px empurrava a tela). */}
+    <nav aria-label="Central da Loja" className="neotec-scroll-x -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 md:hidden">
+      {MENU_INTERNO.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          aria-current={pathname === item.href ? "page" : undefined}
+          className={cn("flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm", pathname === item.href ? "bg-foreground text-background" : "bg-secondary text-foreground")}
+        >
+          <item.icon className="h-3.5 w-3.5" aria-hidden />{item.label}
+        </Link>
+      ))}
+    </nav>
+    <nav className="hidden w-64 shrink-0 flex-col gap-4 border-r border-border p-3 md:flex">
       <div className="flex flex-col gap-0.5">
         <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Central da Loja</p>
         {MENU_INTERNO.map((item) => {
@@ -81,5 +95,6 @@ export function CentralLojaSidebar() {
         ))}
       </div>
     </nav>
+    </>
   );
 }

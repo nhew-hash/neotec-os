@@ -22,7 +22,7 @@ export default async function PreAnaliseDetalhePage({ params }: { params: Promis
         <ArrowLeft className="h-3.5 w-3.5" />Voltar pras pré-análises
       </Link>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold text-foreground">{pre.nome}</h1>
           <p className="text-sm text-muted-foreground">{pre.whatsapp} · Recebido em {formatDateTime(pre.created_at)}</p>

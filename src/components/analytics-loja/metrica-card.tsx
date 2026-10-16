@@ -14,12 +14,12 @@ interface MetricaCardProps {
 /** Card de "Hoje / Semana / Mês" com variação — usado pros 6 cards do topo do Analytics de Loja. */
 export function MetricaCard({ titulo, icon: Icon, metrica, formatador = (v) => String(v), destaque }: MetricaCardProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-white p-4 shadow-sm">
+    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-black/[0.06] bg-white p-3 shadow-sm sm:p-4">
       <div className="flex items-center gap-2">
         <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", destaque === "success" ? "bg-success/10 text-success" : "bg-primary/10 text-primary")}>
           <Icon className="h-4 w-4" />
         </div>
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</span>
+        <span className="min-w-0 truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</span>
       </div>
 
       <div className="flex flex-col gap-1.5">

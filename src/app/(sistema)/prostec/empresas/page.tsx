@@ -7,7 +7,7 @@ export default async function EmpresasProstecPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold text-foreground">Empresas prospectadas</h1>
           <p className="text-sm text-muted-foreground">{empresas.length} empresa(s) no total</p>
@@ -16,7 +16,7 @@ export default async function EmpresasProstecPage() {
 
       <NovaEmpresaForm />
 
-      <div className="rounded-2xl border border-black/[0.06] bg-white shadow-sm">
+      <div className="rounded-2xl border border-black/[0.06] bg-white shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-black/[0.06] text-left text-[11px] uppercase tracking-wide text-muted-foreground">

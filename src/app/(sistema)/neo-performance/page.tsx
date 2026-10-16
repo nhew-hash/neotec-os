@@ -36,12 +36,12 @@ export default async function NeoPerformancePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-xl font-semibold text-foreground">NEO Performance</h1>
           <p className="text-sm text-muted-foreground">Fase 1 — fundação, atribuição e cérebro analítico. Últimos 30 dias.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <RodarDiagnosticoButton />
           <Link href="/neo-performance/configuracoes"><Button variant="outline" size="sm">Configurações</Button></Link>
         </div>

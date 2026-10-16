@@ -108,9 +108,9 @@ export function HomeSecoesPanel({ secoes: secoesIniciais }: { secoes: HomeSecao[
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle>Seções da Home</CardTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={novoTipo} onValueChange={(v) => setNovoTipo(v as TipoSecaoHome)}>
             <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
