@@ -9,6 +9,7 @@ import { RadixOverlaySafetyNet } from "@/components/layout/radix-overlay-safety-
 import { contarConversasNaoLidas } from "@/services/whatsapp/whatsapp.service";
 import { RegistrarApp } from "@/components/celular/registrar-app";
 import { OcultarEmTelaCheia } from "@/components/layout/ocultar-em-tela-cheia";
+import { AvisoSonoroMensagens } from "@/components/layout/aviso-sonoro-mensagens";
 import { METADATA_APP, VIEWPORT_APP } from "@/lib/pwa/metadata";
 import { AvisoAppCelular } from "@/components/celular/aviso-app-celular";
 import type { ReactNode } from "react";
@@ -64,6 +65,7 @@ export default async function SistemaLayout({ children }: { children: ReactNode 
       <OcultarEmTelaCheia><BottomNav cargo={perfil.cargo} naoLidasInicial={naoLidasInicial} /></OcultarEmTelaCheia>
       <RadixOverlaySafetyNet />
       <RegistrarApp />
+      <AvisoSonoroMensagens />
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { tocarSomNotificacao } from "@/hooks/use-preferencias-notificacao";
 import type { WhatsappConversa, WhatsappMensagem } from "@/types";
 import type { ConversaComCliente } from "@/services/whatsapp/whatsapp.service";
 
@@ -76,21 +75,18 @@ export function useConversasRealtime(iniciais: ConversaComCliente[]) {
 
           // Lê a preferência aqui (não via hook, pra não criar dependência
           // circular de outro hook dentro deste) — mesma chave de storage.
-          let somAtivo = true;
           let notificacaoDesktopAtiva = true;
           try {
             const salvo = localStorage.getItem("neotec-preferencias-notificacao");
             if (salvo) {
               const preferencias = JSON.parse(salvo);
-              somAtivo = preferencias.somAtivo ?? true;
               notificacaoDesktopAtiva = preferencias.notificacaoDesktopAtiva ?? true;
             }
           } catch {
             // segue com os padrões
           }
 
-          if (somAtivo) tocarSomNotificacao();
-
+          // O som toca em qualquer tela do sistema (AvisoSonoroMensagens no layout).
           if (document.visibilityState === "visible") return;
           if (!notificacaoDesktopAtiva) return;
           if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -99,10 +95,13 @@ export function useConversasRealtime(iniciais: ConversaComCliente[]) {
           const conversa = conversasRef.current.find((c) => c.id === mensagem.conversa_id);
           const nomeExibicao = conversa?.cliente?.nome ?? "Novo contato";
 
-          new Notification(`${nomeExibicao} — Neotec OS`, {
-            body: mensagem.conteudo ?? "Nova mensagem",
-            icon: "/favicon.ico",
-          });
+          // Aparelho com notificação do app (Web Push) já recebe o aviso do servidor: não duplica.
+          const mostrar = () => new Notification(`${nomeExibicao} — Neotec OS`, { body: mensagem.conteudo ?? "Nova mensagem", icon: "/icons/icon-192.png" });
+          if (!("serviceWorker" in navigator)) return void mostrar();
+          navigator.serviceWorker.getRegistration("/")
+            .then((reg) => (reg ? reg.pushManager.getSubscription() : null))
+            .then((sub) => { if (!sub) mostrar(); })
+            .catch(() => mostrar());
         }
       )
       .subscribe();

@@ -55,8 +55,48 @@ export function usePreferenciasNotificacao() {
   return { preferencias, atualizar, carregado };
 }
 
-/** Toca o som de notificação — um beep curto sintetizado via Web Audio, sem precisar de arquivo de áudio externo. */
+let audio: HTMLAudioElement | null = null;
+let liberado = false;
+
+function obterAudio(): HTMLAudioElement {
+  if (!audio) {
+    audio = new Audio("/sons/notificacao.mp3");
+    audio.preload = "auto";
+  }
+  return audio;
+}
+
+/**
+ * iPhone/Safari só deixa tocar som depois de um toque da pessoa na página.
+ * No primeiro toque, o áudio é "destravado" (toca mudo e para) — daí em diante
+ * o aviso de mensagem nova toca normalmente com o app aberto.
+ */
+function liberarNoPrimeiroToque() {
+  if (liberado || typeof window === "undefined") return;
+  const liberar = () => {
+    const a = obterAudio();
+    a.muted = true;
+    a.play()
+      .then(() => { a.pause(); a.currentTime = 0; a.muted = false; liberado = true; window.removeEventListener("pointerdown", liberar); })
+      .catch(() => { a.muted = false; /* tenta de novo no próximo toque */ });
+  };
+  window.addEventListener("pointerdown", liberar, { passive: true });
+}
+if (typeof window !== "undefined") liberarNoPrimeiroToque();
+
+/** Toca o som de notificação de mensagem nova (com o app aberto). Se o navegador bloquear o arquivo, cai no bipe curto. */
 export function tocarSomNotificacao() {
+  try {
+    const a = obterAudio();
+    a.currentTime = 0;
+    a.play().catch(() => tocarBipe());
+  } catch {
+    tocarBipe();
+  }
+}
+
+/** Bipe sintetizado via Web Audio — reserva quando o arquivo de som não pode tocar. */
+function tocarBipe() {
   try {
     const AudioContextClasse = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     const contexto = new AudioContextClasse();

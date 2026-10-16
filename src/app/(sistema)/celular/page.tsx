@@ -3,6 +3,7 @@ import { Camera, ScanLine } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AtivarNotificacoes } from "@/components/celular/ativar-notificacoes";
+import { SomMensagem } from "@/components/celular/som-mensagem";
 import { listarCapturasPendentesAction } from "@/services/celular/celular.actions";
 import { ROTULO_CONTEXTO } from "@/services/celular/captura";
 import { formatDateTime } from "@/utils";
@@ -43,6 +44,11 @@ export default async function CelularPage() {
       <Card>
         <CardHeader><CardTitle>Notificações neste aparelho</CardTitle></CardHeader>
         <CardContent><AtivarNotificacoes /></CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Som</CardTitle></CardHeader>
+        <CardContent><SomMensagem /></CardContent>
       </Card>
     </div>
   );
