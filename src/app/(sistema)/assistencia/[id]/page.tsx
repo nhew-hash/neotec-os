@@ -17,8 +17,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, formatWhatsapp } from "@/utils";
 import { FotosPeloCelular } from "@/components/celular/fotos-pelo-celular";
 
-export default async function OSDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function OSDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ fotos?: string }> }) {
   const { id } = await params;
+  const recemAberta = (await searchParams).fotos === "1";
   const os = await buscarOSPorId(id);
   if (!os) notFound();
 
@@ -70,6 +71,16 @@ export default async function OSDetailPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         {/* Coluna principal — a "história" do reparo, na ordem em que acontece */}
         <div className="flex flex-col gap-6">
+          <Card className={recemAberta ? "ring-2 ring-primary/40" : undefined}>
+            <CardHeader>
+              <CardTitle>Fotos e IMEI do aparelho</CardTitle>
+              {recemAberta && <p className="text-sm text-muted-foreground">OS aberta. Agora registre o aparelho: toque em “Tirar fotos pelo celular” e o seu celular abre a câmera.</p>}
+            </CardHeader>
+            <CardContent>
+              <FotosPeloCelular contextoTipo="os" contextoId={os.id} rotulo={`${os.numero_os}${os.aparelho_descricao ? ` · ${os.aparelho_descricao}` : ""}`} lerImei />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader><CardTitle>Relato e diagnóstico</CardTitle></CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -124,10 +135,6 @@ export default async function OSDetailPage({ params }: { params: Promise<{ id: s
               <div className="flex items-center gap-2 text-foreground">
                 <Smartphone className="h-4 w-4 text-muted-foreground" />
                 {os.aparelho_descricao ?? "Não informado"}
-              </div>
-              <div className="border-t border-border pt-3">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Fotos do aparelho</p>
-                <FotosPeloCelular contextoTipo="os" contextoId={os.id} rotulo={`${os.numero_os}${os.aparelho_descricao ? ` · ${os.aparelho_descricao}` : ""}`} lerImei />
               </div>
             </CardContent>
           </Card>

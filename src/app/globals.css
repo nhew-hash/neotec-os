@@ -110,6 +110,23 @@
   body {
     @apply bg-app text-foreground antialiased;
   }
+  /* Celular: toque duplo não dá zoom (pinça continua funcionando) e some o
+     atraso do toque — a tela fica estável ao tocar rápido em botões. */
+  html {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
+/* iPhone dá zoom sozinho ao focar campo com letra menor que 16px (e não volta).
+   Em telas de toque, todo campo usa 16px. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* Padrão sutil de linhas técnicas para a tela de login — a única "assinatura"

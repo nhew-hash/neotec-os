@@ -8,17 +8,15 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { RadixOverlaySafetyNet } from "@/components/layout/radix-overlay-safety-net";
 import { contarConversasNaoLidas } from "@/services/whatsapp/whatsapp.service";
 import { RegistrarApp } from "@/components/celular/registrar-app";
-import type { Metadata, Viewport } from "next";
+import { OcultarEmTelaCheia } from "@/components/layout/ocultar-em-tela-cheia";
+import { METADATA_APP, VIEWPORT_APP } from "@/lib/pwa/metadata";
+import { AvisoAppCelular } from "@/components/celular/aviso-app-celular";
 import type { ReactNode } from "react";
 import type { CargoUsuario } from "@/types";
 
 // App instalável no celular (PWA): só o sistema, não a loja pública.
-export const metadata: Metadata = {
-  manifest: "/neotec-os.webmanifest",
-  appleWebApp: { capable: true, title: "Neotec OS", statusBarStyle: "black-translucent" },
-  icons: { apple: "/icons/apple-touch-icon.png" },
-};
-export const viewport: Viewport = { themeColor: "#0a0a0a" };
+export const metadata = METADATA_APP;
+export const viewport = VIEWPORT_APP;
 
 /**
  * Todas as rotas dentro de (sistema) exigem usuário autenticado E com
@@ -60,10 +58,10 @@ export default async function SistemaLayout({ children }: { children: ReactNode 
       </a>
       <Sidebar cargo={perfil.cargo} naoLidasInicial={naoLidasInicial} recolhidaInicial={sidebarRecolhida} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar usuario={perfil} naoLidasInicial={naoLidasInicial} />
-        <main id="conteudo" className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-10">{children}</main>
+        <OcultarEmTelaCheia><Topbar usuario={perfil} naoLidasInicial={naoLidasInicial} /></OcultarEmTelaCheia>
+        <main id="conteudo" className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-10"><AvisoAppCelular />{children}</main>
       </div>
-      <BottomNav cargo={perfil.cargo} naoLidasInicial={naoLidasInicial} />
+      <OcultarEmTelaCheia><BottomNav cargo={perfil.cargo} naoLidasInicial={naoLidasInicial} /></OcultarEmTelaCheia>
       <RadixOverlaySafetyNet />
       <RegistrarApp />
     </div>

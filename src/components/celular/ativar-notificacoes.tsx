@@ -38,17 +38,23 @@ export function AtivarNotificacoes() {
     setEstado({ carregando: false, suporte, endpoint: sub.endpoint, ativa: r.data.ativa, preferencias: r.data.preferencias });
   }
 
+  // Chave carregada antes: no iPhone o pedido de permissão precisa sair logo no
+  // toque — se esperar uma resposta do servidor antes, o iOS recusa sem perguntar.
+  const [chave, setChave] = useState<string | null>(null);
+  useEffect(() => {
+    obterChavePublicaAction().then((r) => (r.success ? setChave(r.data) : setErro(r.error)));
+  }, []);
+
   useEffect(() => {
     recarregar().catch((err) => { setErro(err instanceof Error ? err.message : "Não foi possível ler as notificações."); setEstado({ carregando: false, suporte: suportePush(), endpoint: null, ativa: false, preferencias: { mensagens: true, retornos: true, aprovacoes: true } }); });
   }, []);
 
   function ativar() {
     setErro(null); setOk(null);
+    if (!chave) return setErro("Ainda preparando… tente de novo em 1 segundo.");
     start(async () => {
       try {
-        const chave = await obterChavePublicaAction();
-        if (!chave.success) return setErro(chave.error);
-        const sub = await inscrever(chave.data);
+        const sub = await inscrever(chave);
         const r = await salvarInscricaoAction(serializar(sub));
         if (!r.success) return setErro(r.error);
         await recarregar();

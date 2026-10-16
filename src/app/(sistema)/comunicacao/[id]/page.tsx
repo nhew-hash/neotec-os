@@ -15,11 +15,9 @@ export default async function ConversaPage({ params }: { params: Promise<{ id: s
   const [{ mensagens, temMais }, resumoCliente] = await Promise.all([
     listarMensagens(id),
     obterResumoClienteAtendimento(conversa.cliente_id, conversa.card_id),
-  ]);
-  if (conversa.nao_lidas > 0) {
     // Falhar ao zerar o contador não impede abrir a conversa.
-    await marcarConversaComoLida(id).catch((err) => console.error("Falha ao marcar conversa como lida:", err));
-  }
+    conversa.nao_lidas > 0 ? marcarConversaComoLida(id).catch((err) => console.error("Falha ao marcar conversa como lida:", err)) : null,
+  ]);
 
   return (
     <div className="flex h-full min-h-0">

@@ -72,7 +72,7 @@ export function OrdemServicoForm({ clientes, aparelhos, clienteIdInicial, indica
     startTransition(async () => {
       const result = await criarOSAction(formData);
       if (!result.success) return setErro(result.error);
-      router.push(`/assistencia/${result.data.id}`);
+      router.push(`/assistencia/${result.data.id}?fotos=1`);
       router.refresh();
     });
   }
@@ -265,6 +265,7 @@ export function OrdemServicoForm({ clientes, aparelhos, clienteIdInicial, indica
 
         {erro && <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">{erro}</p>}
 
+        <p className="text-xs text-muted-foreground">Ao abrir a OS, a próxima tela já mostra “Tirar fotos pelo celular” e “Ler IMEI pelo celular”.</p>
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={() => router.push("/assistencia")}>Cancelar</Button>
           <Button type="submit" disabled={isPending}>{isPending ? "Abrindo..." : "Abrir OS"}</Button>

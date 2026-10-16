@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registrarLog } from "./whatsapp.logs";
@@ -110,9 +111,12 @@ export async function listarMensagens(conversaId: string, params?: { antesDe?: s
 
 export async function marcarConversaComoLida(conversaId: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("whatsapp_conversas").update({ nao_lidas: 0 }).eq("id", conversaId);
+  const { data, error } = await supabase.from("whatsapp_conversas").update({ nao_lidas: 0 }).eq("id", conversaId).select("id");
   if (error) throw new Error(`Não foi possível marcar a conversa como lida: ${error.message}`);
-  await avisarLeituraAoWhatsapp(conversaId);
+  if (!data || data.length === 0) return; // sem acesso a esta conversa (RLS): não avisa nada
+  // O aviso ao WhatsApp passa pela Bridge (rede): roda depois da resposta para
+  // não segurar a abertura da conversa. A RLS já validou o acesso no update acima.
+  after(() => avisarLeituraAoWhatsapp(conversaId));
 }
 
 /**
@@ -123,7 +127,8 @@ export async function marcarConversaComoLida(conversaId: string): Promise<void> 
  */
 async function avisarLeituraAoWhatsapp(conversaId: string): Promise<void> {
   try {
-    const supabase = await createClient();
+    // Admin: roda em after(), fora do ciclo da requisição (sem cookies).
+    const supabase = createAdminClient();
     const { data: conversa } = await supabase.from("whatsapp_conversas").select("jid_envio").eq("id", conversaId).maybeSingle();
     const jid = conversa?.jid_envio;
     if (!jid || !/@(s\.whatsapp\.net|lid)$/.test(jid)) return; // só conversa individual
