@@ -14,7 +14,7 @@ export default async function ComunicacaoLayout({ children }: { children: ReactN
   const [{ data: { user } }, conversas] = await Promise.all([supabase.auth.getUser(), listarConversas()]);
 
   return (
-    <div className="-mx-4 -mb-24 -mt-4 md:-m-8">
+    <div className="-mx-4 -mt-4 mb-[calc(-6rem-env(safe-area-inset-bottom))] md:-m-8">
       <ComunicacaoShell
         lista={
           <Suspense>

@@ -60,7 +60,7 @@ export default async function SistemaLayout({ children }: { children: ReactNode 
       <Sidebar cargo={perfil.cargo} naoLidasInicial={naoLidasInicial} recolhidaInicial={sidebarRecolhida} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <OcultarEmTelaCheia><Topbar usuario={perfil} naoLidasInicial={naoLidasInicial} /></OcultarEmTelaCheia>
-        <main id="conteudo" className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-10"><AvisoAppCelular />{children}</main>
+        <main id="conteudo" className="flex-1 overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:p-8 md:pb-10"><AvisoAppCelular />{children}</main>
       </div>
       <OcultarEmTelaCheia><BottomNav cargo={perfil.cargo} naoLidasInicial={naoLidasInicial} /></OcultarEmTelaCheia>
       <RadixOverlaySafetyNet />

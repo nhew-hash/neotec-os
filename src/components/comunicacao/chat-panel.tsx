@@ -336,7 +336,7 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Cabeçalho: quem é, onde está no funil, quem atende, e as ações da conversa */}
-      <header className="flex items-center gap-2 border-b border-border bg-card px-3 py-2.5 md:px-4">
+      <header className="flex items-center gap-2 border-b border-border bg-card px-3 pb-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))] md:px-4 md:pt-2.5">
         <Link href="/comunicacao" className="-ml-1 flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary md:hidden" aria-label="Voltar às conversas">
           <ArrowLeft className="h-5 w-5" />
         </Link>
@@ -536,7 +536,7 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
           onAbrirCliente={() => setClienteAberto(true)}
         />
 
-        <div className="flex items-end gap-1 p-2 md:gap-2 md:p-3">
+        <div className="flex items-end gap-1 px-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 md:gap-2 md:p-3">
           {/* Celular: "+" abre as ferramentas (como o anexo do WhatsApp); emoji fica no teclado do aparelho. */}
           <Button type="button" variant="ghost" size="icon" className="md:hidden" onClick={() => setMenuAberto(true)} aria-label="Ferramentas: atender, proposta, troca, catálogo, respostas">
             <Plus className="h-5 w-5 text-muted-foreground" />

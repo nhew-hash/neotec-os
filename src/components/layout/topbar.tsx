@@ -23,7 +23,7 @@ export function Topbar({ usuario, naoLidasInicial }: TopbarProps) {
   const primeiroNome = usuario.nome.split(" ")[0];
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-card/80 px-4 backdrop-blur md:px-6">
+    <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 pt-[env(safe-area-inset-top)] md:px-6">
       <div className="flex min-w-0 items-center gap-2">
         <MobileNav cargo={usuario.cargo} naoLidasInicial={naoLidasInicial} />
         <TituloSecao saudacao={`${getSaudacao()}, ${primeiroNome}`} />

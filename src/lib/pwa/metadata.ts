@@ -8,4 +8,6 @@ export const METADATA_APP: Metadata = {
   // iOS ainda lê este nome antigo para abrir em tela cheia pelo ícone.
   other: { "apple-mobile-web-app-capable": "yes" },
 };
-export const VIEWPORT_APP: Viewport = { themeColor: "#0a0a0a" };
+// viewport-fit=cover: no iPhone sem botão, as barras usam env(safe-area-inset-*) para
+// não ficarem coladas na barrinha de baixo (indicador) nem atrás do relógio.
+export const VIEWPORT_APP: Viewport = { themeColor: "#ffffff", viewportFit: "cover" };

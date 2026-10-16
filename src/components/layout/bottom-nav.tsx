@@ -21,7 +21,7 @@ export function BottomNav({ cargo, naoLidasInicial = 0 }: { cargo: CargoUsuario;
   return (
     <nav
       aria-label="Atalhos"
-      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-[calc(4rem+env(safe-area-inset-bottom))] items-stretch border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       {itens.map((item) => {
         const isActive = ativo === item.href;

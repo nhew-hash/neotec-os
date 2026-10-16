@@ -15,7 +15,7 @@ export function ComunicacaoShell({ lista, children }: { lista: ReactNode; childr
   const conversaAberta = pathname !== "/comunicacao";
 
   return (
-    <div className={cn("flex overflow-hidden bg-card md:h-[calc(100dvh-3.5rem)]", conversaAberta ? "h-dvh" : "h-[calc(100dvh-7.5rem)]")}>
+    <div className={cn("flex overflow-hidden bg-card md:h-[calc(100dvh-3.5rem)]", conversaAberta ? "h-dvh" : "h-[calc(100dvh-7.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]")}>
       <div className={cn("flex w-full min-w-0 flex-col border-r border-border md:w-[340px] md:shrink-0", conversaAberta && "hidden md:flex")}>
         {lista}
       </div>
