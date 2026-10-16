@@ -12,6 +12,8 @@ import { aprovarAvaliacaoAction, reprovarAvaliacaoAction, cancelarAvaliacaoActio
 import { STATUS_LABEL, STATUS_TONE } from "./status";
 import type { AvaliacaoTradeIn } from "@/services/trade-in/aplicacao.service";
 import { formatCurrency } from "@/utils";
+import { FotosPeloCelular } from "@/components/celular/fotos-pelo-celular";
+import { BotaoLerImei } from "@/components/celular/botao-ler-imei";
 
 export function AvaliacaoDetalhe({ avaliacao }: { avaliacao: AvaliacaoTradeIn }) {
   const router = useRouter();
@@ -135,6 +137,13 @@ export function AvaliacaoDetalhe({ avaliacao }: { avaliacao: AvaliacaoTradeIn })
         </CardContent>
       </Card>
 
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4">
+          <p className="text-sm font-medium text-foreground">Fotos e IMEI do aparelho</p>
+          <FotosPeloCelular contextoTipo="trade_in" contextoId={avaliacao.id} rotulo={avaliacao.modelo_nome} lerImei onImeiLido={setImei} />
+        </CardContent>
+      </Card>
+
       {podeDecidir && !avaliacao.bloqueado && (
         <Card>
           <CardContent className="flex flex-col gap-3 p-4">
@@ -159,7 +168,7 @@ export function AvaliacaoDetalhe({ avaliacao }: { avaliacao: AvaliacaoTradeIn })
             <p className="text-sm font-medium text-foreground">Converter em item de estoque</p>
             <p className="text-xs text-muted-foreground">Cria o aparelho no catálogo com custo de aquisição = valor aprovado do trade-in. Preencha só quando o aparelho já estiver fisicamente na loja.</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Input placeholder="IMEI" value={imei} onChange={(e) => setImei(e.target.value)} />
+              <div className="flex gap-2"><Input placeholder="IMEI" value={imei} onChange={(e) => setImei(e.target.value)} /><BotaoLerImei onLido={setImei} /></div>
               <Select value={categoria} onValueChange={(v) => setCategoria(v as typeof categoria)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>

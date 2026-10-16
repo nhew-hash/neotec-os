@@ -7,8 +7,18 @@ import { Topbar } from "@/components/layout/topbar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { RadixOverlaySafetyNet } from "@/components/layout/radix-overlay-safety-net";
 import { contarConversasNaoLidas } from "@/services/whatsapp/whatsapp.service";
+import { RegistrarApp } from "@/components/celular/registrar-app";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import type { CargoUsuario } from "@/types";
+
+// App instalável no celular (PWA): só o sistema, não a loja pública.
+export const metadata: Metadata = {
+  manifest: "/neotec-os.webmanifest",
+  appleWebApp: { capable: true, title: "Neotec OS", statusBarStyle: "black-translucent" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
+};
+export const viewport: Viewport = { themeColor: "#0a0a0a" };
 
 /**
  * Todas as rotas dentro de (sistema) exigem usuário autenticado E com
@@ -55,6 +65,7 @@ export default async function SistemaLayout({ children }: { children: ReactNode 
       </div>
       <BottomNav cargo={perfil.cargo} naoLidasInicial={naoLidasInicial} />
       <RadixOverlaySafetyNet />
+      <RegistrarApp />
     </div>
   );
 }

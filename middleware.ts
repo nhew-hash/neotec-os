@@ -143,7 +143,7 @@ export const config = {
   matcher: [
     // Arquivos de /public (logo, imagens) não passam pelo login — antes o
     // /logo-neotec.png era redirecionado para /login e a loja mostrava o logo quebrado.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpe?g|gif|svg|webp|avif|ico|txt|xml|webmanifest)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw\\.js$|.*\\.(?:png|jpe?g|gif|svg|webp|avif|ico|txt|xml|webmanifest)$).*)",
   ],
 
 };

@@ -116,6 +116,25 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
   const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => { setIaPausada(conversa.ia_pausada); }, [conversa.ia_pausada]);
+
+  // Rascunho por conversa (fica no aparelho): sinal ruim, troca de conversa ou app
+  // fechado no celular não perdem o que estava sendo digitado. O efeito que salva
+  // vem antes do que carrega para não gravar o texto da conversa anterior na nova.
+  const rascunhoDe = useRef<string | null>(null);
+  useEffect(() => {
+    if (rascunhoDe.current !== conversa.id) return;
+    // localStorage pode estar bloqueado (aba anônima): sem rascunho, o envio segue normal.
+    try {
+      if (texto) localStorage.setItem(`neotec:rascunho:${conversa.id}`, texto);
+      else localStorage.removeItem(`neotec:rascunho:${conversa.id}`);
+    } catch { /* sem armazenamento local neste navegador */ }
+  }, [texto, conversa.id]);
+  useEffect(() => {
+    let salvo = "";
+    try { salvo = localStorage.getItem(`neotec:rascunho:${conversa.id}`) ?? ""; } catch { /* sem armazenamento local */ }
+    setTexto(salvo);
+    rascunhoDe.current = conversa.id;
+  }, [conversa.id]);
   useEffect(() => { setAntigas([]); setTemMais(temMaisAntigas); }, [conversa.id, temMaisAntigas]);
 
   // Auto-scroll pra última mensagem — só se a pessoa já estava perto do fim.

@@ -12,6 +12,7 @@ import { calcularPreviaTradeInAction, criarAvaliacaoAction } from "@/services/tr
 import type { TrocaModeloComAvarias } from "@/services/trade-in/aplicacao.service";
 import type { ResultadoAvaliacaoTradeIn } from "@/services/trade-in/motor";
 import { formatCurrency } from "@/utils";
+import { BotaoLerImei } from "@/components/celular/botao-ler-imei";
 
 type Resposta = "ok" | "reprovado";
 
@@ -130,12 +131,12 @@ export function NovaAvaliacaoForm({ modelos, cliente, onRegistrada }: {
           )}
 
           {cliente ? (
-            <Input placeholder="IMEI (opcional)" value={imei} onChange={(e) => setImei(e.target.value)} className="sm:w-72" />
+            <div className="flex gap-2 sm:w-80"><Input placeholder="IMEI (opcional)" value={imei} onChange={(e) => setImei(e.target.value)} /><BotaoLerImei onLido={setImei} /></div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-3">
               <Input placeholder="Nome do cliente" value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} />
               <Input placeholder="Telefone" value={clienteTelefone} onChange={(e) => setClienteTelefone(e.target.value)} />
-              <Input placeholder="IMEI" value={imei} onChange={(e) => setImei(e.target.value)} />
+              <div className="flex gap-2"><Input placeholder="IMEI" value={imei} onChange={(e) => setImei(e.target.value)} /><BotaoLerImei onLido={setImei} /></div>
             </div>
           )}
           <Input type="number" min={0} max={100} placeholder="Saúde da bateria (%)" value={bateriaSaude} onChange={(e) => setBateriaSaude(e.target.value)} className="sm:w-56" />

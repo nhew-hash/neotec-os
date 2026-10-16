@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import type { Produto, Investidor } from "@/types";
+import { BotaoLerImei } from "@/components/celular/botao-ler-imei";
 
 const CONDICOES = [
   { value: "novo", label: "Novo" },
@@ -152,7 +153,7 @@ export function AparelhoForm({ produtos: produtosIniciais, investidores }: { pro
         <FormField control={form.control} name="imei" render={({ field }) => (
           <FormItem>
             <FormLabel>IMEI</FormLabel>
-            <FormControl><Input className="font-mono" placeholder="15 dígitos" {...field} /></FormControl>
+            <div className="flex gap-2"><FormControl><Input className="font-mono" placeholder="15 dígitos" {...field} /></FormControl><BotaoLerImei onLido={(v) => form.setValue("imei", v, { shouldValidate: true, shouldDirty: true })} /></div>
             <FormMessage />
           </FormItem>
         )} />

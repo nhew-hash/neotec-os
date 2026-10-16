@@ -8,6 +8,7 @@ import { gerarFollowupsAutomaticos } from "@/services/crm-pipeline/crm-pipeline.
 import { gerarFollowupsAutomaticosProstec, verificarTaxaOptOutProstec, recalcularNextBestActionTodosLeads } from "@/services/prostec/prostec.service";
 import { executarReguaCobranca } from "@/services/crediario/crediario.service";
 import { avaliarBloqueiosAutomaticosNeoLoc } from "@/services/neoloc/avaliar-bloqueios";
+import { avisarRetornosVencidos } from "@/services/push/push.service";
 
 /**
  * Chamada pelo Vercel Cron (ver vercel.json) — nunca pelo navegador.
@@ -50,10 +51,11 @@ export async function GET(request: NextRequest) {
   const nextBestAction = await rodar("nextBestAction", recalcularNextBestActionTodosLeads);
   const reguaCobranca = await rodar("reguaCobranca", executarReguaCobranca);
   const neolocBloqueios = await rodar("neolocBloqueios", avaliarBloqueiosAutomaticosNeoLoc);
+  const retornosAvisados = await rodar("retornosNoCelular", avisarRetornosVencidos);
 
   const ok = Object.keys(erros).length === 0;
   return NextResponse.json(
-    { ok, ...(resultado ?? {}), retiradas, perguntasExpiradas, followupsAutomaticos, sugestoesComerciais, followupsProstec, circuitBreakerOptOut, nextBestAction, reguaCobranca, neolocBloqueios, erros },
+    { ok, ...(resultado ?? {}), retiradas, perguntasExpiradas, followupsAutomaticos, sugestoesComerciais, followupsProstec, circuitBreakerOptOut, nextBestAction, reguaCobranca, neolocBloqueios, retornosAvisados, erros },
     { status: ok ? 200 : 500 },
   );
 }

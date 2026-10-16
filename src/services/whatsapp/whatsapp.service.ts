@@ -576,6 +576,13 @@ export async function receberMensagemNormalizada(msg: MensagemRecebidaNormalizad
 
   await incrementarNaoLidas(supabase, conversa.id, conversa.nao_lidas ?? 0);
 
+  // Aviso no celular da equipe (app fechado também). Aguardado porque na Vercel
+  // a função pode ser congelada logo após responder; se falhar, só registra.
+  // Conversa "não contatar" não avisa (checado no serviço).
+  if (!(msg.tipo === "texto" && detectarPedidoNaoContato(msg.conteudo))) {
+    await avisarCelular(conversa.id, msg);
+  }
+
   // Pedido de não contato ("pare", "não me mande mais"): marca a conversa,
   // pausa a IA e encerra a sequência de follow-up. Não responde automaticamente.
   if (msg.tipo === "texto" && detectarPedidoNaoContato(msg.conteudo)) {
@@ -718,4 +725,16 @@ export async function marcarLidaPeloAparelho(input: { telefone: string; jid?: st
     .select("id");
   if (error) throw new Error(`Não foi possível marcar a conversa como lida: ${error.message}`);
   return data?.length ?? 0;
+}
+
+async function avisarCelular(conversaId: string, msg: MensagemRecebidaNormalizada): Promise<void> {
+  try {
+    const { notificarNovaMensagem, avisarRetornosVencidos } = await import("@/services/push/push.service");
+    const { resumoMensagem } = await import("@/services/push/push");
+    await notificarNovaMensagem({ conversaId, tipo: msg.tipo, resumo: resumoMensagem(msg.tipo, msg.conteudo), nomeContato: msg.nomeContato, telefone: msg.telefone });
+    // Aproveita o movimento para avisar retornos do CRM que venceram (no máximo a cada 5 min).
+    await avisarRetornosVencidos();
+  } catch (err) {
+    console.error("Falha ao avisar no celular (mensagem gravada normalmente):", err instanceof Error ? err.message : err);
+  }
 }

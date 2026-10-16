@@ -58,7 +58,7 @@ export async function listarMinhasAprovacoes(usuarioId: string): Promise<Aprovac
 }
 
 /** Só gerente/admin (a RLS também exige). Decisão e motivo ficam na própria linha + trilha de auditoria. */
-export async function decidirAprovacaoDesconto(id: string, aprovar: boolean, motivo: string | null, aprovadorId: string): Promise<void> {
+export async function decidirAprovacaoDesconto(id: string, aprovar: boolean, motivo: string | null, aprovadorId: string): Promise<string> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("aprovacoes_desconto")
     .update({ status: aprovar ? "aprovada" : "recusada", aprovador_id: aprovadorId, decisao_motivo: motivo?.trim() || null, decidido_em: new Date().toISOString() })
@@ -69,4 +69,5 @@ export async function decidirAprovacaoDesconto(id: string, aprovar: boolean, mot
     p_entidade: "aprovacoes_desconto", p_entidade_id: id, p_acao: aprovar ? "aprovada" : "recusada",
     p_dados: { valor_desconto: data[0].valor_desconto, percentual: data[0].percentual, solicitante_id: data[0].solicitante_id, motivo: motivo ?? null },
   });
+  return data[0].solicitante_id as string;
 }

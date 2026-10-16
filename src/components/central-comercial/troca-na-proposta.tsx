@@ -10,6 +10,7 @@ import { listarModelosTrocaAction } from "@/services/central-comercial/central-c
 import { aprovarAvaliacaoAction } from "@/services/trade-in/trade-in.actions";
 import type { TrocaModeloComAvarias } from "@/services/trade-in/aplicacao.service";
 import { formatCurrency } from "@/utils/format";
+import { FotosPeloCelular } from "@/components/celular/fotos-pelo-celular";
 
 /**
  * Avaliar o aparelho do cliente SEM sair da proposta (antes abria /trade-in/nova
@@ -75,6 +76,10 @@ export function TrocaNaProposta({ cliente, onAprovada, abrirAoMontar = false, te
             <div className="space-y-4 rounded-lg border border-border p-4">
               <p className="text-sm text-muted-foreground">Avaliação registrada</p>
               <p className="font-medium">{registrada.modeloNome}</p>
+              <div className="rounded-md border border-border p-3">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Fotos e IMEI do aparelho</p>
+                <FotosPeloCelular contextoTipo="trade_in" contextoId={registrada.id} rotulo={`${registrada.modeloNome} · ${cliente.nome.split(/\s+/)[0]}`} lerImei />
+              </div>
               {registrada.bloqueado ? (
                 <>
                   <p className="text-sm text-danger">Bloqueada por avaria crítica: {registrada.motivos.join(", ") || "revisar"}. Não dá para usar na proposta sem revisão do valor.</p>

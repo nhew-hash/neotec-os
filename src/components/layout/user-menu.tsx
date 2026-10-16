@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, Smartphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -27,6 +27,19 @@ export function UserMenu({ nome, email, cargo }: UserMenuProps) {
   const router = useRouter();
 
   async function handleSignOut() {
+    // Aparelho deixa de receber avisos desta conta ao sair (celular compartilhado).
+    try {
+      const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration("/") : undefined;
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if (sub) {
+        const { removerInscricaoAction } = await import("@/services/celular/celular.actions");
+        const r = await removerInscricaoAction(sub.endpoint);
+        if (!r.success) console.error("Não foi possível desligar as notificações deste aparelho:", r.error);
+        await sub.unsubscribe();
+      }
+    } catch (err) {
+      console.error("Não foi possível desligar as notificações deste aparelho:", err);
+    }
     const supabase = createClient();
     await supabase.auth.signOut();
     // Navega só no próximo frame, depois que o Radix termina de fechar o
@@ -59,6 +72,14 @@ export function UserMenu({ nome, email, cargo }: UserMenuProps) {
         <DropdownMenuSeparator />
         {/* "Meu perfil" e "Configurações" ficavam sempre desabilitados (itens
             mortos). Configurações agora leva à tela real, só para quem tem acesso. */}
+        {["admin", "gerente", "vendedor", "tecnico"].includes(cargo) && (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href="/celular"><Smartphone className="h-4 w-4" />App no celular</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         {cargo === "admin" && (
           <>
             <DropdownMenuItem asChild>

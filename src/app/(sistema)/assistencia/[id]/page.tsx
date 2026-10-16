@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, formatWhatsapp } from "@/utils";
+import { FotosPeloCelular } from "@/components/celular/fotos-pelo-celular";
 
 export default async function OSDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -123,6 +124,10 @@ export default async function OSDetailPage({ params }: { params: Promise<{ id: s
               <div className="flex items-center gap-2 text-foreground">
                 <Smartphone className="h-4 w-4 text-muted-foreground" />
                 {os.aparelho_descricao ?? "Não informado"}
+              </div>
+              <div className="border-t border-border pt-3">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Fotos do aparelho</p>
+                <FotosPeloCelular contextoTipo="os" contextoId={os.id} rotulo={`${os.numero_os}${os.aparelho_descricao ? ` · ${os.aparelho_descricao}` : ""}`} lerImei />
               </div>
             </CardContent>
           </Card>

@@ -1,0 +1,23 @@
+{
+  "id": "/comunicacao",
+  "name": "Neotec OS",
+  "short_name": "Neotec OS",
+  "description": "Atendimento, OS e trade-in da Neotec no celular",
+  "lang": "pt-BR",
+  "start_url": "/comunicacao",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Conversas", "url": "/comunicacao", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Pedidos do computador", "url": "/celular", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Nova OS", "url": "/assistencia/nova", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
