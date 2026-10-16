@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { CheckCheck, FileText, ImageIcon, Kanban, LayoutGrid, MessageCircleQuestion, MessagesSquare, Repeat, ShieldQuestion, Target, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -32,7 +32,7 @@ const ROTULO_ABA: Record<Aba, string> = { perguntas: "Perguntas", objecoes: "Obj
  * Quando o cliente só respondeu "ok/obrigado" depois da nossa resposta,
  * sugere encerrar (com um clique, nunca automático).
  */
-export function AssistenteConversa({ conversaId, clienteId, cardId, nomeCliente, telefone, pareceEncerrada, encerrada, onInserir, onEncerrar, encerrando, menuAberto, onMenuAberto, onFotoCatalogo, onAbrirCliente }: {
+export const AssistenteConversa = memo(function AssistenteConversa({ conversaId, clienteId, cardId, nomeCliente, telefone, pareceEncerrada, encerrada, onInserir, onEncerrar, encerrando, menuAberto, onMenuAberto, onFotoCatalogo, onAbrirCliente }: {
   cardId: string | null;
   conversaId: string;
   clienteId: string | null;
@@ -229,7 +229,7 @@ export function AssistenteConversa({ conversaId, clienteId, cardId, nomeCliente,
       </Sheet>
     </div>
   );
-}
+});
 
 function ListaRespostas({ itens, onEscolher }: { itens: { rotulo: string; texto: string }[]; onEscolher: (texto: string) => void }) {
   return (

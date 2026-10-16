@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef, useEffect, useLayoutEffect, type ReactNode } from "react";
+import { useState, useTransition, useRef, useEffect, useLayoutEffect, useMemo, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -162,13 +162,17 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
   const [locais, setLocais] = useState<WhatsappMensagem[]>([]);
   useEffect(() => { setLocais([]); }, [conversa.id]);
   // Junta página antiga + recentes + realtime + locais, sem duplicar, sempre em ordem cronológica.
-  const idsRecentes = new Set(recentes.map((r) => r.id));
-  const mensagens = [
-    ...antigas.filter((a) => !idsRecentes.has(a.id)),
-    ...recentes,
-    ...locais.filter((l) => !idsRecentes.has(l.id)),
-  ].sort((a, b) => a.criado_em.localeCompare(b.criado_em));
-  const grupos = agruparPorDia(mensagens);
+  // Memorizado: digitar no campo re-renderiza o painel a cada letra; sem isto,
+  // todas as mensagens eram reordenadas e redesenhadas a cada tecla (travava no celular).
+  const mensagens = useMemo(() => {
+    const idsRecentes = new Set(recentes.map((r) => r.id));
+    return [
+      ...antigas.filter((a) => !idsRecentes.has(a.id)),
+      ...recentes,
+      ...locais.filter((l) => !idsRecentes.has(l.id)),
+    ].sort((a, b) => a.criado_em.localeCompare(b.criado_em));
+  }, [antigas, recentes, locais]);
+  const grupos = useMemo(() => agruparPorDia(mensagens), [mensagens]);
   const naoContatar = conversa.nao_contatar === true;
   const encerrada = conversa.status === "resolvida" || conversa.status === "perdida";
   const souResponsavel = conversa.responsavel_id === usuarioId;
@@ -345,6 +349,117 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
   const nome = nomeDaConversa(conversa);
   const telefone = formatarTelefone(conversa.telefone);
 
+  // Funções estáveis: a barra de ferramentas não é redesenhada a cada letra digitada.
+  const executarRef = useRef(executar);
+  executarRef.current = executar;
+  const aoEncerrar = useCallback(() => executarRef.current(() => alterarStatusConversaAction(conversa.id, "resolvida")), [conversa.id]);
+  const aoInserir = useCallback((t: string) => { setTexto((atual) => (atual.trim() ? `${atual.trimEnd()} ${t}` : t)); requestAnimationFrame(() => textareaRef.current?.focus()); }, []);
+  const aoFotoCatalogo = useCallback(() => setFotoAberta(true), []);
+  const aoAbrirCliente = useCallback(() => setClienteAberto(true), []);
+
+  // Teclado abriu/fechou (a área das mensagens mudou de altura): quem estava no
+  // fim continua vendo a última mensagem, como no WhatsApp.
+  useEffect(() => {
+    const c = containerRef.current;
+    if (!c || typeof ResizeObserver === "undefined") return;
+    let alturaAnterior = c.clientHeight;
+    const obs = new ResizeObserver(() => {
+      const nova = c.clientHeight;
+      const estavaNoFim = c.scrollHeight - c.scrollTop - alturaAnterior < 150;
+      if (nova !== alturaAnterior && estavaNoFim) c.scrollTop = c.scrollHeight;
+      alturaAnterior = nova;
+    });
+    obs.observe(c);
+    return () => obs.disconnect();
+  }, []);
+
+  // Balões memorizados: só refazem quando as mensagens mudam, não a cada letra digitada.
+  const bolhas = useMemo(() => {
+    const porIdWhatsapp = new Map(mensagens.filter((m) => m.whatsapp_message_id).map((m) => [m.whatsapp_message_id as string, m]));
+    return (
+      <>
+          {grupos.map((grupo) => (
+            <div key={grupo.dia + grupo.itens[0].id} className="flex flex-col gap-1">
+              {/* Separador de dia fixo no lugar (antes ficava grudado no topo, por cima do texto das mensagens). */}
+              <div className="mx-auto my-2 w-fit rounded-lg bg-card/90 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-card">
+                {grupo.dia}
+              </div>
+              {grupo.itens.map((msg, idx) => {
+                const saida = msg.direcao === "saida";
+                const falhou = saida && msg.status_entrega === "erro";
+                const st = STATUS_ICON[msg.status_entrega];
+                const anterior = grupo.itens[idx - 1];
+                const continuacao = anterior && anterior.direcao === msg.direcao;
+                const emoji = !msg.url_midia && !msg.citacao_texto && soEmoji(msg.conteudo);
+                const citada = msg.citacao_whatsapp_id ? porIdWhatsapp.get(msg.citacao_whatsapp_id) : undefined;
+                // Sem a mensagem original carregada não dá para saber quem escreveu: não chuta.
+                const autorCitacao = citada ? (citada.direcao === "saida" ? "Você" : nome) : "Mensagem citada";
+                const hora = (
+                  <>
+                    <time dateTime={msg.criado_em}>{formatHora(msg.criado_em)}</time>
+                    {saida && <span className="flex items-center" title={st.label} aria-label={st.label}>{st.icon}</span>}
+                  </>
+                );
+                return (
+                  <div key={msg.id} className={cn("flex max-w-[85%] flex-col md:max-w-[68%]", saida ? "items-end self-end" : "items-start self-start", !continuacao && "mt-1.5")}>
+                    {emoji ? (
+                      <div className="flex flex-col items-end">
+                        <span className="text-5xl leading-tight" role="img" aria-label={msg.conteudo ?? ""}>{msg.conteudo}</span>
+                        <span className="mt-0.5 flex items-center gap-1 rounded-full bg-card/90 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground shadow-card">{hora}</span>
+                      </div>
+                    ) : (
+                    <div
+                      className={cn(
+                        // Balão claro com texto escuro (mais confortável de ler o dia todo, como no WhatsApp).
+                        "relative flex flex-col gap-1 rounded-2xl px-3 py-1.5 text-[15px] leading-snug text-foreground shadow-card",
+                        saida ? "bg-[#dce6ff] dark:bg-primary/30" : "bg-card",
+                        !continuacao && (saida ? "rounded-tr-md" : "rounded-tl-md"),
+                        falhou && "bg-danger-soft ring-1 ring-danger/30"
+                      )}
+                    >
+                      {msg.enviado_por_ia && (
+                        <span className="flex w-fit items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          <Bot className="h-3 w-3" aria-hidden />Enviada pela IA
+                        </span>
+                      )}
+                      {msg.citacao_texto && (
+                        <div className={cn("rounded-lg border-l-4 px-2.5 py-1.5 text-[13px]", saida ? "border-primary/60 bg-white/50" : "border-primary bg-secondary/70")}>
+                          <span className="block text-[12px] font-semibold text-primary">{autorCitacao}</span>
+                          <span className="line-clamp-3 whitespace-pre-wrap break-words text-muted-foreground">{msg.citacao_texto}</span>
+                        </div>
+                      )}
+                      <MidiaMensagem msg={msg} />
+                      {msg.conteudo ? (
+                        <span className="whitespace-pre-wrap break-words">
+                          {msg.conteudo}
+                          {/* Espaço reservado para a hora caber na última linha, como no WhatsApp. */}
+                          <span className={cn("inline-block", saida ? "w-[4.25rem]" : "w-11")} aria-hidden />
+                        </span>
+                      ) : null}
+                      <span className={cn("flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground", msg.conteudo ? "absolute bottom-1 right-2.5" : "self-end")}>
+                        {hora}
+                      </span>
+                    </div>
+                    )}
+                    {falhou && (
+                      <span className="mt-1 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-[11px] font-medium text-danger">
+                        <span className="flex items-center gap-1"><AlertCircle className="h-3 w-3" aria-hidden />Não enviada — o cliente não recebeu esta mensagem</span>
+                        {msg.conteudo && (
+                          <button type="button" onClick={() => { setTexto(msg.conteudo ?? ""); requestAnimationFrame(() => textareaRef.current?.focus()); }} className="flex items-center gap-1 rounded-full bg-card px-2 py-0.5 text-foreground shadow-card">
+                            <RotateCcw className="h-3 w-3" aria-hidden />Tentar de novo
+                          </button>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+      </>
+    );
+  }, [grupos, mensagens, nome]);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Cabeçalho: quem é, onde está no funil, quem atende, e as ações da conversa */}
@@ -435,84 +550,7 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
             </button>
           )}
           {mensagens.length === 0 && <p className="py-12 text-center text-sm text-muted-foreground">Nenhuma mensagem ainda.</p>}
-          {grupos.map((grupo) => (
-            <div key={grupo.dia + grupo.itens[0].id} className="flex flex-col gap-1">
-              {/* Separador de dia fixo no lugar (antes ficava grudado no topo, por cima do texto das mensagens). */}
-              <div className="mx-auto my-2 w-fit rounded-lg bg-card/90 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-card">
-                {grupo.dia}
-              </div>
-              {grupo.itens.map((msg, idx) => {
-                const saida = msg.direcao === "saida";
-                const falhou = saida && msg.status_entrega === "erro";
-                const st = STATUS_ICON[msg.status_entrega];
-                const anterior = grupo.itens[idx - 1];
-                const continuacao = anterior && anterior.direcao === msg.direcao;
-                const emoji = !msg.url_midia && !msg.citacao_texto && soEmoji(msg.conteudo);
-                const citada = msg.citacao_whatsapp_id ? mensagens.find((m) => m.whatsapp_message_id === msg.citacao_whatsapp_id) : undefined;
-                // Sem a mensagem original carregada não dá para saber quem escreveu: não chuta.
-                const autorCitacao = citada ? (citada.direcao === "saida" ? "Você" : nome) : "Mensagem citada";
-                const hora = (
-                  <>
-                    <time dateTime={msg.criado_em}>{formatHora(msg.criado_em)}</time>
-                    {saida && <span className="flex items-center" title={st.label} aria-label={st.label}>{st.icon}</span>}
-                  </>
-                );
-                return (
-                  <div key={msg.id} className={cn("flex max-w-[85%] flex-col md:max-w-[68%]", saida ? "items-end self-end" : "items-start self-start", !continuacao && "mt-1.5")}>
-                    {emoji ? (
-                      <div className="flex flex-col items-end">
-                        <span className="text-5xl leading-tight" role="img" aria-label={msg.conteudo ?? ""}>{msg.conteudo}</span>
-                        <span className="mt-0.5 flex items-center gap-1 rounded-full bg-card/90 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground shadow-card">{hora}</span>
-                      </div>
-                    ) : (
-                    <div
-                      className={cn(
-                        // Balão claro com texto escuro (mais confortável de ler o dia todo, como no WhatsApp).
-                        "relative flex flex-col gap-1 rounded-2xl px-3 py-1.5 text-[15px] leading-snug text-foreground shadow-card",
-                        saida ? "bg-[#dce6ff] dark:bg-primary/30" : "bg-card",
-                        !continuacao && (saida ? "rounded-tr-md" : "rounded-tl-md"),
-                        falhou && "bg-danger-soft ring-1 ring-danger/30"
-                      )}
-                    >
-                      {msg.enviado_por_ia && (
-                        <span className="flex w-fit items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          <Bot className="h-3 w-3" aria-hidden />Enviada pela IA
-                        </span>
-                      )}
-                      {msg.citacao_texto && (
-                        <div className={cn("rounded-lg border-l-4 px-2.5 py-1.5 text-[13px]", saida ? "border-primary/60 bg-white/50" : "border-primary bg-secondary/70")}>
-                          <span className="block text-[12px] font-semibold text-primary">{autorCitacao}</span>
-                          <span className="line-clamp-3 whitespace-pre-wrap break-words text-muted-foreground">{msg.citacao_texto}</span>
-                        </div>
-                      )}
-                      <MidiaMensagem msg={msg} />
-                      {msg.conteudo ? (
-                        <span className="whitespace-pre-wrap break-words">
-                          {msg.conteudo}
-                          {/* Espaço reservado para a hora caber na última linha, como no WhatsApp. */}
-                          <span className={cn("inline-block", saida ? "w-[4.25rem]" : "w-11")} aria-hidden />
-                        </span>
-                      ) : null}
-                      <span className={cn("flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground", msg.conteudo ? "absolute bottom-1 right-2.5" : "self-end")}>
-                        {hora}
-                      </span>
-                    </div>
-                    )}
-                    {falhou && (
-                      <span className="mt-1 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-[11px] font-medium text-danger">
-                        <span className="flex items-center gap-1"><AlertCircle className="h-3 w-3" aria-hidden />Não enviada — o cliente não recebeu esta mensagem</span>
-                        {msg.conteudo && (
-                          <button type="button" onClick={() => { setTexto(msg.conteudo ?? ""); requestAnimationFrame(() => textareaRef.current?.focus()); }} className="flex items-center gap-1 rounded-full bg-card px-2 py-0.5 text-foreground shadow-card">
-                            <RotateCcw className="h-3 w-3" aria-hidden />Tentar de novo
-                          </button>
-                        )}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+          {bolhas}
           <div ref={fimRef} />
         </div>
 
@@ -541,12 +579,12 @@ export function ChatPanel({ conversa, mensagens: mensagensIniciais, temMaisAntig
           pareceEncerrada={pareceEncerrada}
           encerrada={encerrada}
           encerrando={isAcaoPending}
-          onEncerrar={() => executar(() => alterarStatusConversaAction(conversa.id, "resolvida"))}
-          onInserir={(t) => { setTexto((atual) => (atual.trim() ? `${atual.trimEnd()} ${t}` : t)); requestAnimationFrame(() => textareaRef.current?.focus()); }}
+          onEncerrar={aoEncerrar}
+          onInserir={aoInserir}
           menuAberto={menuAberto}
           onMenuAberto={setMenuAberto}
-          onFotoCatalogo={() => setFotoAberta(true)}
-          onAbrirCliente={() => setClienteAberto(true)}
+          onFotoCatalogo={aoFotoCatalogo}
+          onAbrirCliente={aoAbrirCliente}
         />
 
         <div className="flex items-end gap-1 px-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 md:gap-2 md:p-3">

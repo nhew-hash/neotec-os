@@ -42,18 +42,28 @@ function useAlturaVisivel(ativo: boolean): number | null {
   useEffect(() => {
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
     if (!ativo || !vv || window.matchMedia("(min-width: 768px)").matches) { setAltura(null); return; }
+    let quadro = 0;
+    let tecladoAberto = false;
     const ajustar = () => {
-      // Só quando o teclado está tomando espaço; senão, a altura normal (100dvh) vale.
-      const teclado = window.innerHeight - vv.height > 80;
-      setAltura(teclado ? Math.round(vv.height) : null);
-      if (window.scrollY !== 0) window.scrollTo(0, 0);
-      const principal = document.getElementById("conteudo");
-      if (principal && principal.scrollTop !== 0) principal.scrollTop = 0;
+      cancelAnimationFrame(quadro);
+      // Um ajuste por quadro, e só quando o teclado abre/fecha ou muda de tamanho —
+      // antes reagia também à rolagem do iPhone enquanto se digitava (a tela "pulava").
+      quadro = requestAnimationFrame(() => {
+        const teclado = window.innerHeight - vv.height > 80;
+        const nova = teclado ? Math.round(vv.height) : null;
+        setAltura((atual) => (atual === nova ? atual : nova));
+        if (teclado && !tecladoAberto) {
+          // Só na hora em que o teclado abre: devolve o cabeçalho para o topo.
+          window.scrollTo(0, 0);
+          const principal = document.getElementById("conteudo");
+          if (principal) principal.scrollTop = 0;
+        }
+        tecladoAberto = teclado;
+      });
     };
     ajustar();
     vv.addEventListener("resize", ajustar);
-    vv.addEventListener("scroll", ajustar);
-    return () => { vv.removeEventListener("resize", ajustar); vv.removeEventListener("scroll", ajustar); };
+    return () => { cancelAnimationFrame(quadro); vv.removeEventListener("resize", ajustar); };
   }, [ativo]);
   return altura;
 }
